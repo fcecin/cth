@@ -5,7 +5,7 @@ cth is a collection of command-line tools that can be customized to build an aut
 # Requirements
 
 - Antelope (cleos, keosd, nodeos)
-- pldoh (https://github.com/fcecin/pldoh)
+- All programs and data required by your Antelope contracts at compile time and runtime
 
 # How to use (TODO)
 
