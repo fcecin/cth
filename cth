@@ -1,0 +1,100 @@
+#!/usr/bin/perl
+
+# --------------------------------------------------------------------------------------------
+# cth: Contract Test Harness for Antelope
+#
+# Run "cth -h" for help.
+#
+# Project repository: https://github.com/fcecin/cth
+#
+# cth runs all the tests or a subset of them.
+#
+# cth also initializes all tools and drivers if run with "cth -i".
+# --------------------------------------------------------------------------------------------
+
+use strict;
+use warnings;
+use Digest::SHA qw(sha256_hex);
+use Getopt::Long;
+use Cwd;
+
+# --------------------------------------------------------------------------------------------
+# Variables
+# --------------------------------------------------------------------------------------------
+
+my $cwd = getcwd();
+
+my $tests_dir = "tests";
+
+my @tests;           # All subdirectories under tests/
+
+my @testspecs;       # List of testspecs passed on the command line
+
+# --------------------------------------------------------------------------------------------
+# Command-line parser
+# --------------------------------------------------------------------------------------------
+
+# Options
+my $opt_help = 0;
+my $opt_install = 0;
+
+GetOptions(
+    "help|h"    => \$opt_help,
+    "install|i" => \$opt_install,
+) or die "Error in command line arguments.\n";
+
+@testspecs = @ARGV;
+
+if ($opt_help) {
+    #      ................................................................................  
+    print "cth: Contract Test Harness for Antelope\n";
+    print "\n";
+    print "Usage:\n";
+    print "  cth [OPTIONS] [TESTSPECS]\n";
+    print "\n";
+    print "Example - run all tests):\n";
+    print "  cth\n";
+    print "\n";
+    print "Example - run specific tests:\n";
+    print "  cth testname1 test2 othertestname\n";
+    print "\n";
+    print "Options:\n";
+    print "\n";
+    print "  --help, -h          Print this help.\n";
+    print "  --install, -i       Run install program for all drivers and tools\n";
+    print "\n";
+    exit;
+}
+
+if ($opt_install) {
+    print "TODO: call install on all tools and drivers.";
+    exit;
+}
+
+# --------------------------------------------------------------------------------------------
+# Loop through all tests and see if they match the provided testspecs
+# If no testspecs provided, will run all tests
+# --------------------------------------------------------------------------------------------
+
+print "Working directory: $cwd\n";
+
+opendir(my $dh, $tests_dir) or die "Cannot open tests directory $tests_dir: $!";
+print "Searching for tests in $cwd/$tests_dir ...\n";
+while (my $entry = readdir($dh)) {
+    # Skip "." and ".." (current directory and parent directory)
+    next if $entry eq '.' || $entry eq '..';
+    # Check if the entry is a directory
+    push @tests, $entry if -d "$tests_dir/$entry";
+}
+closedir($dh);
+
+if (scalar(@tests) == 0) { print "No tests found.\n"; exit; }
+
+print "Found tests: ";
+my $first = 1;
+foreach my $test (@tests) {
+    if (!$first) { print ", "; } else { $first = 0; }
+    print "$test";
+}
+print "\n";
+
