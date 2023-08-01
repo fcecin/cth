@@ -32,4 +32,7 @@ rm default.wallet
 rm default.wallet.password
 rm keosd.sock
 rm keosd.log
-rm wallet.lock
+
+if [ -f "./wallet.lock" ]; then
+    rm wallet.lock
+fi
