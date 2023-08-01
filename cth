@@ -11,6 +11,19 @@
 #
 # cth also initializes all tools and drivers if run with "cth -i".
 # --------------------------------------------------------------------------------------------
+#
+# Driver development tips:
+#
+# The optional 'install' script that be in the driver's directory should be used to for
+#   example one-time compile any contracts that the driver will be deploying over and
+#   over again to a blockchain. Any one-time task, done after cloning the test harness
+#   is good to go here.
+#
+# The optional 'reset' script in a driver should clean it up to a default state wherein
+#   you e.g. would be required to 'install' it again afterwards. This could for example
+#   clean/delete the build directories of contracts.
+#
+# --------------------------------------------------------------------------------------------
 
 use strict;
 use warnings;
@@ -22,11 +35,15 @@ use Cwd;
 # Variables
 # --------------------------------------------------------------------------------------------
 
-my $cwd = getcwd();
+my $root_dir = getcwd();
 
 my $tests_dir = "tests";
 
+my $drivers_dir = "drivers";
+
 my @tests;           # All subdirectories under tests/
+
+my @drivers;         # All subdirectories under drivers/
 
 my @testspecs;       # List of testspecs passed on the command line
 
@@ -37,11 +54,13 @@ my @testspecs;       # List of testspecs passed on the command line
 # Options
 my $opt_help = 0;
 my $opt_install = 0;
+my $opt_reset = 0;
 
 GetOptions(
-    "help|h"    => \$opt_help,
-    "install|i" => \$opt_install,
-) or die "Error in command line arguments.\n";
+    "help|h"       => \$opt_help,
+    "install|i"    => \$opt_install,
+    "reset"        => \$opt_reset,
+) or die "ERROR: cth: Error in command line arguments.\n";
 
 @testspecs = @ARGV;
 
@@ -60,15 +79,95 @@ if ($opt_help) {
     print "\n";
     print "Options:\n";
     print "\n";
-    print "  --help, -h          Print this help.\n";
-    print "  --install, -i       Run install program for all drivers and tools\n";
+    print "  --help, -h          Print this help\n";
+    print "  --install, -i       Run 'install' on all drivers\n";
+    print "  --reset             Run 'reset' on all drivers\n";
     print "\n";
     exit;
 }
 
+# --------------------------------------------------------------------------------------------
+# Starting up
+# --------------------------------------------------------------------------------------------
+
+print "Working directory (test root): $root_dir\n";
+
+# --------------------------------------------------------------------------------------------
+# Get a list of all drivers
+# --------------------------------------------------------------------------------------------
+
+{
+    opendir(my $dh, $drivers_dir) or die "ERROR: cth: Cannot open drivers directory $drivers_dir: $!";
+    print "Searching for drivers in $root_dir/$drivers_dir ...\n";
+    while (my $entry = readdir($dh)) {
+        next if $entry eq '.' || $entry eq '..';
+        push @drivers, $entry if -d "$drivers_dir/$entry";
+    }
+    closedir($dh);
+    
+    if (scalar(@drivers) == 0) {
+        print "No drivers found.\n";
+    } else {
+        print "Found drivers: ";
+        my $first = 1;
+        foreach my $driver (@drivers) {
+            if (!$first) { print ", "; } else { $first = 0; }
+            print "$driver";
+        }
+        print "\n";
+    }
+}
+
+# --------------------------------------------------------------------------------------------
+# Check if we are going to --reset all drivers
+# --------------------------------------------------------------------------------------------
+
+if ($opt_reset) {
+    foreach my $driver (@drivers) {
+        my $work_dir = "$drivers_dir/$driver";
+        chdir $work_dir or die "ERROR: cth: Cannot change into driver directory: $!";
+        my $script = "reset";
+        if (-e $script) {
+            my $log_file = "reset.log"; 
+            unlink $log_file;
+            print "Running reset script for driver $driver (output: $work_dir/$log_file) ...\n";
+            my $ret = system($script . " > $log_file 2>&1");
+            if ($ret) {
+                print "Driver $driver reset failed with code: $ret\n";
+            } else {
+                print "Driver $driver reset successfully.\n";
+            }
+        } else {
+            print "Driver $driver has no reset script.\n";
+        }
+        chdir $root_dir or die "ERROR: cth: Cannot change to root test directory: $!";
+    }
+}
+
+# --------------------------------------------------------------------------------------------
+# Check if we are going to --install all drivers
+# --------------------------------------------------------------------------------------------
+
 if ($opt_install) {
-    print "TODO: call install on all tools and drivers.";
-    exit;
+    foreach my $driver (@drivers) {
+        my $work_dir = "$drivers_dir/$driver";
+        chdir $work_dir or die "ERROR: cth: Cannot change into driver directory: $!";
+        my $script = "install";
+        if (-e $script) {
+            my $log_file = "install.log"; 
+            unlink $log_file;
+            print "Running install script for driver $driver (output: $work_dir/$log_file) ...\n";
+            my $ret = system($script . " > $log_file 2>&1");
+            if ($ret) {
+                print "Driver $driver installation failed with code: $ret\n";
+            } else {
+                print "Driver $driver installed successfully.\n";
+            }
+        } else {
+            print "Driver $driver has no install script.\n";
+        }
+        chdir $root_dir or die "ERROR: cth: Cannot change to root test directory: $!;"
+    }
 }
 
 # --------------------------------------------------------------------------------------------
@@ -76,25 +175,25 @@ if ($opt_install) {
 # If no testspecs provided, will run all tests
 # --------------------------------------------------------------------------------------------
 
-print "Working directory: $cwd\n";
-
-opendir(my $dh, $tests_dir) or die "Cannot open tests directory $tests_dir: $!";
-print "Searching for tests in $cwd/$tests_dir ...\n";
-while (my $entry = readdir($dh)) {
-    # Skip "." and ".." (current directory and parent directory)
-    next if $entry eq '.' || $entry eq '..';
-    # Check if the entry is a directory
-    push @tests, $entry if -d "$tests_dir/$entry";
+{
+    opendir(my $dh, $tests_dir) or die "ERROR: cth: Cannot open tests directory $tests_dir: $!";
+    print "Searching for tests in $root_dir/$tests_dir ...\n";
+    while (my $entry = readdir($dh)) {
+        next if $entry eq '.' || $entry eq '..';
+        push @tests, $entry if -d "$tests_dir/$entry";
+    }
+    closedir($dh);
+    
+    if (scalar(@tests) == 0) {
+        print "No tests found.\n";
+        exit;
+    } else {
+        print "Found tests: ";
+        my $first = 1;
+        foreach my $test (@tests) {
+            if (!$first) { print ", "; } else { $first = 0; }
+            print "$test";
+        }
+        print "\n";
+    }
 }
-closedir($dh);
-
-if (scalar(@tests) == 0) { print "No tests found.\n"; exit; }
-
-print "Found tests: ";
-my $first = 1;
-foreach my $test (@tests) {
-    if (!$first) { print ", "; } else { $first = 0; }
-    print "$test";
-}
-print "\n";
-

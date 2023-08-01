@@ -4,7 +4,8 @@ cth is a collection of command-line tools that can be customized to build an aut
 
 # Requirements
 
-- Antelope (cleos, keosd, nodeos)
+- Perl 5.34 + core Perl libraries (already installed by default in Ubuntu) 
+- Antelope (cleos, keosd, nodeos) (https://github.com/antelopeio/leap/releases)
 - All programs and data required by your Antelope contracts at compile time and runtime
 
 # How to use (TODO)
@@ -20,6 +21,4 @@ You can also create a more specialized template from the cth template, which is 
 cth is currently under development.
 
 This repository is being used to create a concrete test suite for a specific set of smart contracts. The actual reusable components will be extracted later.
-
-
 
