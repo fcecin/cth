@@ -47,41 +47,56 @@ my @drivers;         # All subdirectories under drivers/
 
 my @testspecs;       # List of testspecs passed on the command line
 
+my $sum_total = 0;
+my $sum_fail = 0;
+my $sum_pass = 0;
+
+my @sum_passed_tests;
+my @sum_failed_tests;
+
 # --------------------------------------------------------------------------------------------
 # Command-line parser
 # --------------------------------------------------------------------------------------------
 
 # Options
+my $opt_clear = 0;
 my $opt_help = 0;
 my $opt_install = 0;
 my $opt_reset = 0;
+my $opt_verbose = 0;
 
 GetOptions(
+    "clear|c"      => \$opt_clear,
     "help|h"       => \$opt_help,
     "install|i"    => \$opt_install,
     "reset"        => \$opt_reset,
+    "verbose|v"    => \$opt_verbose,
 ) or die "ERROR: cth: Error in command line arguments.\n";
 
 @testspecs = @ARGV;
 
 if ($opt_help) {
-    #      ................................................................................  
+    #      ................................................................................
     print "cth: Contract Test Harness for Antelope\n";
     print "\n";
     print "Usage:\n";
     print "  cth [OPTIONS] [TESTSPECS]\n";
     print "\n";
-    print "Example - run all tests):\n";
-    print "  cth\n";
-    print "\n";
-    print "Example - run specific tests:\n";
-    print "  cth testname1 test2 othertestname\n";
+    print "Examples:\n";
+    print "  Run all tests:\n";
+    print "    cth\n";
+    print "  Run only specific tests (name filters):\n";
+    print "    cth testname1 test2 othertestname\n";
+    print "  Install drivers and run no tests:\n";
+    print "    cth -i bogustest\n";
     print "\n";
     print "Options:\n";
     print "\n";
+    print "  --clear, -c         Clear all tests and drivers\n";
     print "  --help, -h          Print this help\n";
     print "  --install, -i       Run 'install' on all drivers\n";
     print "  --reset             Run 'reset' on all drivers\n";
+    print "  --verbose, -v       Print more messages\n";
     print "\n";
     exit;
 }
@@ -90,7 +105,7 @@ if ($opt_help) {
 # Starting up
 # --------------------------------------------------------------------------------------------
 
-print "Working directory (test root): $root_dir\n";
+if ($opt_verbose) { print "Working directory (test root): $root_dir\n"; }
 
 # --------------------------------------------------------------------------------------------
 # Get a list of all drivers
@@ -98,23 +113,26 @@ print "Working directory (test root): $root_dir\n";
 
 {
     opendir(my $dh, $drivers_dir) or die "ERROR: cth: Cannot open drivers directory $drivers_dir: $!";
-    print "Searching for drivers in $root_dir/$drivers_dir ...\n";
+    if ($opt_verbose) { print "Searching for drivers in $root_dir/$drivers_dir ...\n"; }
     while (my $entry = readdir($dh)) {
         next if $entry eq '.' || $entry eq '..';
         push @drivers, $entry if -d "$drivers_dir/$entry";
     }
     closedir($dh);
-    
+
     if (scalar(@drivers) == 0) {
-        print "No drivers found.\n";
+        print "WARNING: No driver directories found.\n";
     } else {
-        print "Found drivers: ";
-        my $first = 1;
-        foreach my $driver (@drivers) {
-            if (!$first) { print ", "; } else { $first = 0; }
-            print "$driver";
+        @drivers = sort @drivers;
+        if ($opt_verbose) {
+            print "Found drivers: ";
+            my $first = 1;
+            foreach my $driver (@drivers) {
+                if (!$first) { print ", "; } else { $first = 0; }
+                print "$driver";
+            }
+            print "\n";
         }
-        print "\n";
     }
 }
 
@@ -123,12 +141,13 @@ print "Working directory (test root): $root_dir\n";
 # --------------------------------------------------------------------------------------------
 
 if ($opt_reset) {
+    if ($opt_verbose) { print "Running 'reset' on all drivers ...\n"; }
     foreach my $driver (@drivers) {
         my $work_dir = "$drivers_dir/$driver";
         chdir $work_dir or die "ERROR: cth: Cannot change into driver directory: $!";
         my $script = "reset";
         if (-e $script) {
-            my $log_file = "reset.log"; 
+            my $log_file = "reset.log";
             unlink $log_file;
             print "Running reset script for driver $driver (output: $work_dir/$log_file) ...\n";
             my $ret = system($script . " > $log_file 2>&1");
@@ -149,12 +168,13 @@ if ($opt_reset) {
 # --------------------------------------------------------------------------------------------
 
 if ($opt_install) {
+    print "Running 'install' on all drivers ...\n";
     foreach my $driver (@drivers) {
         my $work_dir = "$drivers_dir/$driver";
         chdir $work_dir or die "ERROR: cth: Cannot change into driver directory: $!";
         my $script = "install";
         if (-e $script) {
-            my $log_file = "install.log"; 
+            my $log_file = "install.log";
             unlink $log_file;
             print "Running install script for driver $driver (output: $work_dir/$log_file) ...\n";
             my $ret = system($script . " > $log_file 2>&1");
@@ -171,29 +191,166 @@ if ($opt_install) {
 }
 
 # --------------------------------------------------------------------------------------------
-# Loop through all tests and see if they match the provided testspecs
-# If no testspecs provided, will run all tests
+# Find all tests.
 # --------------------------------------------------------------------------------------------
 
 {
     opendir(my $dh, $tests_dir) or die "ERROR: cth: Cannot open tests directory $tests_dir: $!";
-    print "Searching for tests in $root_dir/$tests_dir ...\n";
+    if ($opt_verbose) { print "Searching for tests in $root_dir/$tests_dir ...\n"; }
     while (my $entry = readdir($dh)) {
         next if $entry eq '.' || $entry eq '..';
         push @tests, $entry if -d "$tests_dir/$entry";
     }
     closedir($dh);
-    
+
     if (scalar(@tests) == 0) {
-        print "No tests found.\n";
-        exit;
+        print "WARNING: No test directories found.\n";
     } else {
-        print "Found tests: ";
-        my $first = 1;
-        foreach my $test (@tests) {
-            if (!$first) { print ", "; } else { $first = 0; }
-            print "$test";
+        @tests = sort @tests;
+        if ($opt_verbose) {
+            print "Found tests: ";
+            my $first = 1;
+            foreach my $test (@tests) {
+                if (!$first) { print ", "; } else { $first = 0; }
+                print "$test";
+            }
+            print "\n";
         }
-        print "\n";
     }
+}
+
+# --------------------------------------------------------------------------------------------
+# Check if we are going to --clear all tests and drivers
+# --------------------------------------------------------------------------------------------
+
+if ($opt_clear) {
+
+    print "Clearing all drivers ...\n";
+    foreach my $driver (@drivers) {
+        my $work_dir = "$drivers_dir/$driver";
+        chdir $work_dir or die "ERROR: cth: Cannot change into driver directory: $!";
+        my $script = "clear";
+        print "Clearing driver $driver ... ";
+        unlink "install.log"; # remove install.log file
+        if (-e $script) {
+            my $ret = system($script);
+            if ($ret) {
+                print "ERROR: 'clear' failed for driver $driver with code: $ret\n";
+            } else {
+                print "\n";
+            }
+        } else {
+            if ($opt_verbose) { print "(no custom 'clear' file)"; }
+            print "\n";
+        }
+        chdir $root_dir or die "ERROR: cth: Cannot change to root test directory: $!;"
+    }
+
+    print "Clearing all tests ...\n";
+    foreach my $test (@tests) {
+        my $work_dir = "$tests_dir/$test";
+        chdir $work_dir or die "ERROR: cth: Cannot change into test directory: $!";
+        my $script = "clear";
+        print "Clearing test $test ... ";
+        unlink "run.log"; # remove run.log file
+        if (-e $script) {
+            my $ret = system($script);
+            if ($ret) {
+                print "ERROR: 'clear' failed for test $test with code: $ret\n";
+            } else {
+                print "\n";
+            }
+        } else {
+            if ($opt_verbose) { print "(no custom 'clear' file)"; }
+            print "\n";
+        }
+        chdir $root_dir or die "ERROR: cth: Cannot change to root test directory: $!;"
+    }
+}
+
+# --------------------------------------------------------------------------------------------
+# Run tests
+# --------------------------------------------------------------------------------------------
+
+print "Running tests ...\n";
+if ($opt_verbose) { print "The output of each test is saved to the 'run.log' file on each test directory.\n"; }
+print "\n";
+
+foreach my $test (@tests) {
+
+    # check if we will skip this test.
+    # if no test names were passed in, that actually means we run all tests without checking
+    #    if they are in the list (which is empty)
+    if (scalar(@testspecs) != 0) {
+        if (!grep { $_ eq $test } @testspecs) { next; } # skip this test if it isn't in the list
+    }
+
+    # run the test
+    #
+    my $work_dir = "$tests_dir/$test";
+    chdir $work_dir or die "ERROR: cth: Cannot change into test directory: $!";
+    my $script = "run";
+    my $log_file = "run.log";
+    unlink $log_file;
+    print "Test " . $test . " " . ("." x (32 - length($test))) . " ";
+    if (-e $script) {
+        my $ret = system($script . " > $log_file 2>&1");
+        if ($ret) {
+            print "Failed (code: $ret)\n";
+            $sum_fail++;
+            push @sum_failed_tests, $test;
+        } else {
+            print "Passed\n";
+            $sum_pass++;
+            push @sum_passed_tests, $test;
+        }
+    } else {
+        print "Failed (no 'run' file)\n";
+        $sum_fail++;
+        push @sum_failed_tests, $test;
+    }
+    chdir $root_dir or die "ERROR: cth: Cannot change to root test directory: $!;"
+}
+
+# --------------------------------------------------------------------------------------------
+# Print summary
+# --------------------------------------------------------------------------------------------
+
+$sum_total = $sum_pass + $sum_fail;
+
+print "\n";
+print "-------------\n";
+print "Test summary:\n";
+print "-------------\n";
+print "\n";
+print "Passed: $sum_pass\n";
+print "Failed: $sum_fail\n";
+print "Total run: $sum_total\n";
+
+if ($sum_pass > 0) {
+    print "\n";
+    print "Passed tests: ";
+    my $first = 1;
+    foreach my $passed_test (@sum_passed_tests) {
+        if (!$first) { print ", "; } else { $first = 0; }
+        print $passed_test;
+    }
+    print "\n";
+}
+
+if ($sum_fail > 0) {
+    print "\n";
+    print "Failed tests: ";
+    my $first = 1;
+    foreach my $failed_test (@sum_failed_tests) {
+        if (!$first) { print ", "; } else { $first = 0; }
+        print $failed_test;
+    }
+    print "\n";
+}
+
+print "\n";
+
+if ($sum_fail > 0) {
+    exit 1;
 }
