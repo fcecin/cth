@@ -1,0 +1,35 @@
+#!/bin/bash
+
+# stop the node if it isn't already stopped
+
+stop
+
+# clear node data
+
+rm -r ./data
+rm -r ./protocol_features
+rm chain.log
+
+# force stopping *our* keosd by PID, so we can clear the wallet files
+
+if [ -f "./keosd.pid" ]; then
+pid=`cat "./keosd.pid"`
+echo $pid
+kill $pid
+rm -r "./keosd.pid"
+echo -ne "Stoping keosd.."
+while true; do
+[ ! -d "/proc/$pid/fd" ] && break
+echo -ne "."
+sleep 1
+done
+echo -ne "\nkeosd stopped.\n"
+fi
+
+# delete all wallet-related files
+
+rm default.wallet
+rm default.wallet.password
+rm keosd.sock
+rm keosd.log
+rm wallet.lock
