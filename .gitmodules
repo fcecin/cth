@@ -1,8 +1,0 @@
-[submodule "tools/pldoh"]
-	path = tools/pldoh
-	url = https://github.com/fcecin/pldoh
-[submodule "tools/reference-contracts"]
-	path = tools/reference-contracts
-	url = https://github.com/antelopeio/reference-contracts
-
-
