@@ -45,6 +45,31 @@
 #   individual drivers. There are also no options to clear individual tests. You can
 #   however just change into the driver or test directory and run these directly.
 #
+# Remote testing via -s cleos_url=http://api.chain.com
+#
+# SNAPSHOT (HOT) TESTING:
+#
+# This is very simple. The easiest driver just resumes a binary chainbase that
+#   we save (i.e. data dir) provided it isn't too big. But a snapshot would have
+#   the same size, I guess. Push comes to shove, the chainbase can be zipped, and
+#   the driver install step (or the run step even) can unzip it. This template
+#   chainbase is then cp -r wherever we start a new nodeos to test with.
+#
+# PARALLEL TESTING:
+#
+# Use of -o and -s for a parallel testing driver.
+# Tests serialize if given ANY cleos_url, otherwise they fire up their own
+#   local instances (you can't fire random remote instances unless you
+#   parallelize via multiple blockchains and/or multiple identical contract targets).
+#
+# --------------------------------------------------------------------------------------------
+#
+# tools/cth-goodies
+# perl library
+#
+# tools/doh-goodies
+# perl library
+#
 # --------------------------------------------------------------------------------------------
 
 use strict;
@@ -62,6 +87,8 @@ my $root_dir = getcwd();
 my $tests_dir = "tests";
 
 my $drivers_dir = "drivers";
+
+my $global_test_args = '';    # Uniform parameterization of the ENTIRE test suite that is run
 
 my @tests;           # All subdirectories under tests/
 
@@ -81,6 +108,8 @@ my @sum_failed_tests;
 # --------------------------------------------------------------------------------------------
 
 # Options
+my @opt_option;       # each element of these two outer arrays is a 
+my @opt_switch;       #  2-element array that contains the key and value pair. 
 my $opt_clear = 0;
 my $opt_help = 0;
 my $opt_install = 0;
@@ -91,9 +120,25 @@ GetOptions(
     "clear|c"      => \$opt_clear,
     "help|h"       => \$opt_help,
     "install|i"    => \$opt_install,
+    "option|o=s%"  => sub { push @opt_option, [$_[1], $_[2]] },
     "reset"        => \$opt_reset,
+    "switch|s=s%"  => sub { push @opt_switch, [$_[1], $_[2]] },
     "verbose|v"    => \$opt_verbose,
 ) or die "ERROR: cth: Error in command line arguments.\n";
+
+# keys must be azAZ09_ only
+foreach my $pair (@opt_switch) {
+    my ($key, $value) = @$pair;
+    unless ($key =~ /^[a-zA-Z0-9_]+$/) {
+        die "ERROR: Invalid characters in test switch key (allowed: a-z, A-Z, 0-9, _): \"$key\"\n";
+    }
+}
+foreach my $pair (@opt_option) {
+    my ($key, $value) = @$pair;
+    unless ($key =~ /^[a-zA-Z0-9_]+$/) {
+        die "ERROR: Invalid characters in test option key (allowed: a-z, A-Z, 0-9, _): \"$key\"\n";
+    }
+}
 
 @testspecs = @ARGV;
 
@@ -111,13 +156,18 @@ if ($opt_help) {
     print "    cth testname1 test2 othertestname\n";
     print "  Install drivers and run no tests:\n";
     print "    cth -i bogustest\n";
+    print "  Run all cth-goodies tests against a public testnet:\n";
+    print "    cth -s cleos_url=https://testnet.uxnetwork.io\n";
     print "\n";
     print "Options:\n";
     print "\n";
     print "  --clear, -c         Clear all tests and drivers\n";
     print "  --help, -h          Print this help\n";
     print "  --install, -i       Run 'install' on all drivers\n";
+    print "  --option, -o <k=v>  Pass a '-o \"k=v\"' parameter to all tests\n";
+    print "                      (note: switches are preferred over options)\n";
     print "  --reset             Run 'reset' on all drivers\n";
+    print "  --switch, -s <k=v>  Pass a '--k \"v\"' parameter to all tests\n";
     print "  --verbose, -v       Print more messages\n";
     print "\n";
     exit;
@@ -298,6 +348,24 @@ print "Running tests ...\n";
 if ($opt_verbose) { print "The output of each test is saved to the 'run.log' file on each test directory.\n"; }
 print "\n";
 
+print "Global parameters given to all tests:\n\n";
+foreach my $pair (@opt_switch) {
+    my ($key, $value) = @$pair;
+    print "  Switch: \"$key\" = \"$value\" (--$key \"$value\")\n";
+    if ($global_test_args ne '') { $global_test_args .= ' '; }
+    $global_test_args .= qq|--$key "$value"|;
+}
+foreach my $pair (@opt_option) {
+    my ($key, $value) = @$pair;
+    print "  Option: \"$key\" = \"$value\" (-o \"$key=$value\")\n";
+    if ($global_test_args ne '') { $global_test_args .= ' '; }
+    $global_test_args .= qq|-o "$key=$value"|;
+}
+print "\n";
+if ($opt_verbose) { print "Parameter string for all tests: $global_test_args\n\n"; }
+
+exit;
+
 foreach my $test (@tests) {
 
     # check if we will skip this test.
@@ -316,7 +384,7 @@ foreach my $test (@tests) {
     unlink $log_file;
     print "Test " . $test . " " . ("." x (32 - length($test))) . " ";
     if (-e $script) {
-        my $ret = system($script . " > $log_file 2>&1");
+        my $ret = system($script . " " . $global_test_args . " > $log_file 2>&1");
         if ($ret) {
             print "Failed (code: $ret)\n";
             $sum_fail++;
