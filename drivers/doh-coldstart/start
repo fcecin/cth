@@ -1,0 +1,314 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+# --------------------------------------------------------------------------------------------
+# Driver: doh-coldstart
+# Operation: start
+#
+# This will check the configured target (hgm, hg1, hg2, ...)
+# Then it will load the contracts map
+# Then it will extract the contract names and the contract code to deploy for each
+# Then it will deploy the contracts to the correct accounts with the correct names
+#   (accounts that have no code will be created also)
+# Then TODO/FIXME extra general steps that apply to all tests ("init" calls, etc.)
+#   - probably starting "deterministic mode" goes here
+#   - also probably token creation and setting authorities
+#
+# This driver does not load any data files. It only does common initialization.
+# The testcase will have its own libraries/tools that load e.g. common data files or
+#     do common setup tasks for the kind of test that it is.
+# --------------------------------------------------------------------------------------------
+
+my $verbose = 0;
+
+my $coldstart_dir = "../coldstart";
+
+my $cleos = "cleos --wallet-url unix://$coldstart_dir/keosd.sock";
+
+my $cmd;
+my $o;
+
+# --------------------------------------------------------------------------------------------
+# We have to force the working directory to where the driver script is
+# --------------------------------------------------------------------------------------------
+
+use FindBin qw($RealBin);
+if (chdir($RealBin)) {
+    if ($verbose) { print "Forced working directory to driver start script location: $RealBin\n"; }
+} else {
+    print "ERROR: Failed to change working directory: $!\n";
+    exit 1;
+}
+
+# -------------------------------------------------------------------------
+# Utils
+# -------------------------------------------------------------------------
+
+sub load_file {
+    my $file_path = shift;
+    if (!defined $file_path) { die "ERROR: load_file: undefined file_path\n"; }
+    open my $fh, '<', $file_path or die "ERROR: load_file: Failed to open file: $!";
+    my $content = do { local $/; <$fh> };
+    close $fh;
+    return $content;
+}
+
+# clear the backing coldstart driver and exits
+sub fail {
+    my $msg = shift;
+    if (defined $msg) { print $msg; }
+    print "Clearing coldstart ...\n";
+    $cmd = "$coldstart_dir/clear";
+    $o = `$cmd`;
+    if ($? != 0) {
+        print "ERROR: coldstart clear returned an error code.\n";
+        print "Output: $o\n";
+    }
+    exit 1;
+}
+
+# This is called after coldstart is started; any failure results in stopping
+#   the backing driver.
+sub command {
+    my $cmd_arg = shift; # the command to run
+    if (!defined $cmd_arg) { die "ERROR: command: undefined cmd_arg"; }
+
+    my $cmd = "$cmd_arg 2>&1";
+
+    my $o = `$cmd`;
+
+    if ($? != 0) {
+        print "ERROR: Failed to execute: $cmd\n";
+        print "Output: $o\n";
+        fail();
+    }
+}
+
+sub to_json_string {
+    my ($data) = @_;
+
+    if (ref($data) eq 'HASH') {
+        my $json_string = '{';
+        foreach my $key (keys %$data) {
+            my $value = $data->{$key};
+
+            if (ref($value) eq 'HASH') {
+                $json_string .= qq("$key": ) . to_json_string($value) . ',';
+            } elsif (ref($value) eq 'ARRAY') {
+                $json_string .= qq("$key": ) . to_json_string_array($value) . ',';
+            } else {
+                $value =~ s/"/\\"/g;
+                $json_string .= qq("$key": "$value",);
+            }
+        }
+        $json_string =~ s/,$/}/;
+        return $json_string;
+    } elsif (ref($data) eq 'ARRAY') {
+        return to_json_string_array($data);
+    }
+
+    # Scalar value (not a reference)
+    $data =~ s/"/\\"/g;
+    return qq("$data");
+}
+
+# Function to convert an array to JSON string
+sub to_json_string_array {
+    my ($array) = @_;
+
+    my $json_string = '[';
+    foreach my $element (@$array) {
+        if (ref($element) eq 'HASH') {
+            $json_string .= to_json_string($element) . ',';
+        } elsif (ref($element) eq 'ARRAY') {
+            $json_string .= to_json_string_array($element) . ',';
+        } else {
+            $element =~ s/"/\\"/g;
+            $json_string .= qq("$element",);
+        }
+    }
+    $json_string =~ s/,$//; # Remove the trailing comma
+    $json_string .= ']';
+    return $json_string;
+}
+
+# -------------------------------------------------------------------------
+# Load JSON_Tiny from tools/
+# -------------------------------------------------------------------------
+
+# Assuming the JSON_Tiny library is cloned in ../../tools/JSON-Tiny
+use lib '../../tools/JSON-Tiny/lib';
+
+# Load the JSON_Tiny module
+use JSON::Tiny;
+
+# -------------------------------------------------------------------------
+# Load the DoH target (hgm, hg1, hg2, ...) from driver.ini
+# -------------------------------------------------------------------------
+
+my $target = `configure --get=target`;
+chomp($target);
+
+if ($? != 0) {
+    print "ERROR: configure script returned an error code.\n";
+    print "Output: $target\n";
+    exit 1;
+}
+
+print "Configured DoH contracts target: $target\n";
+
+# -------------------------------------------------------------------------
+# Load and parse the corresponding contracts map from tool doh-contracts/,
+#   in submodule doh-deployment-script.
+# -------------------------------------------------------------------------
+
+print "Loading contracts map file for given driver target ...\n";
+
+my $contracts_map = "../../tools/doh-contracts/doh-deployment-script/contracts_map.$target.json";
+
+if (! -e $contracts_map) {
+    die "ERROR: Contracts map file cannot be found: $contracts_map\n";
+}
+
+my $json = load_file($contracts_map);
+
+my $data = JSON::Tiny::decode_json($json);
+
+# -------------------------------------------------------------------------
+# Clear and start the backing coldstart driver
+# -------------------------------------------------------------------------
+
+print "Clearing coldstart ...\n";
+
+$cmd = "$coldstart_dir/clear";
+$o = `$cmd`;
+if ($? != 0) {
+    print "ERROR: coldstart clear returned an error code.\n";
+    print "Output: $o\n";
+    exit 1;
+}
+
+print "Starting coldstart ...\n";
+
+$cmd = "$coldstart_dir/start";
+$o = `$cmd`;
+if ($? != 0) {
+    print "ERROR: coldstart start returned an error code.\n";
+    print "Output: $o\n";
+    exit 1;
+}
+
+# -------------------------------------------------------------------------
+# For each doh-deployment-script entry, create accounts and deploy code
+# -------------------------------------------------------------------------
+
+print "Creating accounts and deploying contracts ...\n";
+
+# Create gnomegenomes magic account
+
+command(qq|$cleos system newaccount eosio gnomegenomes EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV --stake-cpu "10000.0000 EOS" --stake-net "10000.0000 EOS" --buy-ram-kbytes 1000 --transfer|);
+
+# Create and deploy from the deployment script
+
+if (ref($data) eq 'ARRAY') {
+    foreach my $e (@$data) {
+        if (ref($e) eq 'HASH') {
+
+            # Should have all these keys; shorthands for easy "$x" substitution
+            my $account = $e->{account};
+            my $code = $e->{code};
+            my $owner_permission_level = 'EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV';
+            if (defined $e->{owner_permission_level} && $e->{owner_permission_level} ne '') {
+                $owner_permission_level = $e->{active_permission_level};
+                $owner_permission_level = to_json_string($owner_permission_level);
+                $owner_permission_level =~ s/"/\\"/g;
+            }
+            my $active_permission_level = 'EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV';
+            if (defined $e->{active_permission_level} && $e->{active_permission_level} ne '') {
+                $active_permission_level = $e->{active_permission_level};
+                $active_permission_level = to_json_string($active_permission_level);
+                $active_permission_level =~ s/"/\\"/g;
+            }
+            my $description = $e->{description};
+
+            # Account resourcing from doh-deployment-script/index.js
+            my $cpu = '--stake-cpu "1.0000 EOS"';
+            my $net = '--stake-net "1.0000 EOS"';
+            my $ram = '--buy-ram-kbytes 8';
+            if ($code eq "hegemon") {
+                $cpu = '--stake-cpu "1500.0000 EOS"';
+                $net = '--stake-net "300.0000 EOS"';
+                #$ram = '--buy-ram-kbytes 4500';
+                $ram = '--buy-ram-kbytes 10000'; # needs more
+            } elsif ($code eq "crafting") {
+                $cpu = '--stake-cpu "600.0000 EOS"';
+                $net = '--stake-net "200.0000 EOS"';
+                $ram = '--buy-ram-kbytes 2500';
+            } elsif ($code eq "dejavu") {
+                $cpu = '--stake-cpu "400.0000 EOS"';
+                $net = '--stake-net "200.0000 EOS"';
+                $ram = '--buy-ram-kbytes 500';
+            } elsif ($code eq "distrib") {
+                $cpu = '--stake-cpu "400.0000 EOS"';
+                $net = '--stake-net "200.0000 EOS"';
+                $ram = '--buy-ram-kbytes 1500';
+            } elsif ($code eq "drip") {
+                $cpu = '--stake-cpu "400.0000 EOS"';
+                $net = '--stake-net "200.0000 EOS"';
+                $ram = '--buy-ram-kbytes 500';
+            } elsif ($code eq "logs") {
+                $cpu = '--stake-cpu "400.0000 EOS"';
+                $net = '--stake-net "200.0000 EOS"';
+                $ram = '--buy-ram-kbytes 1000';
+            } elsif ($code eq "names") {
+                $cpu = '--stake-cpu "400.0000 EOS"';
+                $net = '--stake-net "200.0000 EOS"';
+                $ram = '--buy-ram-kbytes 1000';
+            } elsif ($code eq "politics") {
+                $cpu = '--stake-cpu "400.0000 EOS"';
+                $net = '--stake-net "200.0000 EOS"';
+                $ram = '--buy-ram-kbytes 1500';
+            } elsif ($code eq "sighandler") {
+                $cpu = '--stake-cpu "400.0000 EOS"';
+                $net = '--stake-net "200.0000 EOS"';
+                $ram = '--buy-ram-kbytes 1500';
+            } elsif ($code eq "staking") {
+                $cpu = '--stake-cpu "600.0000 EOS"';
+                $net = '--stake-net "200.0000 EOS"';
+                $ram = '--buy-ram-kbytes 1500';
+            } elsif ($code eq "tokens") {
+                $cpu = '--stake-cpu "600.0000 EOS"';
+                $net = '--stake-net "200.0000 EOS"';
+                $ram = '--buy-ram-kbytes 2500';
+            } elsif ($code ne "") {
+                $cpu = '--stake-cpu "400.0000 EOS"';
+                $net = '--stake-net "200.0000 EOS"';
+                $ram = '--buy-ram-kbytes 1500';
+            }		
+            
+            # Create the account
+            print "Creating account $account ...\n";
+            command(qq|$cleos system newaccount eosio $account "$owner_permission_level" "$active_permission_level" $cpu $net $ram --transfer|);
+
+            # Deploy the code if any
+            if ($code ne '') {
+                print "Deploying code $code to $account ... \n";
+
+                if ($code eq 'tokens') {
+                    command(qq|$cleos set contract $account ../../tools/doh-contracts/sighandler-token-contract/build/${code}/ ${code}.wasm ${code}.abi|);
+                } else {
+                    command(qq|$cleos set contract $account ../../tools/doh-contracts/doh-${code}-contract/build/${code}/ ${code}.wasm ${code}.abi|);
+                    #command(qq|$cleos set code $account ../../tools/doh-contracts/doh-${code}-contract/build/${code}/${code}.wasm|);
+                    #command(qq|$cleos set abi $account ../../tools/doh-contracts/doh-${code}-contract/build/${code}/${code}.abi|);
+                }
+            }
+
+        } else {
+            fail("ERROR: decoded contracts map array element not a hash.\n");
+        }
+    }
+} else {
+    fail("ERROR: decoded contracts map not an array.\n");
+}

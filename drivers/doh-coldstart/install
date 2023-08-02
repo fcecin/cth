@@ -1,0 +1,28 @@
+#!/usr/bin/perl
+
+my $driver = "doh-coldstart";
+my $dir = "../../tools/doh-contracts/";
+my $file = "run-build.sh";
+
+print "$driver: Checking for doh-contracts at $dir\n";
+
+if (-e "$dir$file") {
+    print "$driver: Directory found. Running DoH contracts build script...\n";
+    chdir $dir;
+    system("$file");
+} else {
+    print "$driver: ERROR: DoH contracts not found in the expected tools directory path.\n";
+    exit 1;
+}
+
+# Check the exit status of the build script
+my $ret = $?;
+print "$driver: Contract build script raw exit code (must be zero): $ret\n";
+if ($ret == 0) {
+    print "$driver: DoH contracts built successfully\n";
+} else {
+    my $exit_status = $ret >> 8;
+    print "$driver: ERROR: DoH contracts build failed with error code: $exit_status\n";
+    exit 1;
+}
+

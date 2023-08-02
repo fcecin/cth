@@ -434,12 +434,19 @@ cleos(qq|push action eosio activate '["ef43112c6543b88db2283a2e077278c315ae2c847
 cleos(qq|push action eosio activate '["4a90c00d55454dc5b059055ca213579c6ea856967712a56017487886a4d4cc0f"]' -p eosio|);
 cleos(qq|push action eosio activate '["1a99a59d87e06e09ec5b028a9cbb7749b4a5ad8819004365d02dc4379a8b7241"]' -p eosio|);
 cleos(qq|push action eosio activate '["4e7bf348da00a945489b2a681749eb56f5de00b900014e137ddae39f48f69d67"]' -p eosio|);
-cleos(qq|push action eosio activate '["4fca8bd82bbd181e714e283f83e1b45d95ca5af40fb89ad3977b653c448f78c2"]' -p eosio|);
+cleos(qq|push action eosio activate '["4fca8bd82bbd181e714e283f83e1b45d95ca5af40fb89ad3977b653c448f78c2"]' -p eosio|); # WEBAUTHN_KEY
 cleos(qq|push action eosio activate '["299dcb6af692324b899b39f16d5a530a33062804e41f09dc97e9f156b4476707"]' -p eosio|);
 
 # more recent ones
-cleos(qq|push action eosio activate '["d528b9f6e9693f45ed277af93474fd473ce7d831dae2180cca35d907bd10cb40"]' -p eosio|); # CONFIGURABLE_WASM_LIMITS2
 cleos(qq|push action eosio activate '["5443fcf88330c586bc0e5f3dee10e7f63c76c00249c87fe4fbf7f38c082006b4"]' -p eosio|); # BLOCKCHAIN_PARAMETERS
+
+# https://waxsweden.org/wax-testnet-antelope-upgrade/
+# "New protocol features introduced in versions 3.0 and 3.1 do not have dependencies on other protocol features or each other. You can use any order to activate them."
+cleos(qq|push action eosio activate '["d528b9f6e9693f45ed277af93474fd473ce7d831dae2180cca35d907bd10cb40"]' -p eosio|); # CONFIGURABLE_WASM_LIMITS2
+cleos(qq|push action eosio activate '["6bcb40a24e49c26d0a60513b6aeb8551d264e4717f306b81a37a5afb3b47cedc"]' -p eosio|); # CRYPTO_PRIMITIVES
+cleos(qq|push action eosio activate '["35c2186cc36f7bb4aeaf4487b36e57039ccf45a9136aa856a5d569ecca55ef2b"]' -p eosio|); # GET_BLOCK_NUM
+cleos(qq|push action eosio activate '["bcd2a26394b36614fd4894241d3c451ab0f6fd110958c3423073621a70826e99"]' -p eosio|); # GET_CODE_HASH
+cleos(qq|push action eosio activate '["c3a6138c5061cf291310887c0b5c71fcaffeab90d5deb50d3b9e687cead45071"]' -p eosio|); # ACTION_RETURN_VALUE
 
 print "Waiting 3 seconds for feature activations to be digested...\n";
 sleep(3);

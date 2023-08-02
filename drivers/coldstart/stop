@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# make sure the current working dir is where this script is
+cd "$(dirname "$0")"
+
+
 if [ -f "./nodeos.pid" ]; then
 pid=`cat "./nodeos.pid"`
 echo $pid

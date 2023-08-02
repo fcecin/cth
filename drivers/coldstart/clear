@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# make sure the current working dir is where this script is
+cd "$(dirname "$0")"
+
 # stop the node if it isn't already stopped
 
 stop
