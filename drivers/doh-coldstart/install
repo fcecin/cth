@@ -31,6 +31,24 @@ sub chdir_driver_dir {
     chdir($RealBin) or die "ERROR: $driver: Failed to change working directory: $!";
 }
 
+sub chdir_prod_dir {
+    chdir_driver_dir();     # absolute
+    chdir $local_prod_dir;  # relative
+    print "Current working directory: " . getcwd() .  "\n";
+}
+
+sub chdir_staging_dir {
+    chdir_driver_dir();        # absolute
+    chdir $local_staging_dir;  # relative
+    print "Current working directory: " . getcwd() .  "\n";
+}
+
+sub chdir_dev_dir {
+    chdir_driver_dir();    # absolute
+    chdir $local_dev_dir;  # relative
+    print "Current working directory: " . getcwd() .  "\n";
+}
+
 # target is prod, staging, dev
 sub copy_doh {
     my $target = shift;
@@ -92,9 +110,14 @@ copy_doh("dev");
 
 print "$driver: Instantiating contract templates on local/ for all DoH targets ...\n";
 
-system("$local_prod_dir/set-prod.sh") == 0 or die "ERROR: $driver: Failed to create prod contracts: $!";
-system("$local_staging_dir/set-staging.sh") == 0 or die "ERROR: $driver: Failed to create staging contracts: $!";
-system("$local_dev_dir/set-dev.sh") == 0 or die "ERROR: $driver: Failed to create dev contracts: $!";
+chdir_prod_dir();
+system("set-prod.sh") == 0 or die "ERROR: $driver: Failed to create prod contracts: $!";
+
+chdir_staging_dir();
+system("set-staging.sh") == 0 or die "ERROR: $driver: Failed to create staging contracts: $!";
+
+chdir_dev_dir();
+system("set-dev.sh") == 0 or die "ERROR: $driver: Failed to create dev contracts: $!";
 
 # ---------------------------------------------------------------------------
 # And then run:
@@ -106,9 +129,7 @@ system("$local_dev_dir/set-dev.sh") == 0 or die "ERROR: $driver: Failed to creat
 my $ret;
 
 print "$driver: Running DoH contracts build script for prod...\n";
-chdir_driver_dir();     # absolute
-chdir $local_prod_dir;  # relative
-print "Current working directory: " . getcwd() .  "\n";
+chdir_prod_dir();
 $ret = system($run_build_sh);
 if ($ret == 0) {
     print "$driver: DoH contracts built successfully at $local_prod_dir\n";
@@ -119,9 +140,7 @@ if ($ret == 0) {
 }
 
 print "$driver: Running DoH contracts build script for staging...\n";
-chdir_driver_dir();        # absolute
-chdir $local_staging_dir;  # relative
-print "Current working directory: " . getcwd() .  "\n";
+chdir_staging_dir();
 $ret = system($run_build_sh);
 if ($ret == 0) {
     print "$driver: DoH contracts built successfully at $local_staging_dir\n";
@@ -132,9 +151,7 @@ if ($ret == 0) {
 }
 
 print "$driver: Running DoH contracts build script for dev...\n";
-chdir_driver_dir();    # absolute
-chdir $local_dev_dir;  # relative
-print "Current working directory: " . getcwd() .  "\n";
+chdir_dev_dir();
 $ret = system($run_build_sh);
 if ($ret == 0) {
     print "$driver: DoH contracts built successfully at $local_dev_dir\n";
