@@ -16,7 +16,7 @@ use strict;
 use warnings;
 
 use Exporter qw(import);
-our @EXPORT = qw(cth_set_cleos_provider cth_set_cleos_url cth_cleos cth_assert cth_standard_args_parser cth_call_driver);
+our @EXPORT = qw(cth_skip_test cth_set_cleos_provider cth_set_cleos_url cth_cleos cth_assert cth_standard_args_parser cth_call_driver);
 
 # -----------------------------------------------------------------------
 # Global state
@@ -28,6 +28,17 @@ my $cleos_provider_dir;
 
 # no cleos url argument by default 
 my $cleos_url_param = '';
+
+# -----------------------------------------------------------------------
+# cth_skip_test
+#
+# Returns the special test skip code that the cth test runner expects.
+# -----------------------------------------------------------------------
+
+sub cth_skip_test {
+    print "cth_skip_test: ending test with the skip return code (32)\n";
+    exit 32;
+}
 
 # -----------------------------------------------------------------------
 # cth_set_cleos_provider

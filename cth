@@ -41,6 +41,27 @@
 #
 # --------------------------------------------------------------------------------------------
 #
+# IMPORTANT: cth recognizes the following exit codes from test programs:
+#
+#   0      Test has PASSED.
+#
+#   32     Test has SKIPPED itself.
+#
+#          This is returned by a non-crashing test when the test decides, based on switches
+#            and options received from its command-line arguments (which are fed from cth),
+#            that, although it has not been filtered out by the test name filter, it should
+#            exclude itself from this run. Skipped tests are counted towards the total.
+#
+#   OTHER  Test has FAILED.
+#
+#          ANY return value other than 0 or 32 means the test has failed.
+#          The returned value is the raw error code returned by the program. cth will print
+#            the exact code returned by each test program to aid in debugging.
+#          This can change; the rest of the 32-63 range will be leveraged for other special
+#            cases that we may need to handle in cth.
+#
+# --------------------------------------------------------------------------------------------
+#
 # Test development tips:
 #
 # All tests should probably handle a --cleos_url or --target switch given to them.
@@ -102,6 +123,8 @@ use Cwd;
 # Variables
 # --------------------------------------------------------------------------------------------
 
+my $cth_exit_code_skipped_test = 32;
+
 my $root_dir = getcwd();
 
 my $tests_dir = "tests";
@@ -119,9 +142,11 @@ my @testspecs;       # List of testspecs passed on the command line
 my $sum_total = 0;
 my $sum_fail = 0;
 my $sum_pass = 0;
+my $sum_skip = 0;
 
 my @sum_passed_tests;
 my @sum_failed_tests;
+my @sum_skipped_tests;
 
 # --------------------------------------------------------------------------------------------
 # Command-line parser
@@ -429,9 +454,25 @@ foreach my $test (@tests) {
     if (-e $script) {
         my $ret = system($script . " " . $global_test_args . " > $log_file 2>&1");
         if ($ret) {
-            print "Failed (code: $ret)\n";
-            $sum_fail++;
-            push @sum_failed_tests, $test;
+            if ($ret < 0) {
+                print "ERROR: system() call failed (return value: $ret)\n";
+                $sum_fail++;
+                push @sum_failed_tests, $test;
+            } else {
+                my $sig = $ret & 127;
+                my $exit_code = $ret >> 8;
+                my $core = ($ret & 128) ? 1 : 0;
+                if ($exit_code == $cth_exit_code_skipped_test) {
+                    print "Skipped (raw: $ret, c: $core, s: $sig, exit: $exit_code)\n";
+                    $sum_skip++;
+                    push @sum_skipped_tests, $test;
+                } else {
+                    print "Failed (raw: $ret, c: $core, s: $sig, exit: $exit_code)\n";
+                    print "cat tests/$test/run.log\n";
+                    $sum_fail++;
+                    push @sum_failed_tests, $test;
+                }
+            }
         } else {
             print "Passed\n";
             $sum_pass++;
@@ -449,16 +490,22 @@ foreach my $test (@tests) {
 # Print summary
 # --------------------------------------------------------------------------------------------
 
-$sum_total = $sum_pass + $sum_fail;
+$sum_total = $sum_pass + $sum_fail + $sum_skip;
+
+$sum_pass = sprintf("%4d", $sum_pass);
+$sum_fail = sprintf("%4d", $sum_fail);
+$sum_skip = sprintf("%4d", $sum_skip);
 
 print "\n";
 print "-------------\n";
 print "Test summary:\n";
 print "-------------\n";
 print "\n";
-print "Passed: $sum_pass\n";
-print "Failed: $sum_fail\n";
-print "Total run: $sum_total\n";
+print "Passed     : $sum_pass\n";
+print "Failed     : $sum_fail\n";
+print "Skipped    : $sum_skip\n";
+print "-----------------\n";
+print "Total      : $sum_total\n";
 
 if ($sum_pass > 0) {
     print "\n";
@@ -482,8 +529,22 @@ if ($sum_fail > 0) {
     print "\n";
 }
 
+if ($sum_skip > 0) {
+    print "\n";
+    print "Skipped tests: ";
+    my $first = 1;
+    foreach my $skipped_test (@sum_skipped_tests) {
+        if (!$first) { print ", "; } else { $first = 0; }
+        print $skipped_test;
+    }
+    print "\n";
+}
+
 print "\n";
 
 if ($sum_fail > 0) {
+    print "RESULT: FAILED\n";
     exit 1;
+} else {
+    print "RESULT: PASSED\n";
 }
