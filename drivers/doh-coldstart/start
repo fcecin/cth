@@ -292,8 +292,8 @@ if (ref($data) eq 'ARRAY') {
                 $cpu = '--stake-cpu "400.0000 EOS"';
                 $net = '--stake-net "200.0000 EOS"';
                 $ram = '--buy-ram-kbytes 1500';
-            }		
-            
+            }
+
             # Create the account
             print "Creating account $account ...\n";
             command(qq|$cleos system newaccount eosio $account "$owner_permission_level" "$active_permission_level" $cpu $net $ram --transfer|);
@@ -302,10 +302,51 @@ if (ref($data) eq 'ARRAY') {
             if ($code ne '') {
                 print "Deploying code $code to $account ... \n";
 
+                # Since setting contract can randomly fail with "cpu quota exceeded", we may have to retry a few times.
+                # If not CPU deadline exceeded error, fail immediately as the command() sub would.
+
+                my $max_tries = 10; # maximum number of retries for set contract CPU deadline exceeded
+
+                my $set_contract_command;
                 if ($code eq 'tokens') {
-                    command(qq|$cleos set contract $account ../../tools/doh-contracts/sighandler-token-contract/build/${code}/ ${code}.wasm ${code}.abi|);
+                    $set_contract_command = qq|$cleos set contract $account ../../tools/doh-contracts/sighandler-token-contract/build/${code}/ ${code}.wasm ${code}.abi|;
                 } else {
-                    command(qq|$cleos set contract $account ../../tools/doh-contracts/doh-${code}-contract/build/${code}/ ${code}.wasm ${code}.abi|);
+                    $set_contract_command = qq|$cleos set contract $account ../../tools/doh-contracts/doh-${code}-contract/build/${code}/ ${code}.wasm ${code}.abi|;
+                }
+                my $set_contract_success = 0;
+                my $i;
+                for ($i = 1; $i <= $max_tries; $i++) {
+                    $cmd = "$set_contract_command 2>&1";
+                    $o = `$cmd`;
+                    if ($? != 0) {
+                        if ($o =~ /tx_cpu_usage_exceeded/ || $o =~ /Transaction exceeded the current CPU usage limit imposed on the transaction/) {
+                            print "Deployment failed for CPU deadline exceeded (during try $i of $max_tries). ";
+                            if ($i < $max_tries) {
+                                print "Retrying...\n";
+                                next;
+                            } else {
+                                print "Will not try again.\n";
+                            }
+                        } else {
+                            print "ERROR: Failed to execute: $cmd\n";
+                            print "Output: $o\n";
+                            fail();
+                        }
+                    } else {
+                        $set_contract_success = 1;
+                        last;
+                    }
+                }
+                if (! $set_contract_success) {
+                    print "ERROR: Failed to execute: $cmd\n";
+                    print "Output: $o\n";
+                    fail();
+                } else {
+                    print "Contract $account set";
+                    if ($i > 1) {
+                        print " (tried $i/$max_tries times)";
+                    }
+                    print ".\n";
                 }
             }
 

@@ -8,12 +8,6 @@
 #
 #   use lib '../../tools/cth-goodies';
 #   use CthGoodies;
-#
-# Library example (complete):
-#   use Exporter qw(import);
-#   our @EXPORT = qw(some_function another_function);
-#   sub some_function { print "Hello, from some_function!\n"; }
-#   sub another_function { print "Hello, from another_function!\n"; }
 # -----------------------------------------------------------------------
 
 package CthGoodies;
@@ -122,7 +116,7 @@ sub cth_cleos {
         return 1;
     }
 
-    my $cmd = "cleos $cleos_url_param --wallet-url unix://$cleos_provider_dir/keosd.sock $args";
+    my $cmd = "cleos $cleos_url_param --wallet-url unix://$cleos_provider_dir/keosd.sock --verbose $args";
     
     print "cth_cleos: run command: $cmd\n";
 

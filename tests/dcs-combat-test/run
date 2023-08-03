@@ -3,7 +3,7 @@
 # --------------------------------------------------------------------------------------------
 # dcs-combat-test
 #
-# This is a dest of the doh-coldstart driver that has been written to help develop the DoH
+# This is a test of the doh-coldstart driver that has been written to help develop the DoH
 #   test system. It is a port of cryptomechanics/doh-unit-tests/combat-test.sh as of
 #   early August, 2023.
 #
@@ -24,12 +24,9 @@
 #
 # WIP - FIXME/TODO:
 #
-# - add missing singleton object (probably an init call of some sort)
 # - add rest of test w/ asserts
 # - test remote
 #   - will probably need to think about test cleanups
-# - check if we forgot anything from the original test flow
-# - fix hegemon deployment timeout via retrying at the doh-coldstart driver
 # - check the stray hg1's from the hgm contract deployment map is gone (submodule update)
 #
 # --------------------------------------------------------------------------------------------
@@ -40,6 +37,23 @@ use warnings;
 # include the tools/cth-goodies library
 use lib '../../tools/cth-goodies';
 use CthGoodies;
+
+# --------------------------------------------------------------------------------------------
+# Example subs that will end up in the DoHGoodies library
+# (FIXME/TODO -- make the library and use that instead of this)
+# --------------------------------------------------------------------------------------------
+
+sub get_tcn_target {
+    my $hgm = shift;
+    if (! defined $hgm) { die "ERROR: get_tcn_target: hgm is undefined\n"; } 
+    if ($hgm eq 'hgm') {
+        return "tcn";
+    } elsif ($hgm =~ /^hg\d$/) {
+        return "tc" . substr($hgm, -1);
+    } else {
+        die "ERROR: Cannot infer tcn target for doh target: $hgm\n"; 
+    }
+}
 
 # --------------------------------------------------------------------------------------------
 # Parse command-line parameters.
@@ -64,6 +78,8 @@ my $use_driver_doh_coldstart = 1;
 
 my $doh_target = "hgm";
 
+my $tcn_target;
+
 my $ret;
 
 my ($switches, $options) = cth_standard_args_parser(
@@ -85,6 +101,13 @@ my ($switches, $options) = cth_standard_args_parser(
 
     );
 
+#
+# Eventually, the setup below moves to one or more specialized DoH test drivers.
+# The goal is to have the test logic have only exactly what it needs.
+# Also, tests that are written specifically for a given deployment target, for example,
+#   can skip themselves.
+#
+
 if (exists $switches->{'cleos_url'}) {
     print "Test will not run local driver since --cleos_url test run switch sets the following endpoint: " . $switches->{'cleos_url'} . "\n";
     print "This test will abstain from management of the provided endpoint/blockchain and DoH contract code and data entirely.\n";
@@ -100,6 +123,9 @@ if (exists $switches->{'target'}) {
 } else {
     print "Using test's default DoH target: $doh_target\n";
 }
+
+$tcn_target = get_tcn_target($doh_target);
+print "TCN target set to: $tcn_target\n";
 
 $ret = cth_set_cleos_provider("cleos-driver");
 if ($ret) { die "ERROR: cth_set_cleos_provider failed\n"; }
@@ -157,47 +183,55 @@ sub failed {
 #    is also fine if all tests are done.
 # --------------------------------------------------------------------------------------------
 
-crashed() if cth_cleos(qq|--verbose push action dejavu.${doh_target} setplayer '{"p":{"owner":"dohplayer1", "asset_url":"/players/dominion/player-confederacy-01.png", "count":0, "reputation":0, "faction_id":2, "location_tile_id":1}}' -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action clock.${doh_target} useclock '{}' -p clock.${doh_target}|);
 
-crashed() if cth_cleos(qq|--verbose push action dejavu.${doh_target} setplayer '{"p":{"owner":"dohplayer2", "asset_url":"/players/dominion/player-dominion-02.png", "count":0, "reputation":0, "faction_id":4, "location_tile_id":1}}' -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action staking.${tcn_target} init '{ "distrib_contracts": [ "energy.${tcn_target}", "rep.${tcn_target}"], "drip_contracts": [ "main.${tcn_target}", "players.${tcn_target}"] }' -p staking.${tcn_target}|);
 
-crashed() if cth_cleos(qq|--verbose push action names.${doh_target} addcname '{"id":1, "first_name":"Jimmy", "middle_name":"", "last_name":"Page", "asset_url":"/characters/character-jimmy-page-neutral.png"}' -p names.${doh_target}|);
-crashed() if cth_cleos(qq|--verbose push action names.${doh_target} addcname '{"id":2, "first_name":"Robert", "middle_name":"", "last_name":"Plant", "asset_url":"/characters/character-robert-plant-neutral.png"}' -p names.${doh_target}|);
-crashed() if cth_cleos(qq|--verbose push action names.${doh_target} addcname '{"id":3, "first_name":"Jimi", "middle_name":"", "last_name":"Hendrix", "asset_url":"/characters/character-jimi-hendrix-neutral.png"}' -p names.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} updaterng '{}' --force-unique -p hegemon.${doh_target}|);
 
-crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} setgm '{"player":"dohplayer1"}' -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action clock.${doh_target} sethash '{"hash":"092ba25b75b0ee1ac79c5a1aa1df28a5129cd8d15b878fdb50dc804fda79dbc7"}' --force-unique -p clock.${doh_target}|);
 
-crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} addfaction '{"id":1, "global_entity_id":52, "name":"Empire", "code":"em", "flag_asset_url":"/factions-flags/flag-empire.jpg"}' -p hegemon.${doh_target}|);
-crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} addfaction '{"id":2, "global_entity_id":53, "name":"Confederacy", "code":"co", "flag_asset_url":"/factions-flags/flag-confederacy.jpg"}' -p hegemon.${doh_target}|);
-crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} addfaction '{"id":3, "global_entity_id":54, "name":"Alliance", "code":"al", "flag_asset_url":"/factions-flags/flag-alliance.jpg"}' -p hegemon.${doh_target}|);
-crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} addfaction '{"id":4, "global_entity_id":55, "name":"Dominion", "code":"do", "flag_asset_url":"/factions-flags/flag-dominion.jpg"}' -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action dejavu.${doh_target} setplayer '{"p":{"owner":"dohplayer1", "asset_url":"/players/dominion/player-confederacy-01.png", "count":0, "reputation":0, "faction_id":2, "location_tile_id":1}}' -p hegemon.${doh_target}|);
 
-crashed() if cth_cleos(qq|--verbose push action crafting.${doh_target} addeffect '{"id":8, "name":"Plains", "description":"Farming production output increased by 50%. Mining production output decreased by 50%", "modifiers":[{ "modified_stat" : 3, "modifier_operator": 1, "condition": { "target":2, "filter":null, "value": 3 }, "value": 50 }, { "modified_stat" : 3, "modifier_operator": 1, "condition": { "target":2, "filter":null, "value": 1 }, "value": -50 }], "duration":-1 }' -p crafting.${doh_target} |);
+crashed() if cth_cleos(qq|push action dejavu.${doh_target} setplayer '{"p":{"owner":"dohplayer2", "asset_url":"/players/dominion/player-dominion-02.png", "count":0, "reputation":0, "faction_id":4, "location_tile_id":1}}' -p hegemon.${doh_target}|);
 
-crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} addplanet '{"id":1, "area_map":"tulon","name":"Tulon", "code":"tu", "code":"tu", "asset_url":"/planets/tulon.png"}' -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action names.${doh_target} addcname '{"id":1, "first_name":"Jimmy", "middle_name":"", "last_name":"Page", "asset_url":"/characters/character-jimmy-page-neutral.png"}' -p names.${doh_target}|);
+crashed() if cth_cleos(qq|push action names.${doh_target} addcname '{"id":2, "first_name":"Robert", "middle_name":"", "last_name":"Plant", "asset_url":"/characters/character-robert-plant-neutral.png"}' -p names.${doh_target}|);
+crashed() if cth_cleos(qq|push action names.${doh_target} addcname '{"id":3, "first_name":"Jimi", "middle_name":"", "last_name":"Hendrix", "asset_url":"/characters/character-jimi-hendrix-neutral.png"}' -p names.${doh_target}|);
 
-crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} addregion '{"id":1, "planet_id":1,"name":"Nefari", "code":"ne"}' -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} setgm '{"player":"dohplayer1"}' -p hegemon.${doh_target}|);
 
-crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} addterrain '{"id":1, "type":"Plains", "map_asset_url":"/tiles/tile-plains.jpg",	"background_asset_url":"/character-backgrounds/character-background-plains.png", "building_slots":6, "effects":[8]}' -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} addfaction '{"id":1, "global_entity_id":52, "name":"Empire", "code":"em", "flag_asset_url":"/factions-flags/flag-empire.jpg"}' -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} addfaction '{"id":2, "global_entity_id":53, "name":"Confederacy", "code":"co", "flag_asset_url":"/factions-flags/flag-confederacy.jpg"}' -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} addfaction '{"id":3, "global_entity_id":54, "name":"Alliance", "code":"al", "flag_asset_url":"/factions-flags/flag-alliance.jpg"}' -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} addfaction '{"id":4, "global_entity_id":55, "name":"Dominion", "code":"do", "flag_asset_url":"/factions-flags/flag-dominion.jpg"}' -p hegemon.${doh_target}|);
 
-crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} addtile '{"id":1,"area_map":"tulon","region_id":1,"q_coord":0,"r_coord":0,"terrain_type":1}' -p hegemon.${doh_target}|);
-crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} addtile '{"id":2,"area_map":"tulon","region_id":1,"q_coord":0,"r_coord":1,"terrain_type":1}' -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action crafting.${doh_target} addeffect '{"id":8, "name":"Plains", "description":"Farming production output increased by 50%. Mining production output decreased by 50%", "modifiers":[{ "modified_stat" : 3, "modifier_operator": 1, "condition": { "target":2, "filter":null, "value": 3 }, "value": 50 }, { "modified_stat" : 3, "modifier_operator": 1, "condition": { "target":2, "filter":null, "value": 1 }, "value": -50 }], "duration":-1 }' -p crafting.${doh_target} |);
 
-crashed() if cth_cleos(qq|--verbose push action staking.tc2 enable '{}' -p staking.tc2|);
-crashed() if cth_cleos(qq|--verbose push action clock.${doh_target} useclock '{}' -p clock.${doh_target}|);
-crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} regplayer '{"player":"dohplayer1", "opt_out_of_politics":false}' --force-unique -p dohplayer1|);
-crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} regplayer '{"player":"dohplayer2", "opt_out_of_politics":false}' --force-unique -p dohplayer2|);
-crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} createchar '{"player":"dohplayer1"}' --force-unique -p dohplayer1|);
-crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} createchar '{"player":"dohplayer1"}' --force-unique -p dohplayer1|);
-crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} createchar '{"player":"dohplayer2"}' --force-unique -p dohplayer2|);
-crashed() if cth_cleos(qq|--verbose push action clock.${doh_target} clockadd '{"blocks":600}' --force-unique -p clock.${doh_target}|);
-crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} docombat '{"player":"dohplayer1", "faction_id":4}' --force-unique -p dohplayer1|);
-crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} updaterng '{}' --force-unique -p hegemon.${doh_target}|);
-crashed() if cth_cleos(qq|--verbose push action clock.${doh_target} sethash '{"hash":"092ba25b75b0ee1ac79c5a1aa1df28a5129cd8d15b878fdb50dc804fda79dbc7"}' --force-unique -p clock.${doh_target}|);
-crashed() if cth_cleos(qq|--verbose push action clock.${doh_target} clockadd '{"blocks":120}' --force-unique -p clock.${doh_target}|);
-crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} updaterng '{}' --force-unique -p hegemon.${doh_target}|);
-crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} resolverngs '{"count":0}' --force-unique -p hegemon.${doh_target}|);
-crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} proc '{"count":0}' --force-unique -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} addplanet '{"id":1, "area_map":"tulon","name":"Tulon", "code":"tu", "code":"tu", "asset_url":"/planets/tulon.png"}' -p hegemon.${doh_target}|);
+
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} addregion '{"id":1, "planet_id":1,"name":"Nefari", "code":"ne"}' -p hegemon.${doh_target}|);
+
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} addterrain '{"id":1, "type":"Plains", "map_asset_url":"/tiles/tile-plains.jpg", "background_asset_url":"/character-backgrounds/character-background-plains.png", "building_slots":6, "effects":[8]}' -p hegemon.${doh_target}|);
+
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} addtile '{"id":1,"area_map":"tulon","region_id":1,"q_coord":0,"r_coord":0,"terrain_type":1}' -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} addtile '{"id":2,"area_map":"tulon","region_id":1,"q_coord":0,"r_coord":1,"terrain_type":1}' -p hegemon.${doh_target}|);
+
+crashed() if cth_cleos(qq|push action staking.tc2 enable '{}' -p staking.tc2|);
+crashed() if cth_cleos(qq|push action clock.${doh_target} useclock '{}' -p clock.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} regplayer '{"player":"dohplayer1", "opt_out_of_politics":false}' --force-unique -p dohplayer1|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} regplayer '{"player":"dohplayer2", "opt_out_of_politics":false}' --force-unique -p dohplayer2|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} createchar '{"player":"dohplayer1"}' --force-unique -p dohplayer1|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} createchar '{"player":"dohplayer1"}' --force-unique -p dohplayer1|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} createchar '{"player":"dohplayer2"}' --force-unique -p dohplayer2|);
+crashed() if cth_cleos(qq|push action clock.${doh_target} clockadd '{"blocks":600}' --force-unique -p clock.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} docombat '{"player":"dohplayer1", "faction_id":4}' --force-unique -p dohplayer1|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} updaterng '{}' --force-unique -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action clock.${doh_target} sethash '{"hash":"092ba25b75b0ee1ac79c5a1aa1df28a5129cd8d15b878fdb50dc804fda79dbc7"}' --force-unique -p clock.${doh_target}|);
+crashed() if cth_cleos(qq|push action clock.${doh_target} clockadd '{"blocks":120}' --force-unique -p clock.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} updaterng '{}' --force-unique -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} resolverngs '{"count":0}' --force-unique -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} proc '{"count":0}' --force-unique -p hegemon.${doh_target}|);
 
 # FIXME: there's more
 
