@@ -1,5 +1,7 @@
 #!/bin/bash
 
+echo "Checking whether the local repository is on the main branch, squeaky clean and up to date with the remote..."
+
 # Check if the repository is on the main branch
 current_branch=$(git rev-parse --abbrev-ref HEAD)
 if [ "$current_branch" != "main" ]; then
@@ -21,9 +23,9 @@ if [ "$local_commits" -ne 0 ]; then
   exit 1
 fi
 
-echo "Everything is good. The local repository is clean, on the main branch, and up to date with the remote."
+echo "Everything looks good."
 
-echo "Fetching and merging changes from all submodules..."
+echo "Will fetch and merge changes from all submodules, if any..."
 
 # Save the current commit hash of the submodule
 OLD_COMMIT=$(git submodule status | awk '{print $1}')
@@ -36,13 +38,14 @@ NEW_COMMIT=$(git submodule status | awk '{print $1}')
 
 # Compare the old and new commit hashes
 if [ "$OLD_COMMIT" = "$NEW_COMMIT" ]; then
-  echo "Submodule is up to date, no changes made."
+  echo "Submodules are up to date, no changes made."
 else
-  echo "Submodule has been updated and changes have been merged."
-
-  # in this case, commit and push them
+  echo "Submodules have been updated and changes have been merged."
+  echo "Running git add --all ..."
+  git add --all
+  echo "Running git commit -m ..."
+  git commit -m "Update all submodules to latest upstream"
+  echo "Running git push origin ..."
+  git push origin
+  echo "Done! Submodules updated successfully."
 fi
-
-
-
-
