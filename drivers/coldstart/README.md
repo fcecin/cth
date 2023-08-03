@@ -14,3 +14,12 @@ NOTE:
 This is a reference driver that is mostly for the development of cth, of other drivers, and for debugging. It is very simple. It is slow to start and only supports one blockchain running at a time.
 
 You can use coldstart in production, but you should probably be using a better driver.
+
+NOTE:
+
+The genesis.json file has increased the value of the "max_transaction_cpu_usage" parameter from 50000 to 99899 (the maximum allowed value considering the other parameters). This has solved a problem of deploying the DoH "hegemon" contract sometimes causing a "tx_cpu_usage_exceeded: Transaction exceeded the current CPU usage limit imposed on the transaction".
+
+This caused the driver to fail at random. Hopefully this is gone, but if this happens again the driver will need to be fixed again.
+
+UPDATE: No, it's not gone.
+

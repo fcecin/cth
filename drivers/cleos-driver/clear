@@ -1,0 +1,29 @@
+#!/bin/bash
+
+# make sure the current working dir is where this script is
+cd "$(dirname "$0")"
+
+# force stopping *our* keosd by PID, so we can clear the wallet files
+
+if [ -f "./keosd.pid" ]; then
+pid=`cat "./keosd.pid"`
+echo $pid
+kill $pid
+rm "./keosd.pid"
+echo -ne "Stoping keosd.."
+while true; do
+[ ! -d "/proc/$pid/fd" ] && break
+echo -ne "."
+sleep 1
+done
+echo -ne "\nkeosd stopped.\n"
+fi
+
+# delete all wallet-related files
+
+rm -f default.wallet
+rm -f default.wallet.password
+rm -f keosd.sock
+rm -f keosd.log
+rm -f wallet.lock
+

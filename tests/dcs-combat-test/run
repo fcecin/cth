@@ -1,0 +1,216 @@
+#!/usr/bin/perl
+
+# --------------------------------------------------------------------------------------------
+# dcs-combat-test
+#
+# This is a dest of the doh-coldstart driver that has been written to help develop the DoH
+#   test system. It is a port of cryptomechanics/doh-unit-tests/combat-test.sh as of
+#   early August, 2023.
+#
+# The design goal for this testcase is to allow it to easily select to either use
+#   doh-coldstart to run locally, or to allow it to connect to a DoH deployment on a remote
+#   blockchain, using any DoH deployment target (hgm, hg1, hg2, ...) irrespective of whether
+#   it is local or remote.
+#
+# The reusable components of the testcase, which can be used by other tests, are in the
+#   CthGoodies Perl library, which is an integral part of the cth template. It is in
+#   tools/cth-goodies. This allows this testcase file to contain only logic that is specific
+#   to this test, at least for the most part.
+#
+# This test does not use the tools/doh-goodies library, since it invokes cleos directly
+#   (via CthGoodies) and all the DoH-specific code is in here and in the doh-colstart
+#   driver. The DoHGoodies test library should make test writing for DoH even easier.
+# --------------------------------------------------------------------------------------------
+#
+# WIP - FIXME/TODO:
+#
+# - add missing singleton object (probably an init call of some sort)
+# - add rest of test w/ asserts
+# - test remote
+#   - will probably need to think about test cleanups
+# - check if we forgot anything from the original test flow
+# - fix hegemon deployment timeout via retrying at the doh-coldstart driver
+# - check the stray hg1's from the hgm contract deployment map is gone (submodule update)
+#
+# --------------------------------------------------------------------------------------------
+
+use strict;
+use warnings;
+
+# include the tools/cth-goodies library
+use lib '../../tools/cth-goodies';
+use CthGoodies;
+
+# --------------------------------------------------------------------------------------------
+# Parse command-line parameters.
+#
+# Give a list of expected switches and options to the CthGoodies standard parser.
+#
+# If the cleos_url switch is not specified, the test will assume it uses doh-coldstart
+#    as the backend, at the default cleos URL (127.0.0.1:8888) which is what the backing
+#    coldstart driver provides.
+#
+# If the cleos_url switch is specified, then we do not have to initialize a blockchain.
+#    Instead, the test will assume the provided remote blockchain is already set up to
+#    run this test (and pass it). In other words, the test runs in driverless mode; the
+#    blockchain provider is entirely external, and we assume that provider is invoking
+#    cth or tests manually and is clearing or redeploying the game contracts itself.
+#
+# If the target is specified, we use that specific target (hg1, hgm, etc.). If it is
+#    not specified, it will default to hgm.
+# --------------------------------------------------------------------------------------------
+
+my $use_driver_doh_coldstart = 1;
+
+my $doh_target = "hgm";
+
+my $ret;
+
+my ($switches, $options) = cth_standard_args_parser(
+
+    # List of switches (--switchname switchvalue, or --switchname=switchvalue)
+    #   that this particular test expects or knows about.
+    # If the test receives any switch not listed here, the test fails. That
+    #   means the test is not engineered towards the environment of the test run.
+
+    "cleos_url target",
+
+    # List of options (-o optionname=optionvalue, or --option optioname=optionvalue)
+    #   that this particular test expects or knows about.
+    # If the test receives any options not listed here, the argument parser will
+    #   print a warning, but the test will continue. The option will just be
+    #   ignored.
+
+    ""
+
+    );
+
+if (exists $switches->{'cleos_url'}) {
+    print "Test will not run local driver since --cleos_url test run switch sets the following endpoint: " . $switches->{'cleos_url'} . "\n";
+    print "This test will abstain from management of the provided endpoint/blockchain and DoH contract code and data entirely.\n";
+    $use_driver_doh_coldstart = 0;
+
+    $ret = cth_set_cleos_url( $switches->{'cleos_url'} );
+    if ($ret) { die "ERROR: cth_set_cleos_url failed\n"; }
+}
+
+if (exists $switches->{'target'}) {
+    $doh_target = $switches->{'target'};
+    print "Specific DoH target provided via --target test run switch: $doh_target\n";
+} else {
+    print "Using test's default DoH target: $doh_target\n";
+}
+
+$ret = cth_set_cleos_provider("cleos-driver");
+if ($ret) { die "ERROR: cth_set_cleos_provider failed\n"; }
+
+if ($use_driver_doh_coldstart) {
+    $ret = cth_call_driver("doh-coldstart", "configure --target=" . $doh_target);
+    if ($ret) { die "ERROR: cth_call_driver failed\n"; }
+
+    $ret = cth_call_driver("doh-coldstart", "start");
+    if ($ret) { die "ERROR: cth_call_driver failed\n"; }
+} else {
+    # we have to try to start the cleos-driver manually since coldstart won't be there to guarantee it for us.
+    # this call actually never hurts and you can do it all the time, but it's more unnecessary logging.
+    $ret = cth_call_driver("cleos-driver", "start");
+    if ($ret) { die "ERROR: cth_call_driver failed\n"; }
+}
+
+# --------------------------------------------------------------------------------------------
+# We will shut down the driver and fail the test whenever a test step fails.
+# --------------------------------------------------------------------------------------------
+
+sub cleanup {
+    if ($use_driver_doh_coldstart) {
+        $ret = cth_call_driver("doh-coldstart", "stop");
+        if ($ret) { die "ERROR: cth_call_driver failed\n"; }   # questionable whether this is actually needed
+    }
+}
+
+sub crashed {
+    print "ERROR: Test has crashed.\n";
+    cleanup();
+    die;
+}
+
+sub failed {
+    print "ERROR: Test has failed.\n";
+    cleanup();
+    die;
+}
+
+# --------------------------------------------------------------------------------------------
+# Test logic here
+#
+# In general, whatever the test tries should not prevent the test running to the end, at
+#    which point cleanups can happen, such as stopping the driver (if any).
+#
+# However, it is always possible that a crash happens, and since the harness that invokes
+#    this test does not know nor care about drivers, a driver (e.g. a nodeos instance) can
+#    be kept alive and running.
+#
+# That is, fortunately, entirely OK. Tests can fail. It is the responsibility of the *next*
+#    test, if any, to reset any drivers, if they need to, to be able to run. And finally,
+#    it is the responsibility of the test harness caller to, for example, force a shutdown
+#    or refresh of all drivers, or even to forcefully kill e.g. all nodeos processes, which
+#    is also fine if all tests are done.
+# --------------------------------------------------------------------------------------------
+
+crashed() if cth_cleos(qq|--verbose push action dejavu.${doh_target} setplayer '{"p":{"owner":"dohplayer1", "asset_url":"/players/dominion/player-confederacy-01.png", "count":0, "reputation":0, "faction_id":2, "location_tile_id":1}}' -p hegemon.${doh_target}|);
+
+crashed() if cth_cleos(qq|--verbose push action dejavu.${doh_target} setplayer '{"p":{"owner":"dohplayer2", "asset_url":"/players/dominion/player-dominion-02.png", "count":0, "reputation":0, "faction_id":4, "location_tile_id":1}}' -p hegemon.${doh_target}|);
+
+crashed() if cth_cleos(qq|--verbose push action names.${doh_target} addcname '{"id":1, "first_name":"Jimmy", "middle_name":"", "last_name":"Page", "asset_url":"/characters/character-jimmy-page-neutral.png"}' -p names.${doh_target}|);
+crashed() if cth_cleos(qq|--verbose push action names.${doh_target} addcname '{"id":2, "first_name":"Robert", "middle_name":"", "last_name":"Plant", "asset_url":"/characters/character-robert-plant-neutral.png"}' -p names.${doh_target}|);
+crashed() if cth_cleos(qq|--verbose push action names.${doh_target} addcname '{"id":3, "first_name":"Jimi", "middle_name":"", "last_name":"Hendrix", "asset_url":"/characters/character-jimi-hendrix-neutral.png"}' -p names.${doh_target}|);
+
+crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} setgm '{"player":"dohplayer1"}' -p hegemon.${doh_target}|);
+
+crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} addfaction '{"id":1, "global_entity_id":52, "name":"Empire", "code":"em", "flag_asset_url":"/factions-flags/flag-empire.jpg"}' -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} addfaction '{"id":2, "global_entity_id":53, "name":"Confederacy", "code":"co", "flag_asset_url":"/factions-flags/flag-confederacy.jpg"}' -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} addfaction '{"id":3, "global_entity_id":54, "name":"Alliance", "code":"al", "flag_asset_url":"/factions-flags/flag-alliance.jpg"}' -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} addfaction '{"id":4, "global_entity_id":55, "name":"Dominion", "code":"do", "flag_asset_url":"/factions-flags/flag-dominion.jpg"}' -p hegemon.${doh_target}|);
+
+crashed() if cth_cleos(qq|--verbose push action crafting.${doh_target} addeffect '{"id":8, "name":"Plains", "description":"Farming production output increased by 50%. Mining production output decreased by 50%", "modifiers":[{ "modified_stat" : 3, "modifier_operator": 1, "condition": { "target":2, "filter":null, "value": 3 }, "value": 50 }, { "modified_stat" : 3, "modifier_operator": 1, "condition": { "target":2, "filter":null, "value": 1 }, "value": -50 }], "duration":-1 }' -p crafting.${doh_target} |);
+
+crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} addplanet '{"id":1, "area_map":"tulon","name":"Tulon", "code":"tu", "code":"tu", "asset_url":"/planets/tulon.png"}' -p hegemon.${doh_target}|);
+
+crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} addregion '{"id":1, "planet_id":1,"name":"Nefari", "code":"ne"}' -p hegemon.${doh_target}|);
+
+crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} addterrain '{"id":1, "type":"Plains", "map_asset_url":"/tiles/tile-plains.jpg",	"background_asset_url":"/character-backgrounds/character-background-plains.png", "building_slots":6, "effects":[8]}' -p hegemon.${doh_target}|);
+
+crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} addtile '{"id":1,"area_map":"tulon","region_id":1,"q_coord":0,"r_coord":0,"terrain_type":1}' -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} addtile '{"id":2,"area_map":"tulon","region_id":1,"q_coord":0,"r_coord":1,"terrain_type":1}' -p hegemon.${doh_target}|);
+
+crashed() if cth_cleos(qq|--verbose push action staking.tc2 enable '{}' -p staking.tc2|);
+crashed() if cth_cleos(qq|--verbose push action clock.${doh_target} useclock '{}' -p clock.${doh_target}|);
+crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} regplayer '{"player":"dohplayer1", "opt_out_of_politics":false}' --force-unique -p dohplayer1|);
+crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} regplayer '{"player":"dohplayer2", "opt_out_of_politics":false}' --force-unique -p dohplayer2|);
+crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} createchar '{"player":"dohplayer1"}' --force-unique -p dohplayer1|);
+crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} createchar '{"player":"dohplayer1"}' --force-unique -p dohplayer1|);
+crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} createchar '{"player":"dohplayer2"}' --force-unique -p dohplayer2|);
+crashed() if cth_cleos(qq|--verbose push action clock.${doh_target} clockadd '{"blocks":600}' --force-unique -p clock.${doh_target}|);
+crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} docombat '{"player":"dohplayer1", "faction_id":4}' --force-unique -p dohplayer1|);
+crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} updaterng '{}' --force-unique -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|--verbose push action clock.${doh_target} sethash '{"hash":"092ba25b75b0ee1ac79c5a1aa1df28a5129cd8d15b878fdb50dc804fda79dbc7"}' --force-unique -p clock.${doh_target}|);
+crashed() if cth_cleos(qq|--verbose push action clock.${doh_target} clockadd '{"blocks":120}' --force-unique -p clock.${doh_target}|);
+crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} updaterng '{}' --force-unique -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} resolverngs '{"count":0}' --force-unique -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|--verbose push action hegemon.${doh_target} proc '{"count":0}' --force-unique -p hegemon.${doh_target}|);
+
+# FIXME: there's more
+
+# --------------------------------------------------------------------------------------------
+# If all goes well, the test is done, and we have a chance to neatly stop the doh-coldstart
+#    driver (this actually is the same as clear; it completely wipes the backing coldstart
+#    driver, but that's an implementation detail).
+#
+# This test+driver combination does not allow you to inspect e.g. chain state after the
+#    test is done. It prints pass/fail and that's it. What you have is in the test log,
+#    if anything. Data preservation has to be designed into the test and/or driver(s) used.
+#
+# Default return value is zero (success).
+# --------------------------------------------------------------------------------------------
+
+cleanup();

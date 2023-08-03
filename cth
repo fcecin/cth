@@ -39,36 +39,56 @@
 #   tool. The configure tool can be anything the driver needs. This is also not called
 #   by cth and concerns only the tests that use it.
 #
-# TODO:
+# --------------------------------------------------------------------------------------------
+#
+# Test development tips:
+#
+# All tests should probably handle a --cleos_url or --target switch given to them.
+#   See dcs-combat-test/run for a documented example of what these mean.
+#
+# To do remote testing, you'd call:
+#   cth -s cleos_url=http://api.chain.com    [other args...]
+#
+# To do testing to a given DoH target (contract suffix), you'd call (example):
+#   cth -s target=hg2    [other args...]
+#
+# You can of course combine those and can also use other args if required (like test
+#   name filters, for example).
+#
+# --------------------------------------------------------------------------------------------
+#
+# (TODO) CTH FINER CONTROLS:
 #
 # Currently, there are no options to directly start, stop, reset, install or clear
 #   individual drivers. There are also no options to clear individual tests. You can
 #   however just change into the driver or test directory and run these directly.
 #
-# Remote testing via -s cleos_url=http://api.chain.com
-#
-# SNAPSHOT (HOT) TESTING:
+# (TODO) SNAPSHOT (HOT) TESTING:
 #
 # This is very simple. The easiest driver just resumes a binary chainbase that
-#   we save (i.e. data dir) provided it isn't too big. But a snapshot would have
-#   the same size, I guess. Push comes to shove, the chainbase can be zipped, and
-#   the driver install step (or the run step even) can unzip it. This template
-#   chainbase is then cp -r wherever we start a new nodeos to test with.
+#   we save (i.e. data dir) which we can zip and the driver install step (or the
+#   run step even) can unzip it. This template chainbase is then cp -r wherever
+#   we start a new nodeos to test with.
 #
-# PARALLEL TESTING:
+# (TODO) PARALLEL TESTING:
 #
-# Use of -o and -s for a parallel testing driver.
-# Tests serialize if given ANY cleos_url, otherwise they fire up their own
-#   local instances (you can't fire random remote instances unless you
-#   parallelize via multiple blockchains and/or multiple identical contract targets).
+# The actual solution to parallel testing is to create parallelization (threading)
+#   in the harness, and then have serialization, if any, done at the driver level.
+#   That is, serial drivers will serialize tests coming simultaneously at them,
+#   while parallel drivers will serve the array of blockchain resources they have
+#   and only serialize incoming tests if they ever run out of these resources and
+#   need to wait for them to be freed by a previous test.
 #
-# --------------------------------------------------------------------------------------------
+# However, this will probably not be a pressing need after we do HOT TESTING, as
+#   running all tests serially will be a very quick matter for a while.
 #
-# tools/cth-goodies
-# perl library
+# (TODO) more/better drivers in general
 #
-# tools/doh-goodies
-# perl library
+# (TODO) more/better DoH tests
+#
+# (TODO) finish tools/cth-goodies test library
+#
+# (TODO) tools/doh-goodies test library
 #
 # --------------------------------------------------------------------------------------------
 
@@ -108,8 +128,8 @@ my @sum_failed_tests;
 # --------------------------------------------------------------------------------------------
 
 # Options
-my @opt_option;       # each element of these two outer arrays is a 
-my @opt_switch;       #  2-element array that contains the key and value pair. 
+my @opt_option;       # each element of these two outer arrays is a
+my @opt_switch;       #  2-element array that contains the key and value pair.
 my $opt_clear = 0;
 my $opt_help = 0;
 my $opt_install = 0;
@@ -178,6 +198,31 @@ if ($opt_help) {
 # --------------------------------------------------------------------------------------------
 
 if ($opt_verbose) { print "Working directory (test root): $root_dir\n"; }
+
+# --------------------------------------------------------------------------------------------
+# DIRTY CHEAT: If tools/reference-contracts/ is present, try to find at least one .wasm
+#   file in it. If there is none (i.e. it is pristine) then "cth -i" was probably never
+#   run. In that case, refuse to continue and tell the user they should run "cth -i" once.
+# --------------------------------------------------------------------------------------------
+
+use File::Find;
+use File::Spec;
+
+my $tools_reference_contracts = 'tools/reference-contracts';
+
+if (-d $tools_reference_contracts) {
+    my $wasm_found = 0;
+    sub search_wasm {
+        if (-f $_ && $_ =~ /\.wasm$/) {
+            $wasm_found = 1;
+            return;
+        }
+    }
+    find(\&search_wasm, $tools_reference_contracts);
+    if (!$wasm_found) {
+        die "ERROR: No .wasm files found under '$tools_reference_contracts'. This means you probably have not run 'cth --install bogustest' at least once! You should do that before running any tests, since that will call 'install' on all drivers, which will compile contracts that are required by the drivers, for example. Exiting.\n";
+    }
+}
 
 # --------------------------------------------------------------------------------------------
 # Get a list of all drivers
@@ -364,8 +409,6 @@ foreach my $pair (@opt_option) {
 print "\n";
 if ($opt_verbose) { print "Parameter string for all tests: $global_test_args\n\n"; }
 
-exit;
-
 foreach my $test (@tests) {
 
     # check if we will skip this test.
@@ -382,7 +425,7 @@ foreach my $test (@tests) {
     my $script = "run";
     my $log_file = "run.log";
     unlink $log_file;
-    print "Test " . $test . " " . ("." x (32 - length($test))) . " ";
+    print "Test " . $test . " " . ("." x (48 - length($test))) . " ";
     if (-e $script) {
         my $ret = system($script . " " . $global_test_args . " > $log_file 2>&1");
         if ($ret) {

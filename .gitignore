@@ -1,5 +1,5 @@
-tests/*/
 *.log
 *.pid
+driver.ini
 /local/*
 !/local/README.md

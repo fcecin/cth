@@ -7,6 +7,10 @@ use warnings;
 # Driver: doh-coldstart
 # Operation: start
 #
+# This driver depends on two other drivers:
+# - coldstart: runs nodeos
+# - cleos-driver: has the wallet file and a running keosd
+#
 # This will check the configured target (hgm, hg1, hg2, ...)
 # Then it will load the contracts map
 # Then it will extract the contract names and the contract code to deploy for each
@@ -23,9 +27,10 @@ use warnings;
 
 my $verbose = 0;
 
-my $coldstart_dir = "../coldstart";
+my $coldstart_dir    = "../coldstart";
+my $cleos_driver_dir = "../cleos-driver";
 
-my $cleos = "cleos --wallet-url unix://$coldstart_dir/keosd.sock";
+my $cleos = "cleos --wallet-url unix://$cleos_driver_dir/keosd.sock";
 
 my $cmd;
 my $o;
@@ -177,7 +182,8 @@ my $json = load_file($contracts_map);
 my $data = JSON::Tiny::decode_json($json);
 
 # -------------------------------------------------------------------------
-# Clear and start the backing coldstart driver
+# Clear and start the backing coldstart driver.
+# Starting coldstart also starts cleos-driver so we don't have to.
 # -------------------------------------------------------------------------
 
 print "Clearing coldstart ...\n";
@@ -300,8 +306,6 @@ if (ref($data) eq 'ARRAY') {
                     command(qq|$cleos set contract $account ../../tools/doh-contracts/sighandler-token-contract/build/${code}/ ${code}.wasm ${code}.abi|);
                 } else {
                     command(qq|$cleos set contract $account ../../tools/doh-contracts/doh-${code}-contract/build/${code}/ ${code}.wasm ${code}.abi|);
-                    #command(qq|$cleos set code $account ../../tools/doh-contracts/doh-${code}-contract/build/${code}/${code}.wasm|);
-                    #command(qq|$cleos set abi $account ../../tools/doh-contracts/doh-${code}-contract/build/${code}/${code}.abi|);
                 }
             }
 
