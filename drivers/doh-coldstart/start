@@ -207,6 +207,29 @@ if ($? != 0) {
 }
 
 # -------------------------------------------------------------------------
+# Figure out where the .wasm and .abi files are depending on the target.
+# We expect the compiled contracts to be under local/ as per this driver's
+#    install script.
+#
+# Here we translate the OLD target names (which is what we are using)
+#   to the prod, staging, dev target names of the doh-contracts scripts.
+# -------------------------------------------------------------------------
+
+my $doh_contracts_dir = "../../local/";
+if ($target eq 'hgm') {
+    $doh_contracts_dir .= "prod";
+} elsif ($target eq 'hg1') {
+    $doh_contracts_dir .= "staging";
+} elsif ($target eq 'hg2') {
+    $doh_contracts_dir .= "dev";
+} else {
+    die "ERROR: doh-coldstart: does not know where to fetch doh-contracts for target: $target; expected hgm, hg1 or hg2 as configured target names in the driver.\n";
+}
+$doh_contracts_dir .= "/doh-contracts";
+
+# end result is something like:  "../../local/prod/doh-contracts"
+
+# -------------------------------------------------------------------------
 # For each doh-deployment-script entry, create accounts and deploy code
 # -------------------------------------------------------------------------
 
@@ -309,9 +332,9 @@ if (ref($data) eq 'ARRAY') {
 
                 my $set_contract_command;
                 if ($code eq 'tokens') {
-                    $set_contract_command = qq|$cleos set contract $account ../../tools/doh-contracts/sighandler-token-contract/build/${code}/ ${code}.wasm ${code}.abi|;
+                    $set_contract_command = qq|$cleos set contract $account $doh_contracts_dir/sighandler-token-contract/build/${code}/ ${code}.wasm ${code}.abi|;
                 } else {
-                    $set_contract_command = qq|$cleos set contract $account ../../tools/doh-contracts/doh-${code}-contract/build/${code}/ ${code}.wasm ${code}.abi|;
+                    $set_contract_command = qq|$cleos set contract $account $doh_contracts_dir/doh-${code}-contract/build/${code}/ ${code}.wasm ${code}.abi|;
                 }
                 my $set_contract_success = 0;
                 my $i;

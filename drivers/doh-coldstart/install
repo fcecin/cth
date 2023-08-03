@@ -1,28 +1,120 @@
 #!/usr/bin/perl
 
+# ---------------------------------------------------------------------------
+# Global vars
+# ---------------------------------------------------------------------------
+
 my $driver = "doh-coldstart";
-my $dir = "../../tools/doh-contracts/";
-my $file = "run-build.sh";
 
-print "$driver: Checking for doh-contracts at $dir\n";
+my $source_dir = "../../tools/doh-contracts"; # source dir with the template
 
-if (-e "$dir$file") {
-    print "$driver: Directory found. Running DoH contracts build script...\n";
-    chdir $dir;
-    system("$file");
+my $run_build_sh = "run-build.sh";
+
+my $local_prod_dir     = "../../local/prod/doh-contracts";
+my $local_staging_dir  = "../../local/staging/doh-contracts";
+my $local_dev_dir      = "../../local/dev/doh-contracts";
+
+# ---------------------------------------------------------------------------
+# Utils
+# ---------------------------------------------------------------------------
+
+# target is prod, staging, dev
+sub copy_doh {
+    my $target = shift;
+    die "ERROR: doh-coldstart: copy target not defined" unless (defined $target);
+
+    my $destination = "../../local/$target/";
+
+    system("mkdir -p $destination") == 0 or die "ERROR: doh-coldstart: Failed to create target directory $destination: $!";
+    system("cp -r $source_dir $destination") == 0 or die "ERROR: doh-coldstart: Failed to copy $source_dir to $destination: $!";
+}
+
+# ---------------------------------------------------------------------------
+# The doh-contracts/ meta-submodule is a CODE TEMPLATE. It is not actual
+#   source code for the DoH contracts suite. It has to be preprocessed for
+#   ALL DoH targets, i.e. prod (hgm/tcn), staging (hg1/tc1) and dev (hg2/tc2),
+#   to produce THREE different DoH contract suites that are specific to each
+#   target.
+#
+# This installer will recompile ALL targets, FULLY. The build system as a
+#   whole is not smart enough yet to save work. Run cth -i dummy and grab
+#   a mug of coffee.
+# ---------------------------------------------------------------------------
+
+print "$driver: Checking for doh-contracts at $source_dir\n";
+
+if (-e "$source_dir/$run_build_sh") {
+    print "$driver: DoH contracts found.\n";
 } else {
     print "$driver: ERROR: DoH contracts not found in the expected tools directory path.\n";
     exit 1;
 }
 
-# Check the exit status of the build script
-my $ret = $?;
-print "$driver: Contract build script raw exit code (must be zero): $ret\n";
+# ---------------------------------------------------------------------------
+# Copy the tools/doh-contracts template to:
+#   local/prod/doh-contracts/
+#   local/staging/doh-contracts/
+#   local/dev/doh-contracts/
+# ---------------------------------------------------------------------------
+
+print "$driver: Copying contract templates to local/ for all DoH targets ...\n";
+
+copy_doh("prod");
+copy_doh("staging");
+copy_doh("dev");
+
+# ---------------------------------------------------------------------------
+# And then run:
+#   local/prod/doh-contracts/set-prod.sh
+#   local/staging/doh-contracts/set-staging.sh
+#   local/dev/doh-contracts/set-dev.sh
+# ---------------------------------------------------------------------------
+
+print "$driver: Instantiating contract templates on local/ for all DoH targets ...\n";
+
+system("$local_prod_dir/set-prod.sh") == 0 or die "ERROR: $driver: Failed to create prod contracts: $!";
+system("$local_staging_dir/set-staging.sh") == 0 or die "ERROR: $driver: Failed to create staging contracts: $!";
+system("$local_dev_dir/set-dev.sh") == 0 or die "ERROR: $driver: Failed to create dev contracts: $!";
+
+# ---------------------------------------------------------------------------
+# And then run:
+#   local/prod/doh-contracts/run-build.sh
+#   local/staging/doh-contracts/run-build.sh
+#   local/dev/doh-contracts/run-build.sh
+# ---------------------------------------------------------------------------
+
+my $ret;
+
+print "$driver: Running DoH contracts build script for prod...\n";
+chdir $local_prod_dir;
+$ret = system($run_build_sh);
 if ($ret == 0) {
-    print "$driver: DoH contracts built successfully\n";
+    print "$driver: DoH contracts built successfully at $local_prod_dir\n";
 } else {
-    my $exit_status = $ret >> 8;
-    print "$driver: ERROR: DoH contracts build failed with error code: $exit_status\n";
+    my $exit_code = $ret >> 8;
+    print "$driver: ERROR: DoH contracts build failed. system() returned: $ret, exit code: $exit_status.\n";
+    exit 1;
+}
+
+print "$driver: Running DoH contracts build script for staging...\n";
+chdir $local_staging_dir;
+$ret = system($run_build_sh);
+if ($ret == 0) {
+    print "$driver: DoH contracts built successfully at $local_staging_dir\n";
+} else {
+    my $exit_code = $ret >> 8;
+    print "$driver: ERROR: DoH contracts build failed. system() returned: $ret, exit code: $exit_status.\n";
+    exit 1;
+}
+
+print "$driver: Running DoH contracts build script for dev...\n";
+chdir $local_dev_dir;
+$ret = system($run_build_sh);
+if ($ret == 0) {
+    print "$driver: DoH contracts built successfully at $local_dev_dir\n";
+} else {
+    my $exit_code = $ret >> 8;
+    print "$driver: ERROR: DoH contracts build failed. system() returned: $ret, exit code: $exit_status.\n";
     exit 1;
 }
 
