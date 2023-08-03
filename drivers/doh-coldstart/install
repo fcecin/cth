@@ -1,8 +1,16 @@
 #!/usr/bin/perl
 
+use strict;
+use warnings;
+use Cwd;
+
 # ---------------------------------------------------------------------------
 # Global vars
 # ---------------------------------------------------------------------------
+
+use FindBin qw($RealBin);
+
+my $current_dir = getcwd();
 
 my $driver = "doh-coldstart";
 
@@ -18,6 +26,11 @@ my $local_dev_dir      = "../../local/dev/doh-contracts";
 # Utils
 # ---------------------------------------------------------------------------
 
+# change to driver dir
+sub chdir_driver_dir {
+    chdir($RealBin) or die "ERROR: $driver: Failed to change working directory: $!";
+}
+
 # target is prod, staging, dev
 sub copy_doh {
     my $target = shift;
@@ -25,6 +38,11 @@ sub copy_doh {
 
     my $destination = "../../local/$target/";
 
+    my $to_remove = $destination . "doh-contracts";
+
+    if (-d $to_remove) {
+        system("rm -rf $destination") == 0 or die "ERROR: doh-coldstart: Error while trying to clear old local copy of doh_contracts for target $target ('rm -rf $to_remove'): $!";
+    }
     system("mkdir -p $destination") == 0 or die "ERROR: doh-coldstart: Failed to create target directory $destination: $!";
     system("cp -r $source_dir $destination") == 0 or die "ERROR: doh-coldstart: Failed to copy $source_dir to $destination: $!";
 }
@@ -40,6 +58,8 @@ sub copy_doh {
 #   whole is not smart enough yet to save work. Run cth -i dummy and grab
 #   a mug of coffee.
 # ---------------------------------------------------------------------------
+
+chdir_driver_dir();
 
 print "$driver: Checking for doh-contracts at $source_dir\n";
 
@@ -86,35 +106,41 @@ system("$local_dev_dir/set-dev.sh") == 0 or die "ERROR: $driver: Failed to creat
 my $ret;
 
 print "$driver: Running DoH contracts build script for prod...\n";
-chdir $local_prod_dir;
+chdir_driver_dir();     # absolute
+chdir $local_prod_dir;  # relative
+print "Current working directory: " . getcwd() .  "\n";
 $ret = system($run_build_sh);
 if ($ret == 0) {
     print "$driver: DoH contracts built successfully at $local_prod_dir\n";
 } else {
     my $exit_code = $ret >> 8;
-    print "$driver: ERROR: DoH contracts build failed. system() returned: $ret, exit code: $exit_status.\n";
+    print "$driver: ERROR: DoH contracts build failed. system() returned: $ret, exit code: $exit_code.\n";
     exit 1;
 }
 
 print "$driver: Running DoH contracts build script for staging...\n";
-chdir $local_staging_dir;
+chdir_driver_dir();        # absolute
+chdir $local_staging_dir;  # relative
+print "Current working directory: " . getcwd() .  "\n";
 $ret = system($run_build_sh);
 if ($ret == 0) {
     print "$driver: DoH contracts built successfully at $local_staging_dir\n";
 } else {
     my $exit_code = $ret >> 8;
-    print "$driver: ERROR: DoH contracts build failed. system() returned: $ret, exit code: $exit_status.\n";
+    print "$driver: ERROR: DoH contracts build failed. system() returned: $ret, exit code: $exit_code.\n";
     exit 1;
 }
 
 print "$driver: Running DoH contracts build script for dev...\n";
-chdir $local_dev_dir;
+chdir_driver_dir();    # absolute
+chdir $local_dev_dir;  # relative
+print "Current working directory: " . getcwd() .  "\n";
 $ret = system($run_build_sh);
 if ($ret == 0) {
     print "$driver: DoH contracts built successfully at $local_dev_dir\n";
 } else {
     my $exit_code = $ret >> 8;
-    print "$driver: ERROR: DoH contracts build failed. system() returned: $ret, exit code: $exit_status.\n";
+    print "$driver: ERROR: DoH contracts build failed. system() returned: $ret, exit code: $exit_code.\n";
     exit 1;
 }
 

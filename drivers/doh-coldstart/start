@@ -227,6 +227,8 @@ if ($target eq 'hgm') {
 }
 $doh_contracts_dir .= "/doh-contracts";
 
+print "Compiled DoH contracts for deployment will be taken from '$doh_contracts_dir'.\n";
+
 # end result is something like:  "../../local/prod/doh-contracts"
 
 # -------------------------------------------------------------------------
