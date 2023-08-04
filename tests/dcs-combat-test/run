@@ -186,6 +186,13 @@ sub failed {
 #    is also fine if all tests are done.
 # --------------------------------------------------------------------------------------------
 
+# ---
+
+crashed() if cth_cleos(qq|system newaccount eosio dohplayer1 EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV --stake-cpu "10000.0000 EOS" --stake-net "10000.0000 EOS" --buy-ram-kbytes 1000 --transfer|);
+
+crashed() if cth_cleos(qq|system newaccount eosio dohplayer2 EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV --stake-cpu "10000.0000 EOS" --stake-net "10000.0000 EOS" --buy-ram-kbytes 1000 --transfer|);
+
+# --- combat-test.sh 
 
 crashed() if cth_cleos(qq|push action clock.${doh_target} useclock '{}' -p clock.${doh_target}|);
 
@@ -231,11 +238,31 @@ crashed() if cth_cleos(qq|push action staking.${tcn_target} enable '{}' -p staki
 # *** TODO/REVIEW : Why is useclock repeating?
 #crashed() if cth_cleos(qq|push action clock.${doh_target} useclock '{}' -p clock.${doh_target}|);
 
-
 crashed() if cth_cleos(qq|push action hegemon.${doh_target} regplayer '{"player":"dohplayer1", "opt_out_of_politics":false}' --force-unique -p dohplayer1|);
 crashed() if cth_cleos(qq|push action hegemon.${doh_target} regplayer '{"player":"dohplayer2", "opt_out_of_politics":false}' --force-unique -p dohplayer2|);
+
+
+# *** Create first char for dohplayer1
 crashed() if cth_cleos(qq|push action hegemon.${doh_target} createchar '{"player":"dohplayer1"}' --force-unique -p dohplayer1|);
+
+
+# *** Player 'dohplayer1' needs extra clones to be able to create more than one character
+# *** Farm clones, resolve, then advance time to regenerate bacl the energy
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} dowork '{"character_id":"1", "activity":5}' --force-unique -p dohplayer1|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} dowork '{"character_id":"1", "activity":5}' --force-unique -p dohplayer1|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} dowork '{"character_id":"1", "activity":5}' --force-unique -p dohplayer1|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} dowork '{"character_id":"1", "activity":5}' --force-unique -p dohplayer1|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} dowork '{"character_id":"1", "activity":5}' --force-unique -p dohplayer1|);
+crashed() if cth_cleos(qq|push action clock.${doh_target} clockadd '{"blocks":600}' --force-unique -p clock.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} updaterng '{}' --force-unique -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} resolverngs '{"count":0}' --force-unique -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} proc '{"count":0}' --force-unique -p hegemon.${doh_target}|);
+
+
+# *** Create second char for dohplayer1
 crashed() if cth_cleos(qq|push action hegemon.${doh_target} createchar '{"player":"dohplayer1"}' --force-unique -p dohplayer1|);
+
+
 crashed() if cth_cleos(qq|push action hegemon.${doh_target} createchar '{"player":"dohplayer2"}' --force-unique -p dohplayer2|);
 crashed() if cth_cleos(qq|push action clock.${doh_target} clockadd '{"blocks":600}' --force-unique -p clock.${doh_target}|);
 crashed() if cth_cleos(qq|push action hegemon.${doh_target} docombat '{"player":"dohplayer1", "faction_id":4}' --force-unique -p dohplayer1|);
