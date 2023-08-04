@@ -508,9 +508,10 @@ foreach my $test (@tests) {
 
 $sum_total = $sum_pass + $sum_fail + $sum_skip;
 
-$sum_pass = sprintf("%4d", $sum_pass);
-$sum_fail = sprintf("%4d", $sum_fail);
-$sum_skip = sprintf("%4d", $sum_skip);
+$sum_pass  = sprintf("%4d", $sum_pass);
+$sum_fail  = sprintf("%4d", $sum_fail);
+$sum_skip  = sprintf("%4d", $sum_skip);
+$sum_total = sprintf("%4d", $sum_total);
 
 print "\n";
 print "-------------\n";

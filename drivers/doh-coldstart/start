@@ -89,6 +89,10 @@ sub command {
         print "Output: $o\n";
         fail();
     }
+    #else {
+    #    print "Command: $cmd\n";
+    #    print "Output: $o\n";
+    #}
 }
 
 sub to_json_string {
@@ -254,13 +258,11 @@ if (ref($data) eq 'ARRAY') {
             if (defined $e->{owner_permission_level} && $e->{owner_permission_level} ne '') {
                 $owner_permission_level = $e->{active_permission_level};
                 $owner_permission_level = to_json_string($owner_permission_level);
-                $owner_permission_level =~ s/"/\\"/g;
             }
             my $active_permission_level = 'EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV';
             if (defined $e->{active_permission_level} && $e->{active_permission_level} ne '') {
                 $active_permission_level = $e->{active_permission_level};
                 $active_permission_level = to_json_string($active_permission_level);
-                $active_permission_level =~ s/"/\\"/g;
             }
             my $description = $e->{description};
 
@@ -321,7 +323,12 @@ if (ref($data) eq 'ARRAY') {
 
             # Create the account
             print "Creating account $account ...\n";
-            command(qq|$cleos system newaccount eosio $account "$owner_permission_level" "$active_permission_level" $cpu $net $ram --transfer|);
+            command(qq|$cleos system newaccount eosio $account '$owner_permission_level' '$active_permission_level' $cpu $net $ram --transfer|);
+
+            # Set code permission to all accounts with code
+            if ($code ne '') {
+                command(qq|$cleos set account permission $account active --add-code -p ${account}|);
+            }
 
             # Deploy the code if any
             if ($code ne '') {
