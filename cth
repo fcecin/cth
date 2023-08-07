@@ -144,6 +144,8 @@ my $sum_fail = 0;
 my $sum_pass = 0;
 my $sum_skip = 0;
 
+my $name_filter_skip = 0; # tests skipped because of no match for provided name filters
+
 my @sum_passed_tests;
 my @sum_failed_tests;
 my @sum_skipped_tests;
@@ -203,6 +205,12 @@ if ($opt_help) {
     print "    cth -i bogustest\n";
     print "  Run all cth-goodies tests against a public testnet:\n";
     print "    cth -s cleos_url=https://testnet.uxnetwork.io\n";
+    print "\n";
+    print "Auto Switch Filter:\n";
+    print "  Test directories with the SWITCHNAME=VALUE pattern in their name will be\n";
+    print "  automatically skipped by cth if the switch SWITCHNAME is not defined with the\n";
+    print "  exact value VALUE. For example, 'target=hg2-dashes-are-separators' requires\n"; 
+    print "  'cth -s target=hg2'.\n";
     print "\n";
     print "Options:\n";
     print "\n";
@@ -430,6 +438,18 @@ if ($opt_clear) {
 # Run tests
 # --------------------------------------------------------------------------------------------
 
+sub get_switch_value {
+    my $switchname = shift;
+    if (! defined $switchname) { die "ERROR: has_switch: undefined switchname"; };
+    foreach my $pair (@opt_switch) {
+        my ($key, $value) = @$pair;
+        if ($key eq $switchname) {
+            return $value;
+        }
+    }
+    return; # undef
+}
+
 print "Running tests ...\n";
 if ($opt_verbose) { print "The output of each test is saved to the 'run.log' file on each test directory.\n"; }
 print "\n";
@@ -456,7 +476,11 @@ foreach my $test (@tests) {
     # if no test names were passed in, that actually means we run all tests without checking
     #    if they are in the list (which is empty)
     if (scalar(@testspecs) != 0) {
-        if (!grep { $_ eq $test } @testspecs) { next; } # skip this test if it isn't in the list
+        if (!grep { $_ eq $test } @testspecs) {
+            # skip this test if it isn't in the list
+            $name_filter_skip++;
+            next;
+        }
     }
 
     # run the test
@@ -467,7 +491,30 @@ foreach my $test (@tests) {
     my $log_file = "run.log";
     unlink $log_file;
     print "Test " . $test . " " . ("." x (48 - length($test))) . " ";
-    if (-e $script) {
+
+    # pass test name through the auto switch filter
+    my $auto_switch_filter_skip_test = 0;
+    my $tmp = $test;
+    while ($tmp =~ /(?:^|\W)(\w+:\w+)(?:\W|$)/g) {
+        my ($switchname, $switchvalue) = split /:/, $1;
+        my $actualvalue = get_switch_value($switchname);
+        if (!defined $actualvalue) {
+            print "Skipped (missing switch '$switchname')\n";
+            $auto_switch_filter_skip_test = 1;
+            last;
+        }
+        if ($actualvalue ne $switchvalue) {
+            print "Skipped (switch '$switchname' != '$switchvalue')\n";
+            $auto_switch_filter_skip_test = 1;
+            last;
+        }
+    }
+
+    # tally and/or run test
+    if ($auto_switch_filter_skip_test) {
+        $sum_skip++;
+        push @sum_skipped_tests, $test;
+    } elsif (-e $script) {
         my $ret = system($script . " " . $global_test_args . " > $log_file 2>&1");
         if ($ret) {
             if ($ret < 0) {
@@ -518,6 +565,12 @@ print "-------------\n";
 print "Test summary:\n";
 print "-------------\n";
 print "\n";
+
+if ($name_filter_skip > 0) {
+    print "Filtered $name_filter_skip tests by name (not included in stats below).\n";
+    print "\n";
+}
+
 print "Passed     : $sum_pass\n";
 print "Failed     : $sum_fail\n";
 print "Skipped    : $sum_skip\n";
@@ -562,6 +615,8 @@ print "\n";
 if ($sum_fail > 0) {
     print "RESULT: FAILED\n";
     exit 1;
-} else {
+} elsif ($sum_pass > 0) {
     print "RESULT: PASSED\n";
+} else {
+    print "RESULT: NONE\n";
 }

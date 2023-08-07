@@ -24,14 +24,18 @@
 #
 # WIP - FIXME/TODO:
 #
-# - create accounts for players
+# - this test self-excludes if HGM (since the test+driver flow cannot deal with
+#   synthetic clock & oracle not being available)
+#
+# - make it work with hg1/hg2 -- solve the mine.en.tc# authorization error
+#   
 # - check if we need to deal with e.g. TCN issuance for this test
 # - check if we need anything else for this test (e.g. from drip-distrib.sh)
 #
 # - add rest of test w/ asserts
 # - test remote
 #   - will probably need to think about test cleanups
-
+#
 # --------------------------------------------------------------------------------------------
 
 use strict;
