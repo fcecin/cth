@@ -1,9 +1,5 @@
 
-doh-coldstart is a reference driver for the development of more advanced DoH test drivers, or for debugging.
-
-Since doh-coldstart is built on top of coldstart, it does NOT support parallel test execution.
-
-This driver takes care of starting the coldstart reference driver (which starts a local nodeos on the default HTTP port). Afterwards, it deploys the doh contracts.
+doh-perma is a simple, reference DoH test driver that wipes out DoH contract state on an existing blockchain and DoH contract deployment. It needs no installation.
 
 IMPORTANT: This driver must be 'configure'd first before it will work. It will refuse to 'start' if it is not 'configure'd first.
 
@@ -12,7 +8,8 @@ To configure the driver, call:
 
 Replace (suffix) with hgm, hg1, hg2, or another valid DoH contracts target.
 
-Testcases can invoke this driver directly, and it will take care of coldstart in its backend.
+If you are going to use a cleos URL that's not the default (https://127.0.0.1:8888), you must also configure that:
 
-You must call 'install' at least once (which is done by 'cth -i') to compile the doh-contracts (should be a cth submodule under tools/). The doh-contracts build script actually refreshes the doh-contracts submodules (the various contracts) so you may want to reinstall this driver manually (by calling 'install' inside this driver) from time to time to pick up and compile new doh-contracts code.
+  configure --cleos_url=(nodeos HTTP URL)
 
+Just like e.g. doh-coldstart, this reference driver does not support parallel execution.
