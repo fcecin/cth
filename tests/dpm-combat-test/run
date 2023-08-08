@@ -1,6 +1,14 @@
 #!/usr/bin/perl
 
 # --------------------------------------------------------------------------------------------
+# This test script is DISABLED (entirely commented out).
+# FIXME/TODO: add a new return code for tests that have been individually turned off 
+# --------------------------------------------------------------------------------------------
+
+print "This test is DISABLED.\n";
+cth_skip_test();
+
+# --------------------------------------------------------------------------------------------
 # dpm-combat-test
 #
 # Test naming convention:
@@ -56,7 +64,7 @@ sub get_tcn_target {
 #    not specified, it will default to hg2.
 # --------------------------------------------------------------------------------------------
 
-my $doh_target = "hg1";   # default to hg1, as hg2 is g's environment
+my $doh_target = "hg2";   # default to hg2 ; ux5/hg1 is a stable environment that's not for tests
 
 my $tcn_target;
 
@@ -81,9 +89,20 @@ my ($switches, $options) = cth_standard_args_parser(
 
     );
 
-#
+# --------------------------------------------------------------------------------------------
+# *********************** FIXME/TODO/REVIEW **************************************************
+# TEMPORARY: TEST IS DISABLED if cleos_url is given (possibility of remote execution)
+#            so we are not destroying the ux5 telegram bot on accident
+# --------------------------------------------------------------------------------------------
+
+if (exists $switches->{'cleos_url'}) {
+    print "SKIP: TEMPORARY DISABLE TEST IF CLEOS_URL GIVEN AT ALL.\n";
+    cth_skip_test();
+}
+
+# --------------------------------------------------------------------------------------------
 # Set the target
-#
+# --------------------------------------------------------------------------------------------
 
 if (exists $switches->{'target'}) {
     $doh_target = $switches->{'target'};
@@ -92,17 +111,17 @@ if (exists $switches->{'target'}) {
     print "Using test's default DoH target: $doh_target\n";
 }
 
-if ($doh_target ne 'hg1') {
-    print "SKIP: This test is self-excluding itself since target is not hg1.\n";
+if ($doh_target ne 'hg2') {
+    print "SKIP: This test is self-excluding itself since target is not hg2.\n";
     cth_skip_test();
 }
 
 $tcn_target = get_tcn_target($doh_target);
 print "TCN target set to: $tcn_target\n";
 
-#
+# --------------------------------------------------------------------------------------------
 # Set the cleos URL
-#
+# --------------------------------------------------------------------------------------------
 
 if (exists $switches->{'cleos_url'}) {
     print "Blockchain endpoint set to: " . $switches->{'cleos_url'} . "\n";
@@ -113,16 +132,16 @@ if (exists $switches->{'cleos_url'}) {
     print "Assuming default blockchain endpoint (https://127.0.0.1:8888)\n";
 }
 
-#
+# --------------------------------------------------------------------------------------------
 # Boot cleos driver (wallet)
-#
+# --------------------------------------------------------------------------------------------
 
 $ret = cth_set_cleos_provider("cleos-driver");
 if ($ret) { die "ERROR: cth_set_cleos_provider failed\n"; }
 
-#
+# --------------------------------------------------------------------------------------------
 # Start the doh-perma driver (which should start cleos-driver)
-#
+# --------------------------------------------------------------------------------------------
 
 $ret = cth_call_driver("doh-perma", "configure --target=" . $doh_target);
 if ($ret) { die "ERROR: cth_call_driver failed\n"; }
@@ -279,7 +298,7 @@ crashed() if cth_cleos(qq|push action hegemon.${doh_target} resolverngs '{"count
 
 my $expected_checksum256 = '3786e2d0a8286823a1586b3996537d106e32779c8bf0d732c0c12a0d3e3611fd';
 
-my $actual_checksum256 = cth_cleos_pipe(qq*push action hegemon.${doh_target} proc '{"count":0}' --force-unique -p hegemon.${doh_target} --json | jq .processed.action_traces[1].console | awk -F "checksum256:" '{print substr($NF, 1, 64)}'*);
+my $actual_checksum256 = cth_cleos_pipe(qq*push action hegemon.${doh_target} proc '{"count":0}' --force-unique -p hegemon.${doh_target} --json | jq .processed.action_traces[1].console | awk -F "checksum256:" '{print substr(\$NF, 1, 64)}'*);
 
 crashed() if (!defined $actual_checksum256);
 

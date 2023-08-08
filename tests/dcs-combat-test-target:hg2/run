@@ -37,6 +37,8 @@
 #   - check if we need to deal with e.g. TCN issuance for this test
 #   - check if we need anything else for this test (e.g. from drip-distrib.sh)
 #   - add rest of test w/ asserts
+# - remove hg2 switch test from name, make it work for both hg2 and hg1 (which
+#   have deterministic oracle and clock in the code).
 # --------------------------------------------------------------------------------------------
 
 use strict;
@@ -104,6 +106,26 @@ my ($switches, $options) = cth_standard_args_parser(
     ""
 
     );
+
+# --------------------------------------------------------------------------------------------
+# *********************** FIXME/TODO/REVIEW **************************************************
+# TEMPORARY: TEST IS DISABLED if cleos_url is given (possibility of remote execution)
+#            so we are not destroying the ux5 telegram bot on accident
+#
+# ... but this doesn't matter for "start" strategy drivers which is what this test uses.
+#     I guess you could (?) specify a cleos_url that points to a different port (possible),
+#     or an IP address that a super smart start driver would know how to ssh into and start
+#     a nodeos *there* (less likely).
+#     So when "127.0.0.1:DIFFERENT-PORT" is used via cleos_url, this will need to be removed
+#     (the start driver will have to know that the nodeos has to start at that port, and
+#      change the config.ini of nodeos accordingly to configure the HTTP endpoint, and also
+#      a different P2P endpoint!) 
+# --------------------------------------------------------------------------------------------
+
+if (exists $switches->{'cleos_url'}) {
+    print "SKIP: TEMPORARY DISABLE TEST IF CLEOS_URL GIVEN AT ALL.\n";
+    cth_skip_test();
+}
 
 # -----------------------------------------------------------------------------------------
 # CHANGED: We ignore cleos_url in this test. It is purely a coldstart test.

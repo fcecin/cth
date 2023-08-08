@@ -121,6 +121,20 @@ if ($cleos_url ne '') {
     print "doh-perma: Configuration 'cleos_url' not provided; will use the default cleos URL.\n";
 }
 
+# --------------------------------------------------------------------------------------------
+# Run cleos-driver to create the wallet and start keosd
+# --------------------------------------------------------------------------------------------
+
+print "Starting cleos-driver ...\n";
+
+$cmd = "$cleos_driver_dir/start";
+$o = `$cmd`;
+if ($? != 0) {
+    print "ERROR: cleos-driver start returned an error code.\n";
+    print "Output: $o\n";
+    exit 1;
+}
+
 # -------------------------------------------------------------------------
 # Wipe off the DoH contracts
 # This does not include wiping off TCN balances from test player accounts,

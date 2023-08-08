@@ -12,24 +12,22 @@ if (!chdir($RealBin)) {
 }
 
 my $config_file = "driver.ini";
-my $opt_target;
-my $opt_reset;
-my $opt_help;
-my $opt_get;
+my %options;
 
 GetOptions(
-    "help|h"   => \$opt_help,
-    "target=s" => \$opt_target,
-    "reset"    => \$opt_reset,
-    "get=s"    => \$opt_get
+    "help|h"      => \$options{help},
+    "target=s"    => \$options{target},
+    "cleos_url=s" => \$options{cleos_url},
+    "reset"       => \$options{reset},
+    "get=s"       => \$options{get}
 ) or die "ERROR: invalid command line. Use --help to see usage.";
 
-if ($opt_help) {
-    print "Usage: configure [--target=hgm|hg1|hg2|...] [--reset] [--get=target|...] [--help|-h]\n";
+if ($options{help}) {
+    print "Usage: configure [--target=hgm|hg1|hg2|...] [--cleos_url=...][--reset] [--get=target|...] [--help|-h]\n";
     exit;
 }
 
-if ($opt_reset) {
+if ($options{reset}) {
     if (-e $config_file) {
         unlink $config_file;
         print "Deleted $config_file\n";
@@ -40,38 +38,47 @@ if ($opt_reset) {
 }
 
 if (-e $config_file) {
-    if ($opt_get) {
-        my $value = get_key_from_ini($config_file, $opt_get);
+    if ($options{get}) {
+        my $value = get_key_from_ini($config_file, $options{get});
         print "$value\n" if defined $value;
-    } elsif ($opt_target) {
-        update_target_in_ini($config_file, $opt_target);
     } else {
+        update_config_in_ini($config_file, \%options);
         print "Content of $config_file:\n";
         print_ini_content($config_file);
     }
 } else {
-    if ($opt_get) {
+    if ($options{get}) {
         # do/print nothing
-    } elsif ($opt_target) {
-        create_ini_with_target($config_file, $opt_target);
     } else {
-        print "$config_file does not exist\n";
+        create_ini_with_config($config_file, \%options);
+        print "Content of $config_file:\n";
+        print_ini_content($config_file);
     }
 }
 
-sub update_target_in_ini {
-    my ($file, $target) = @_;
+sub update_config_in_ini {
+    my ($file, $options) = @_;
     my $backup_file = "$file.bak";
+
+    my %new_options;
 
     open(my $in_fh, "<", $file) or die "ERROR: opening $file: $!";
     open(my $out_fh, ">", $backup_file) or die "ERROR: creating $backup_file: $!";
 
     while (my $line = <$in_fh>) {
         chomp $line;
-        if ($line =~ /^target\s*=\s*(.*)/) {
-            $line = "target = $target";
+        my ($key, $value) = split /\s*=\s*/, $line, 2;
+        $new_options{$key} = $value;
+    }
+
+    for my $key (keys %$options) {
+        if (defined $options->{$key} && $options->{$key} ne "") {
+            $new_options{$key} = $options->{$key};
         }
-        print $out_fh "$line\n";
+    }
+
+    for my $key (keys %new_options) {
+        print $out_fh "$key = " . $new_options{$key} . "\n";
     }
 
     close($in_fh);
@@ -79,15 +86,20 @@ sub update_target_in_ini {
 
     unlink $file;
     rename $backup_file, $file;
-    print "Updated $file with target = $target\n";
+    print "Updated $file\n";
 }
 
-sub create_ini_with_target {
-    my ($file, $target) = @_;
+sub create_ini_with_config {
+    my ($file, $options) = @_;
     open(my $fh, ">", $file) or die "ERROR: creating $file: $!";
-    print $fh "target = $target\n";
+    for my $key (keys %$options) {
+        if (defined $options->{$key} && $options->{$key} ne "") {
+            print $fh "$key = " . $options->{$key} . "\n";
+            print "printed in file: $key = " . $options->{$key} . "\n";
+        }
+    }
     close($fh);
-    print "Created $file with target = $target\n";
+    print "Created $file\n";
 }
 
 sub print_ini_content {
