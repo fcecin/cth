@@ -204,17 +204,24 @@ sub cth_cleos_pipe {
 #   or 1 if it is false.
 # Expression must be a valid Perl expression and should generally not
 #   reference any variables.
+# To use $expr + $orig effectively, you do something like this:
+#   my $a = 5;
+#   my $b = 10;
+#   my $orig = '$a == $b';
+#   my $expr = qq($orig);
+#   my $ret = cth_assert("We are checking.", $expr, $orig);
 #
 # inputs:
 #   $desc : assertion description
-#   $expr : expression to evaluate
+#   $expr : expression to evaluate (with variable substitution applied)
+#   $orig : (OPTIONAL) original expression (before var. substitution)
 #
 # output:
 #   $retval : 0 if assert succeeds, 1 if assert fails
 # -----------------------------------------------------------------------
 
 sub cth_assert {
-    my ($desc, $expr) = @_;
+    my ($desc, $expr, $orig) = @_;
     if (! defined $desc) {
         print "ERROR: cth_assert: desc argument is undefined\n";
         return 1;
@@ -224,10 +231,14 @@ sub cth_assert {
         return 1;
     }
     if ($expr) {
-        print "cth_assert: '$desc': '$expr' is true.\n";
+        print "cth_assert: '$desc': '$expr' is true";
+        if (defined $orig) { print " ('$orig')"; }
+        print ".\n";
         return 0;
     } else {
-        print "ERROR: cth_assert: '$desc': '$expr' is false.\n";
+        print "ERROR: cth_assert: '$desc': '$expr' is false";
+        if (defined $orig) { print " ('$orig')"; }
+        print ".\n";
         return 1;
     }
 }
