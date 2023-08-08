@@ -107,24 +107,40 @@ $ret = cth_set_cleos_provider("cleos-driver");
 if ($ret) { die "ERROR: cth_set_cleos_provider failed\n"; }
 
 #
-# FIXME/TODO: start the doh-perma driver (which should start cleos-driver)
+# Start the doh-perma driver (which should start cleos-driver)
 #
 
-#$ret = cth_call_driver("doh-perma", "configure --target=" . $doh_target);
-#if ($ret) { die "ERROR: cth_call_driver failed\n"; }
+$ret = cth_call_driver("doh-perma", "configure --target=" . $doh_target);
+if ($ret) { die "ERROR: cth_call_driver failed\n"; }
 
-#$ret = cth_call_driver("doh-perma", "start");
-#if ($ret) { die "ERROR: cth_call_driver failed\n"; }
+if (defined $switches->{'cleos_url'}) {
+    # This is optional; if we don't configure this, the driver will use the cleos default
+    #   of https://127.0.0.1:8888.
+    $ret = cth_call_driver("doh-perma", "configure --cleos_url=" . $switches->{'cleos_url'} );
+    if ($ret) { die "ERROR: cth_call_driver failed\n"; }
+}
+
+# The only thing this does is reset the DoH contracts
+$ret = cth_call_driver("doh-perma", "start");
+if ($ret) { die "ERROR: cth_call_driver failed\n"; }
 
 # --------------------------------------------------------------------------------------------
 # We will shut down the driver and fail the test whenever a test step fails.
 # --------------------------------------------------------------------------------------------
 
+sub inform {
+    my $what = shift;
+    if (!defined $what) { $what = "doing something\n"; }
+    print "INFO: Failed while '$what'.\n";
+}
+
 sub cleanup {
-    # FIXME/TODO:
-    #
-    #$ret = cth_call_driver("doh-perma", "stop");
-    #if ($ret) { die "ERROR: cth_call_driver failed\n"; }   # questionable whether this is actually needed
+    print "cleanup(): Wiping off test-specific table scopes (e.g. test players' TCN balances)... This may fail if there are no entries (that's OK).\n";
+
+    # Do NOT kill the test if these fail. Just report.
+
+    inform("clearing dohplayer1") if cth_cleos(qq|push action tokens.${tcn_target} clear '{"account":"dohplayer1"}' -p tokens.${tcn_target}|);
+    inform("clearing dohplayer2") if cth_cleos(qq|push action tokens.${tcn_target} clear '{"account":"dohplayer2"}' -p tokens.${tcn_target}|);
 }
 
 sub crashed {
@@ -140,10 +156,19 @@ sub failed {
 }
 
 # --------------------------------------------------------------------------------------------
+# Preventive cleanup of test players' state (expected to fail since test players should
+#   not exist at this point).
+# --------------------------------------------------------------------------------------------
+
+cleanup();
+
+# --------------------------------------------------------------------------------------------
 # Test logic here
 # --------------------------------------------------------------------------------------------
 
 # FIXME/TODO
+
+print "FIXME: port the HG2 combat test here\n";
 
 # --------------------------------------------------------------------------------------------
 # Default return value is zero (success).

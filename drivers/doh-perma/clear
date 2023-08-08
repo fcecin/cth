@@ -1,0 +1,5 @@
+#!/bin/sh
+
+echo "Clearing doh-perma: calling start (which does the actual clearing) ...";
+
+start

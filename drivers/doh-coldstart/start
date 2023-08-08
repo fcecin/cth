@@ -160,6 +160,12 @@ use JSON::Tiny;
 my $target = `configure --get=target`;
 chomp($target);
 
+if ($target eq '') {
+    die "ERROR: driver was not configured with a target";
+} elsif (!($target =~ /^hg./)) {
+    die "ERROR: driver was likely configured with an invalid target: '$target'";
+}
+
 if ($? != 0) {
     print "ERROR: configure script returned an error code.\n";
     print "Output: $target\n";

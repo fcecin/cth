@@ -1,0 +1,153 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+# --------------------------------------------------------------------------------------------
+# Driver: doh-perma
+# Operation: start
+#
+# This is a simple 'perma' driver for DoH which simply wipes the already-deployed DoH
+#   contracts (of a given target) on the already-deployed blockchain (reachable on the given
+#   cleos_url, or https://127.0.0.1:8888 which is the default).
+#
+# cleos_url and target are given through 'configure'. target is required.
+#
+# It also makes sure cleos-driver is running.
+#
+# In case of failure, the driver does NOT run either clear or stop, to allow partial state
+#   to be debugged. Extra clearing, if deemed necessary, is done by the client.
+# --------------------------------------------------------------------------------------------
+
+my $verbose = 0;
+
+my $cleos_driver_dir = "../cleos-driver";
+
+my $cleos = "cleos --wallet-url unix://$cleos_driver_dir/keosd.sock";
+
+my $cmd;
+my $o;
+
+# --------------------------------------------------------------------------------------------
+# We have to force the working directory to where the driver script is
+# --------------------------------------------------------------------------------------------
+
+use FindBin qw($RealBin);
+if (chdir($RealBin)) {
+    if ($verbose) { print "doh-perma: Forced working directory to driver start script location: $RealBin\n"; }
+} else {
+    print "ERROR: Failed to change working directory: $!\n";
+    exit 1;
+}
+
+# --------------------------------------------------------------------------------------------
+# Example subs that will end up in the DoHGoodies library
+# (FIXME/TODO -- make the library and use that instead of this)
+# --------------------------------------------------------------------------------------------
+
+sub get_tcn_target {
+    my $hgm = shift;
+    if (! defined $hgm) { die "ERROR: get_tcn_target: hgm is undefined\n"; }
+    if ($hgm eq 'hgm') {
+        return "tcn";
+    } elsif ($hgm =~ /^hg\d$/) {
+        return "tc" . substr($hgm, -1);
+    } else {
+        die "ERROR: Cannot infer tcn target for doh target: $hgm\n";
+    }
+}
+
+# -------------------------------------------------------------------------
+# Utils
+# -------------------------------------------------------------------------
+
+sub command {
+    my $cmd_arg = shift; # the command to run
+    if (!defined $cmd_arg) { die "ERROR: command: undefined cmd_arg"; }
+
+    my $cmd = "$cmd_arg 2>&1";
+
+    my $o = `$cmd`;
+
+    if ($? != 0) {
+        print "ERROR: Failed to execute: $cmd\n";
+        print "Output: $o\n";
+        exit 1; # fail
+    }
+}
+
+# -------------------------------------------------------------------------
+# Load the DoH target (hgm, hg1, hg2, ...) from driver.ini
+# -------------------------------------------------------------------------
+
+my $target = `configure --get=target`;
+chomp($target);
+
+if ($target eq '') {
+    die "ERROR: driver was not configured with a target";
+} elsif (!($target =~ /^hg./)) {
+    die "ERROR: driver was likely configured with an invalid target: '$target'";
+}
+
+if ($? != 0) {
+    print "ERROR: configure script returned an error code.\n";
+    print "Output: $target\n";
+    exit 1;
+}
+
+print "doh-perma: Configured DoH contracts target: $target\n";
+
+# -------------------------------------------------------------------------
+# Get the TCN target from the DoH target
+# -------------------------------------------------------------------------
+
+my $tcn_target = get_tcn_target($target);
+print "doh-perma: inferred TCN target: '$tcn_target'.\n";
+
+# -------------------------------------------------------------------------
+# Load the cleos URL from driver.ini, if any (if absent, will use default)
+# -------------------------------------------------------------------------
+
+my $cleos_url = `configure --get=cleos_url`;
+chomp($cleos_url);
+
+if ($cleos_url ne '') {
+    print "doh-perma: Configured cleos URL: $cleos_url\n";
+
+    # append the URL argument to the $cleos invocation command that already has --wallet_url=...
+    $cleos .= " -u $cleos_url";
+
+} else {
+    print "doh-perma: Configuration 'cleos_url' not provided; will use the default cleos URL.\n";
+}
+
+# -------------------------------------------------------------------------
+# Wipe off the DoH contracts
+# This does not include wiping off TCN balances from test player accounts,
+#   i.e. it wipes off only "global" state (table entries in a global
+#   scope).
+# Non-global scope table entries have to be wiped off by each test.
+# -------------------------------------------------------------------------
+
+print "doh-perma: Wiping off global-scope DoH contract state...\n";
+
+command(qq|$cleos --verbose push action tokens.${tcn_target} cleartokens '{}' -p tokens.${tcn_target}|);
+command(qq|$cleos --verbose push action staking.${tcn_target} clear '{}' -p staking.${tcn_target}|);
+command(qq|$cleos --verbose push action main.${tcn_target} clear '{}' -p main.${tcn_target}|);
+command(qq|$cleos --verbose push action players.${tcn_target} clear '{}' -p players.${tcn_target}|);
+command(qq|$cleos --verbose push action energy.${tcn_target} clear '{}' -p energy.${tcn_target}|);
+command(qq|$cleos --verbose push action rep.${tcn_target} clear '{}' -p rep.${tcn_target}|);
+command(qq|$cleos --verbose push action hegemon.${target} clear '{}' -p hegemon.${target}|);
+command(qq|$cleos --verbose push action dejavu.${target} clear '{}' -p dejavu.${target}|);
+command(qq|$cleos --verbose push action clock.${target} clear '{}' -p clock.${target}|);
+command(qq|$cleos --verbose push action crafting.${target} clear '{}' -p crafting.${target}|);
+command(qq|$cleos --verbose push action names.${target} clear '{}' -p names.${target}|);
+
+command(qq|$cleos --verbose push action tokens.${tcn_target} clear '{"account":"reserve.${tcn_target}"}' -p tokens.${tcn_target}|);
+command(qq|$cleos --verbose push action tokens.${tcn_target} clear '{"account":"main.${tcn_target}"}' -p tokens.${tcn_target}|);
+command(qq|$cleos --verbose push action tokens.${tcn_target} clear '{"account":"players.${tcn_target}"}' -p tokens.${tcn_target}|);
+command(qq|$cleos --verbose push action tokens.${tcn_target} clear '{"account":"energy.${tcn_target}"}' -p tokens.${tcn_target}|);
+command(qq|$cleos --verbose push action tokens.${tcn_target} clear '{"account":"rep.${tcn_target}"}' -p tokens.${tcn_target}|);
+command(qq|$cleos --verbose push action tokens.${tcn_target} clear '{"account":"hegemon.${target}"}' -p tokens.${tcn_target}|);
+
+print "doh-perma: global-scope DoH contract state wipeoff complete.\n";

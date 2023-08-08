@@ -207,10 +207,10 @@ if ($opt_help) {
     print "    cth -s cleos_url=https://testnet.uxnetwork.io\n";
     print "\n";
     print "Auto Switch Filter:\n";
-    print "  Test directories with the SWITCHNAME=VALUE pattern in their name will be\n";
+    print "  Test directories with the SWITCHNAME:VALUE pattern in their name will be\n";
     print "  automatically skipped by cth if the switch SWITCHNAME is not defined with the\n";
-    print "  exact value VALUE. For example, 'target=hg2-dashes-are-separators' requires\n";
-    print "  'cth -s target=hg2'.\n";
+    print "  exact value VALUE. For example, 'target:hg2-dashes-are-separators' requires\n";
+    print "  'cth -s target=hg2'. Values with e.g. '/' (illegal filename) not supported.\n";
     print "\n";
     print "Options:\n";
     print "\n";
