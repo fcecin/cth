@@ -1,16 +1,24 @@
 #!/usr/bin/perl
 
 # --------------------------------------------------------------------------------------------
-# dcs-combat-test
+# dcs-combat-test-target:hg2
 #
+# Test naming convention:
+#   d  = DoH
+#   cs = coldstart ("start" blockchain driver strategy, from scratch -- 'cold')
+# --------------------------------------------------------------------------------------------
+# WIP: This test is being worked on to make the doh-coldstart "start" strategy (node start)
+#   work with the hg2 (development) target only. This test will NOT presently work with the
+#   hgm (production) target because the production target for the DoH contract build system
+#   does not yet support building a version of it with the deterministic clock and oracle
+#   (which would be enabled by an #IFDEF for testing, and not for actual deployment).
+# --------------------------------------------------------------------------------------------
 # This is a test of the doh-coldstart driver that has been written to help develop the DoH
 #   test system. It is a port of cryptomechanics/doh-unit-tests/combat-test.sh as of
 #   early August, 2023.
 #
-# The design goal for this testcase is to allow it to easily select to either use
-#   doh-coldstart to run locally, or to allow it to connect to a DoH deployment on a remote
-#   blockchain, using any DoH deployment target (hgm, hg1, hg2, ...) irrespective of whether
-#   it is local or remote.
+# This is a "start" test, i.e. it only works by starting up its nodeos environment from
+#   scratch.
 #
 # The reusable components of the testcase, which can be used by other tests, are in the
 #   CthGoodies Perl library, which is an integral part of the cth template. It is in
@@ -24,18 +32,11 @@
 #
 # WIP - FIXME/TODO:
 #
-# - this test self-excludes if HGM (since the test+driver flow cannot deal with
-#   synthetic clock & oracle not being available)
-#
-# - make it work with hg1/hg2 -- solve the mine.en.tc# authorization error
-#   
-# - check if we need to deal with e.g. TCN issuance for this test
-# - check if we need anything else for this test (e.g. from drip-distrib.sh)
-#
-# - add rest of test w/ asserts
-# - test remote
-#   - will probably need to think about test cleanups
-#
+# - make it work with hg2 (and hg1) -- solve the mine.en.tc# authorization error
+# - finish test
+#   - check if we need to deal with e.g. TCN issuance for this test
+#   - check if we need anything else for this test (e.g. from drip-distrib.sh)
+#   - add rest of test w/ asserts
 # --------------------------------------------------------------------------------------------
 
 use strict;
@@ -52,13 +53,13 @@ use CthGoodies;
 
 sub get_tcn_target {
     my $hgm = shift;
-    if (! defined $hgm) { die "ERROR: get_tcn_target: hgm is undefined\n"; } 
+    if (! defined $hgm) { die "ERROR: get_tcn_target: hgm is undefined\n"; }
     if ($hgm eq 'hgm') {
         return "tcn";
     } elsif ($hgm =~ /^hg\d$/) {
         return "tc" . substr($hgm, -1);
     } else {
-        die "ERROR: Cannot infer tcn target for doh target: $hgm\n"; 
+        die "ERROR: Cannot infer tcn target for doh target: $hgm\n";
     }
 }
 
@@ -67,23 +68,19 @@ sub get_tcn_target {
 #
 # Give a list of expected switches and options to the CthGoodies standard parser.
 #
-# If the cleos_url switch is not specified, the test will assume it uses doh-coldstart
-#    as the backend, at the default cleos URL (127.0.0.1:8888) which is what the backing
-#    coldstart driver provides.
+# The cleos_url switch is ignored. The doh-coldstart driver currently starts at the
+#    default cleos address (https://127.0.0.1:8888).
 #
-# If the cleos_url switch is specified, then we do not have to initialize a blockchain.
-#    Instead, the test will assume the provided remote blockchain is already set up to
-#    run this test (and pass it). In other words, the test runs in driverless mode; the
-#    blockchain provider is entirely external, and we assume that provider is invoking
-#    cth or tests manually and is clearing or redeploying the game contracts itself.
-#
-# If the target is specified, we use that specific target (hg1, hgm, etc.). If it is
-#    not specified, it will default to hgm.
+# The target is forced to be 'hg2'. If the Auto Switch Filter did not trigger, this
+#    test will fail if a different target is given.
 # --------------------------------------------------------------------------------------------
 
-my $use_driver_doh_coldstart = 1;
+# CHANGED: We are changing this driver to only use doh-coldstart.
+#          The cleos_url, if given, is ignored.
+#my $use_driver_doh_coldstart = 1;
 
-my $doh_target = "hgm";
+# CHANGED: We are changing this test to work only on hg2
+my $doh_target = "hg2";
 
 my $tcn_target;
 
@@ -108,27 +105,39 @@ my ($switches, $options) = cth_standard_args_parser(
 
     );
 
+# -----------------------------------------------------------------------------------------
+# CHANGED: We ignore cleos_url in this test. It is purely a coldstart test.
+#          We have to write specialized tests for each case to make it all work.
+# -----------------------------------------------------------------------------------------
+##
+## Eventually, the setup below moves to one or more specialized DoH test drivers.
+## The goal is to have the test logic have only exactly what it needs.
+## Also, tests that are written specifically for a given deployment target, for example,
+##   can skip themselves.
+##
 #
-# Eventually, the setup below moves to one or more specialized DoH test drivers.
-# The goal is to have the test logic have only exactly what it needs.
-# Also, tests that are written specifically for a given deployment target, for example,
-#   can skip themselves.
+#if (exists $switches->{'cleos_url'}) {
+#    print "Test will not run local driver since --cleos_url test run switch sets the following endpoint: " . $switches->{'cleos_url'} . "\n";
+#    print "This test will abstain from management of the provided endpoint/blockchain and DoH contract code and data entirely.\n";
+#    $use_driver_doh_coldstart = 0;
 #
+#    $ret = cth_set_cleos_url( $switches->{'cleos_url'} );
+#    if ($ret) { die "ERROR: cth_set_cleos_url failed\n"; }
+#}
 
-if (exists $switches->{'cleos_url'}) {
-    print "Test will not run local driver since --cleos_url test run switch sets the following endpoint: " . $switches->{'cleos_url'} . "\n";
-    print "This test will abstain from management of the provided endpoint/blockchain and DoH contract code and data entirely.\n";
-    $use_driver_doh_coldstart = 0;
-
-    $ret = cth_set_cleos_url( $switches->{'cleos_url'} );
-    if ($ret) { die "ERROR: cth_set_cleos_url failed\n"; }
-}
-
-if (exists $switches->{'target'}) {
-    $doh_target = $switches->{'target'};
-    print "Specific DoH target provided via --target test run switch: $doh_target\n";
-} else {
-    print "Using test's default DoH target: $doh_target\n";
+# -----------------------------------------------------------------------------------------
+# This test is using testname target filtering to restrict itself to target=hg2
+# -----------------------------------------------------------------------------------------
+#
+#if (exists $switches->{'target'}) {
+#    $doh_target = $switches->{'target'};
+#    print "Specific DoH target provided via --target test run switch: $doh_target\n";
+#} else {
+#    print "Using test's default DoH target: $doh_target\n";
+#}
+#
+if (exists $switches->{'target'} && $switches->{'target'} ne $doh_target) {
+    die "ERROR: DoH target " . $switches->{'target'} . " provided but this test is hard-coded for target $doh_target. Auto Switch Filter failed.\n";
 }
 
 $tcn_target = get_tcn_target($doh_target);
@@ -137,18 +146,22 @@ print "TCN target set to: $tcn_target\n";
 $ret = cth_set_cleos_provider("cleos-driver");
 if ($ret) { die "ERROR: cth_set_cleos_provider failed\n"; }
 
-if ($use_driver_doh_coldstart) {
+# CHANGED: driver doh-coldstart is required for this test.
+#
+#if ($use_driver_doh_coldstart) {
+
     $ret = cth_call_driver("doh-coldstart", "configure --target=" . $doh_target);
     if ($ret) { die "ERROR: cth_call_driver failed\n"; }
 
     $ret = cth_call_driver("doh-coldstart", "start");
     if ($ret) { die "ERROR: cth_call_driver failed\n"; }
-} else {
-    # we have to try to start the cleos-driver manually since coldstart won't be there to guarantee it for us.
-    # this call actually never hurts and you can do it all the time, but it's more unnecessary logging.
-    $ret = cth_call_driver("cleos-driver", "start");
-    if ($ret) { die "ERROR: cth_call_driver failed\n"; }
-}
+
+#} else {
+#    # we have to try to start the cleos-driver manually since coldstart won't be there to guarantee it for us.
+#    # this call actually never hurts and you can do it all the time, but it's more unnecessary logging.
+#    $ret = cth_call_driver("cleos-driver", "start");
+#    if ($ret) { die "ERROR: cth_call_driver failed\n"; }
+#}
 
 # --------------------------------------------------------------------------------------------
 # We will shut down the driver and fail the test whenever a test step fails.
@@ -188,6 +201,12 @@ sub failed {
 #    it is the responsibility of the test harness caller to, for example, force a shutdown
 #    or refresh of all drivers, or even to forcefully kill e.g. all nodeos processes, which
 #    is also fine if all tests are done.
+#
+# FIXME/TODO: This does NOT work. The node startup mechanism will work, but the test
+#             logic below will blow up. this is being debugged.
+#             The goal is to solve the random problems here (contract auth) and THEN make
+#             sure that for the hg2 (dev) target, the contract code is good for local testing
+#             with the deterministic clock and oracle.
 # --------------------------------------------------------------------------------------------
 
 # ---
@@ -196,7 +215,7 @@ crashed() if cth_cleos(qq|system newaccount eosio dohplayer1 EOS6MRyAjQq8ud7hVNY
 
 crashed() if cth_cleos(qq|system newaccount eosio dohplayer2 EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV --stake-cpu "10000.0000 EOS" --stake-net "10000.0000 EOS" --buy-ram-kbytes 1000 --transfer|);
 
-# --- combat-test.sh 
+# --- combat-test.sh
 
 crashed() if cth_cleos(qq|push action clock.${doh_target} useclock '{}' -p clock.${doh_target}|);
 

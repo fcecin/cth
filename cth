@@ -209,7 +209,7 @@ if ($opt_help) {
     print "Auto Switch Filter:\n";
     print "  Test directories with the SWITCHNAME=VALUE pattern in their name will be\n";
     print "  automatically skipped by cth if the switch SWITCHNAME is not defined with the\n";
-    print "  exact value VALUE. For example, 'target=hg2-dashes-are-separators' requires\n"; 
+    print "  exact value VALUE. For example, 'target=hg2-dashes-are-separators' requires\n";
     print "  'cth -s target=hg2'.\n";
     print "\n";
     print "Options:\n";

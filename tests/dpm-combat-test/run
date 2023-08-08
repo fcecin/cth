@@ -1,0 +1,152 @@
+#!/usr/bin/perl
+
+# --------------------------------------------------------------------------------------------
+# dpm-combat-test
+#
+# Test naming convention:
+#   d  = DoH
+#   pm = perma ("perma" blockchain driver strategy)
+# --------------------------------------------------------------------------------------------
+# WIP: This is a placeholder for a "perma" version of the combat-test.sh port to cth.
+#
+# The "perma" testing strategy works on a permament blockchain deployment (like the DoH
+#   private testnet for the hg2/tc2 "dev" DoH target. It does not start and stop nodeos
+#   instances, and instead just clears the remote contracts before running itself. The
+#   setting up of the blockchain and contract code is left to an external party (i.e.
+#   the blockchain deployment is "permanent").
+#
+# FIXME/TODO: This test first needs a doh-perma driver to be written, which will wipe
+#   off the selected target contracts (if the EOSIO development key is sufficient in
+#   terms of permissions to do so).
+# --------------------------------------------------------------------------------------------
+
+use strict;
+use warnings;
+
+# include the tools/cth-goodies library
+use lib '../../tools/cth-goodies';
+use CthGoodies;
+
+# --------------------------------------------------------------------------------------------
+# Example subs that will end up in the DoHGoodies library
+# (FIXME/TODO -- make the library and use that instead of this)
+# --------------------------------------------------------------------------------------------
+
+sub get_tcn_target {
+    my $hgm = shift;
+    if (! defined $hgm) { die "ERROR: get_tcn_target: hgm is undefined\n"; }
+    if ($hgm eq 'hgm') {
+        return "tcn";
+    } elsif ($hgm =~ /^hg\d$/) {
+        return "tc" . substr($hgm, -1);
+    } else {
+        die "ERROR: Cannot infer tcn target for doh target: $hgm\n";
+    }
+}
+
+# --------------------------------------------------------------------------------------------
+# Parse command-line parameters.
+#
+# Give a list of expected switches and options to the CthGoodies standard parser.
+#
+# If the cleos_url switch is not specified, the test will just use the cleos default.
+#
+# If the target is specified, we use that specific target (hg1, hgm, etc.). If it is
+#    not specified, it will default to hg2.
+# --------------------------------------------------------------------------------------------
+
+my $doh_target = "hg2";
+
+my $tcn_target;
+
+my $ret;
+
+my ($switches, $options) = cth_standard_args_parser(
+
+    # List of switches (--switchname switchvalue, or --switchname=switchvalue)
+    #   that this particular test expects or knows about.
+    # If the test receives any switch not listed here, the test fails. That
+    #   means the test is not engineered towards the environment of the test run.
+
+    "cleos_url target",
+
+    # List of options (-o optionname=optionvalue, or --option optioname=optionvalue)
+    #   that this particular test expects or knows about.
+    # If the test receives any options not listed here, the argument parser will
+    #   print a warning, but the test will continue. The option will just be
+    #   ignored.
+
+    ""
+
+    );
+
+#
+# Set the cleos URL
+#
+
+if (exists $switches->{'cleos_url'}) {
+    print "Blockchain endpoint set to: " . $switches->{'cleos_url'} . "\n";
+
+    $ret = cth_set_cleos_url( $switches->{'cleos_url'} );
+    if ($ret) { die "ERROR: cth_set_cleos_url failed\n"; }
+} else {
+    print "Assuming default blockchain endpoint (https://127.0.0.1:8888)\n";
+}
+
+if (exists $switches->{'target'}) {
+    $doh_target = $switches->{'target'};
+    print "Specific DoH target provided via --target test run switch: $doh_target\n";
+} else {
+    print "Using test's default DoH target: $doh_target\n";
+}
+
+$tcn_target = get_tcn_target($doh_target);
+print "TCN target set to: $tcn_target\n";
+
+$ret = cth_set_cleos_provider("cleos-driver");
+if ($ret) { die "ERROR: cth_set_cleos_provider failed\n"; }
+
+#
+# FIXME/TODO: start the doh-perma driver (which should start cleos-driver)
+#
+
+#$ret = cth_call_driver("doh-perma", "configure --target=" . $doh_target);
+#if ($ret) { die "ERROR: cth_call_driver failed\n"; }
+
+#$ret = cth_call_driver("doh-perma", "start");
+#if ($ret) { die "ERROR: cth_call_driver failed\n"; }
+
+# --------------------------------------------------------------------------------------------
+# We will shut down the driver and fail the test whenever a test step fails.
+# --------------------------------------------------------------------------------------------
+
+sub cleanup {
+    # FIXME/TODO:
+    #
+    #$ret = cth_call_driver("doh-perma", "stop");
+    #if ($ret) { die "ERROR: cth_call_driver failed\n"; }   # questionable whether this is actually needed
+}
+
+sub crashed {
+    print "ERROR: Test has crashed.\n";
+    cleanup();
+    die;
+}
+
+sub failed {
+    print "ERROR: Test has failed.\n";
+    cleanup();
+    die;
+}
+
+# --------------------------------------------------------------------------------------------
+# Test logic here
+# --------------------------------------------------------------------------------------------
+
+# FIXME/TODO
+
+# --------------------------------------------------------------------------------------------
+# Default return value is zero (success).
+# --------------------------------------------------------------------------------------------
+
+cleanup();
