@@ -16,7 +16,7 @@ use strict;
 use warnings;
 
 use Exporter qw(import);
-our @EXPORT = qw(cth_skip_test cth_set_cleos_provider cth_set_cleos_url cth_cleos cth_assert cth_standard_args_parser cth_call_driver);
+our @EXPORT = qw(cth_skip_test cth_set_cleos_provider cth_set_cleos_url cth_cleos cth_cleos_pipe cth_assert cth_standard_args_parser cth_call_driver);
 
 # -----------------------------------------------------------------------
 # Global state
@@ -26,7 +26,7 @@ our @EXPORT = qw(cth_skip_test cth_set_cleos_provider cth_set_cleos_url cth_cleo
 my $cleos_provider_driver;
 my $cleos_provider_dir;
 
-# no cleos url argument by default 
+# no cleos url argument by default
 my $cleos_url_param = '';
 
 # -----------------------------------------------------------------------
@@ -84,7 +84,7 @@ sub cth_set_cleos_provider {
 #   $url : nodeos URL
 #
 # This sub will die if the given url is undefined, otherwise it does
-#   no validation of the given URL string. 
+#   no validation of the given URL string.
 # -----------------------------------------------------------------------
 
 sub cth_set_cleos_url {
@@ -128,7 +128,7 @@ sub cth_cleos {
     }
 
     my $cmd = "cleos $cleos_url_param --wallet-url unix://$cleos_provider_dir/keosd.sock --verbose $args";
-    
+
     print "cth_cleos: run command: $cmd\n";
 
     my $output = `$cmd 2>&1`;
@@ -141,6 +141,59 @@ sub cth_cleos {
     print "cth_cleos: command output: $output\n";
 
     return $retval;
+}
+
+# -----------------------------------------------------------------------
+# cth_cleos_pipe
+#
+# This is essentially cth_cleos but with support for capturing the
+#   program result.
+# Use the configured cleos provider to call cleos as the first command,
+#   followed by arguments to cleos, followed by optional piped commands
+#   that take the result of the first cleos call and post-process it.
+# Returns a defined string with the textual output of the command, and
+#   returns an undefined value on error (very bad, test should fail).
+#
+# inputs:
+#   $args : arguments to cleos, with the exception of --wallet-url,
+#     which is set to the directory of the configured cleos provider,
+#     plus any other piped commands (|) you want to execute.
+#
+# outouts:
+#  $output : textual output of command execution if OK, undef if error.
+# -----------------------------------------------------------------------
+
+sub cth_cleos_pipe {
+
+    my ($args) = @_;
+    if (! defined $args) {
+        print "ERROR: cth_cleos_pipe: args argument is undefined\n";
+        return 1;
+    }
+
+    if (!defined $cleos_provider_driver || !defined $cleos_provider_dir) {
+        print "ERROR: cth_cleos_pipe: cleos provider was not set\n";
+        return 1;
+    }
+
+    my $cmd = "cleos $cleos_url_param --wallet-url unix://$cleos_provider_dir/keosd.sock --verbose $args";
+
+    print "cth_cleos_pipe: run command: $cmd\n";
+
+    my $output = `$cmd 2>&1`;
+    my $retval = $?;
+    if ($retval) {
+        print "cth_cleos_pipe: command returned a nonzero (error) code: $retval\n";
+    } else {
+        print "cth_cleos_pipe: command successful (returned zero)\n";
+    }
+    print "cth_cleos: command output: $output\n";
+
+    if ($retval) {
+        return; # error: return undef
+    } else {
+        return $output; # success: return the output
+    }
 }
 
 # -----------------------------------------------------------------------
