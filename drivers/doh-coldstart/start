@@ -325,7 +325,7 @@ if (ref($data) eq 'ARRAY') {
                 $ram = '--buy-ram-kbytes 1500';
             }
 
-            # Create the account with TEMPORARY owner and active permissions of the EOSIO developer key.
+            # Create the account
             print "Creating account $account ...\n";
             print "  owner : $owner_permission_level\n";
             print "  active: $active_permission_level\n";
