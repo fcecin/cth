@@ -95,21 +95,21 @@ sub command {
     #}
 }
 
+# Convert given decoded JSON data structure to string
 sub to_json_string {
     my ($data) = @_;
-
     if (ref($data) eq 'HASH') {
+        my @sorted_keys = sort keys %$data;
         my $json_string = '{';
-        foreach my $key (keys %$data) {
+        foreach my $key (@sorted_keys) {
             my $value = $data->{$key};
-
             if (ref($value) eq 'HASH') {
-                $json_string .= qq("$key": ) . to_json_string($value) . ',';
+                $json_string .= qq("$key":) . to_json_string($value) . ',';
             } elsif (ref($value) eq 'ARRAY') {
-                $json_string .= qq("$key": ) . to_json_string_array($value) . ',';
+                $json_string .= qq("$key":) . to_json_string_array($value) . ',';
             } else {
                 $value =~ s/"/\\"/g;
-                $json_string .= qq("$key": "$value",);
+                $json_string .= qq("$key":"$value",);
             }
         }
         $json_string =~ s/,$/}/;
@@ -117,7 +117,6 @@ sub to_json_string {
     } elsif (ref($data) eq 'ARRAY') {
         return to_json_string_array($data);
     }
-
     # Scalar value (not a reference)
     $data =~ s/"/\\"/g;
     return qq("$data");
@@ -126,7 +125,6 @@ sub to_json_string {
 # Function to convert an array to JSON string
 sub to_json_string_array {
     my ($array) = @_;
-
     my $json_string = '[';
     foreach my $element (@$array) {
         if (ref($element) eq 'HASH') {
@@ -262,7 +260,7 @@ if (ref($data) eq 'ARRAY') {
             my $code = $e->{code};
             my $owner_permission_level = 'EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV';
             if (defined $e->{owner_permission_level} && $e->{owner_permission_level} ne '') {
-                $owner_permission_level = $e->{active_permission_level};
+                $owner_permission_level = $e->{owner_permission_level};
                 $owner_permission_level = to_json_string($owner_permission_level);
             }
             my $active_permission_level = 'EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV';
@@ -327,13 +325,18 @@ if (ref($data) eq 'ARRAY') {
                 $ram = '--buy-ram-kbytes 1500';
             }
 
-            # Create the account
+            # Create the account with TEMPORARY owner and active permissions of the EOSIO developer key.
             print "Creating account $account ...\n";
+            print "  owner : $owner_permission_level\n";
+            print "  active: $active_permission_level\n";
             command(qq|$cleos system newaccount eosio $account '$owner_permission_level' '$active_permission_level' $cpu $net $ram --transfer|);
 
             # Set code permission to all accounts with code
             if ($code ne '') {
-                command(qq|$cleos set account permission $account active --add-code -p ${account}|);
+
+                # Use the OWNER permission, because the ACTIVE permission is sometimes something we don't have (e.g. some "eosio.code" permission).
+                # If you remove the '-p thisaccount@owner' you can see what happens in the error log.
+                command(qq|$cleos set account permission $account active --add-code -p ${account}\@owner|);
             }
 
             # Deploy the code if any
@@ -354,7 +357,11 @@ if (ref($data) eq 'ARRAY') {
                 my $set_contract_success = 0;
                 my $i;
                 for ($i = 1; $i <= $max_tries; $i++) {
-                    $cmd = "$set_contract_command 2>&1";
+
+                    # Use the OWNER permission, because the ACTIVE permission is sometimes something we don't have (e.g. some "eosio.code" permission).
+                    # If you remove the '-p thisaccount@owner' you can see what happens in the error log.
+                    $cmd = "$set_contract_command -p ${account}\@owner 2>&1";
+
                     $o = `$cmd`;
                     if ($? != 0) {
                         if ($o =~ /tx_cpu_usage_exceeded/ || $o =~ /Transaction exceeded the current CPU usage limit imposed on the transaction/) {

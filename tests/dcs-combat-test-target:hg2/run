@@ -119,7 +119,7 @@ my ($switches, $options) = cth_standard_args_parser(
 #     So when "127.0.0.1:DIFFERENT-PORT" is used via cleos_url, this will need to be removed
 #     (the start driver will have to know that the nodeos has to start at that port, and
 #      change the config.ini of nodeos accordingly to configure the HTTP endpoint, and also
-#      a different P2P endpoint!) 
+#      a different P2P endpoint!)
 # --------------------------------------------------------------------------------------------
 
 if (exists $switches->{'cleos_url'}) {
@@ -190,10 +190,14 @@ if ($ret) { die "ERROR: cth_set_cleos_provider failed\n"; }
 # --------------------------------------------------------------------------------------------
 
 sub cleanup {
-    if ($use_driver_doh_coldstart) {
+    # CHANGED: driver doh-coldstart is required for this test.
+    #
+    #if ($use_driver_doh_coldstart) {
+
         $ret = cth_call_driver("doh-coldstart", "stop");
         if ($ret) { die "ERROR: cth_call_driver failed\n"; }   # questionable whether this is actually needed
-    }
+
+    #}
 }
 
 sub crashed {
