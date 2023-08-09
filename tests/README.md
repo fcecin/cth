@@ -7,12 +7,6 @@ Tests should have an executable file called `run` in them, which runs the test. 
 
 Tests should work the same whether they are invoked individually from the command-line or by automation. Good tests also work irrespective of the directory they are invoked from.
 
+Tests can receive switches and options from the test runner (cth), which dictate the global environment or situation for the entire test run. Individual tests can inspect those switches and options to decide whether they will self-exclude them from the run (by calling cth_skip_test() from the CthGoodies library, which basically just returns exit code 32, which is picked up by the cth test runner).
 
-
-
-
-
-
-
-
-
+Use existing tests for getting started in writing your own tests.
