@@ -8,7 +8,24 @@ cth is a collection of command-line tools that can be customized to build an aut
 - Antelope (cleos, keosd, nodeos) (https://github.com/antelopeio/leap/releases)
 - All programs and data required by your Antelope contracts at compile time and runtime
 
-# How to use (TODO)
+# DoH cth: how to download and run for the first time
+
+```
+git clone --recursive https://github.com/fcecin/cth
+cd cth
+sudo ./install_dependencies.sh
+cth -i
+```
+
+`cth -i` will compile all of the contracts: Antelope system contracts once, and DoH three times, one for each target: hgm, hg1, hg2. This takes a while, so just leave it running. After all drivers are installed, it will run all tests.
+
+To do maintanance tasks and not run any tests, give it a dummy test name, e.g. `cth -i dummy` to install all drivers or `cth -c dummy` to clear all drivers and tests.
+
+Later, you can invoke it without `-i` and it will not recompile the contracts; just run tests.
+
+`cth --help` prints the manual.
+
+# How to use
 
 The cth repository is a template. You clone the repository and use it as a basis for building a test suite for your own project.
 
