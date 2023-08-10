@@ -223,12 +223,6 @@ sub failed {
 #    it is the responsibility of the test harness caller to, for example, force a shutdown
 #    or refresh of all drivers, or even to forcefully kill e.g. all nodeos processes, which
 #    is also fine if all tests are done.
-#
-# FIXME/TODO: This does NOT work. The node startup mechanism will work, but the test
-#             logic below will blow up. this is being debugged.
-#             The goal is to solve the random problems here (contract auth) and THEN make
-#             sure that for the hg2 (dev) target, the contract code is good for local testing
-#             with the deterministic clock and oracle.
 # --------------------------------------------------------------------------------------------
 
 # **********************
