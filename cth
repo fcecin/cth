@@ -467,8 +467,12 @@ foreach my $pair (@opt_option) {
     if ($global_test_args ne '') { $global_test_args .= ' '; }
     $global_test_args .= qq|-o "$key=$value"|;
 }
-print "\n";
-if ($opt_verbose) { print "Parameter string for all tests: $global_test_args\n\n"; }
+if ($global_test_args eq '') {
+    print "  No parameters to be passed to tests (neither switches nor options).\n\n";
+} else {
+    print "\n";
+    if ($opt_verbose) { print "Parameter string for all tests:\n  $global_test_args\n\n"; }
+}
 
 foreach my $test (@tests) {
 
