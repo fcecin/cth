@@ -19,9 +19,9 @@ cth -i
 
 `cth -i` will compile all of the contracts: Antelope system contracts once, and DoH three times, one for each target: hgm, hg1, hg2. This takes a while, so just leave it running. After all drivers are installed, it will run all tests.
 
-To do maintanance tasks and not run any tests, give it a dummy test name, e.g. `cth -i dummy` to install all drivers or `cth -c dummy` to clear all drivers and tests.
-
 Later, you can invoke it without `-i` and it will not recompile the contracts; just run tests.
+
+To do maintanance tasks and not run any tests, give it a dummy test name, e.g. `cth -i dummy` to install all drivers or `cth -c dummy` to clear all drivers and tests.
 
 `cth --help` prints the manual.
 
