@@ -16,7 +16,7 @@ use strict;
 use warnings;
 
 use Exporter qw(import);
-our @EXPORT = qw(cth_skip_test cth_set_cleos_provider cth_set_cleos_url cth_cleos cth_cleos_pipe cth_assert cth_standard_args_parser cth_call_driver);
+our @EXPORT = qw(cth_skip_test cth_set_cleos_provider cth_set_cleos_url cth_cleos cth_cleos_pipe cth_assert cth_standard_args_parser cth_call_driver cth_generate_account_names);
 
 # -----------------------------------------------------------------------
 # Global state
@@ -279,6 +279,11 @@ sub cth_assert {
 
 sub cth_standard_args_parser {
 
+    # Bonus: Enable STDOUT autoflush.
+    #        All tests should invoke this sub, so this works like a test-init.
+    $| = 1;
+
+    # Start doing what this sub actually does
     my ($switches_str, $options_str) = @_;
     die "ERROR: cth_standard_args_parser: switches argument is undefined" unless defined $switches_str;
     die "ERROR: cth_standard_args_parser: options argument is undefined" unless defined $options_str;
@@ -396,6 +401,52 @@ sub cth_call_driver {
     print "cth_call_driver: command output: $output\n";
 
     return $retval;
+}
+
+# -----------------------------------------------------------------------
+# cth_generate_account_names
+#
+# Generates a sequence of EOSIO names from a starting pattern and count.
+# Example: ('aaag', 4) will return ref to a 'aaag aaah aaai aaaj' array.
+#
+# inputs:
+#    $pattern : starting pattern (included in return value)
+#    $count : number of patterns to generate by incrementing the starting
+#      pattern <count> times ("digits" incremented are a-z).
+#
+# output:
+#    $patterns : Perl array ref to array of generated patterns.
+# -----------------------------------------------------------------------
+
+sub cth_generate_account_names {
+    my ($prefix, $pattern, $count) = @_;
+
+    my @patterns;
+
+    # Convert pattern to array of characters
+    my @chars = split //, $pattern;
+
+    # Loop for the specified count
+    for (my $i = 0; $i < $count; $i++) {
+        # Construct the new pattern
+        my $new_pattern = $prefix . join '', @chars;
+        push @patterns, $new_pattern;
+
+        # Increment the pattern for the next iteration
+        my $idx = scalar(@chars) - 1;
+        while ($idx >= 0) {
+            my $ord = ord($chars[$idx]) + 1;
+            if ($ord > ord('z')) {
+                $chars[$idx] = 'a';
+                $idx--;
+            } else {
+                $chars[$idx] = chr($ord);
+                last;
+            }
+        }
+    }
+
+    return @patterns;
 }
 
 # -----------------------------------------------------------------------

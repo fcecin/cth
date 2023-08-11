@@ -1,0 +1,239 @@
+#!/usr/bin/perl
+
+# --------------------------------------------------------------------------------------------
+# dcs-drip-distrib
+#
+# Test naming convention:
+#   d  = DoH
+#   cs = coldstart ("start" blockchain driver strategy, from scratch -- 'cold')
+# --------------------------------------------------------------------------------------------
+# This test was designed to work with the doh-coldstart "start" strategy (node start) and
+#   with the hg1/hg2 (staging/dev) targets only. This test will NOT presently work with the
+#   hgm (production) target because the production target for the DoH contract build system
+#   does not yet support building a version of it with the deterministic clock and oracle
+#   (which would be enabled by an #IFDEF for testing, and not for actual deployment).
+#
+# A "start strategy" driver means "runs local tests" in practice and for now, though you
+#   could have a remote start driver as well (i.e. something that ssh's on a remote machine
+#   and starts nodeos).
+# --------------------------------------------------------------------------------------------
+# This is a functional test focused on the distrib contract in period_reset_mode == true,
+#   which is the mode the code operates in when it is deployed and init'ed in energy.tcn
+#   for example.
+#
+# This test does the following:
+# - Create 90(?) players and spawn a char for each
+# - For phases = 1 to 3
+#   - All chars spam random amounts of random actions to spend energy in various ways
+#     (advancing clock as needed to recuperate energy)
+#   - The players #1 to #30*phase make TCN/drip claims
+#   - Advance clock sufficiently to end the day
+#   - Obtain (& print) raw results
+#   - Assert on a bunch of invariants on players, drip contract objects, global objects, ...
+# --------------------------------------------------------------------------------------------
+
+use strict;
+use warnings;
+
+# include the tools/cth-goodies library
+use lib '../../tools/cth-goodies';
+use CthGoodies;
+
+# --------------------------------------------------------------------------------------------
+# Example subs that will end up in the DoHGoodies library
+# (FIXME/TODO -- make the library and use that instead of this)
+# --------------------------------------------------------------------------------------------
+
+sub get_tcn_target {
+    my $hgm = shift;
+    if (! defined $hgm) { die "ERROR: get_tcn_target: hgm is undefined\n"; }
+    if ($hgm eq 'hgm') {
+        return "tcn";
+    } elsif ($hgm =~ /^hg\d$/) {
+        return "tc" . substr($hgm, -1);
+    } else {
+        die "ERROR: Cannot infer tcn target for doh target: $hgm\n";
+    }
+}
+
+# --------------------------------------------------------------------------------------------
+# Parse command-line parameters.
+#
+# Give a list of expected switches and options to the CthGoodies standard parser.
+#
+# The cleos_url switch is ignored. The doh-coldstart driver currently starts at the
+#    default cleos address (https://127.0.0.1:8888).
+#
+# The target is forced to be 'hg2'. If the Auto Switch Filter did not trigger, this
+#    test will fail if a different target is given.
+# --------------------------------------------------------------------------------------------
+
+# CHANGED: We are changing this driver to only use doh-coldstart.
+#          The cleos_url, if given, is ignored.
+#my $use_driver_doh_coldstart = 1;
+
+# CHANGED: We are changing this test to work with hg1 and hg2 (which support
+#   deterministic clock and oracle, but sadly hgm doesn't yet)
+my $doh_target = "hg2";
+
+my $tcn_target;
+
+my $ret;
+
+my ($switches, $options) = cth_standard_args_parser(
+
+    # List of switches (--switchname switchvalue, or --switchname=switchvalue)
+    #   that this particular test expects or knows about.
+    # If the test receives any switch not listed here, the test fails. That
+    #   means the test is not engineered towards the environment of the test run.
+
+    "cleos_url target",
+
+    # List of options (-o optionname=optionvalue, or --option optioname=optionvalue)
+    #   that this particular test expects or knows about.
+    # If the test receives any options not listed here, the argument parser will
+    #   print a warning, but the test will continue. The option will just be
+    #   ignored.
+
+    ""
+
+    );
+
+# --------------------------------------------------------------------------------------------
+# *********************** FIXME/TODO/REVIEW **************************************************
+# TEMPORARY: TEST IS DISABLED if cleos_url is given (possibility of remote execution)
+#            so we are not destroying the ux5 telegram bot on accident
+#
+# ... but this doesn't matter for "start" strategy drivers which is what this test uses.
+#     I guess you could (?) specify a cleos_url that points to a different port (possible),
+#     or an IP address that a super smart start driver would know how to ssh into and start
+#     a nodeos *there* (less likely).
+#     So when "127.0.0.1:DIFFERENT-PORT" is used via cleos_url, this will need to be removed
+#     (the start driver will have to know that the nodeos has to start at that port, and
+#      change the config.ini of nodeos accordingly to configure the HTTP endpoint, and also
+#      a different P2P endpoint!)
+# --------------------------------------------------------------------------------------------
+
+if (exists $switches->{'cleos_url'}) {
+    print "SKIP: TEMPORARY DISABLE TEST IF CLEOS_URL GIVEN AT ALL.\n";
+    cth_skip_test();
+}
+
+# -----------------------------------------------------------------------------------------
+# CHANGED: We ignore cleos_url in this test. It is purely a coldstart test.
+#          We have to write specialized tests for each case to make it all work.
+# -----------------------------------------------------------------------------------------
+##
+## Eventually, the setup below moves to one or more specialized DoH test drivers.
+## The goal is to have the test logic have only exactly what it needs.
+## Also, tests that are written specifically for a given deployment target, for example,
+##   can skip themselves.
+##
+#
+#if (exists $switches->{'cleos_url'}) {
+#    print "Test will not run local driver since --cleos_url test run switch sets the following endpoint: " . $switches->{'cleos_url'} . "\n";
+#    print "This test will abstain from management of the provided endpoint/blockchain and DoH contract code and data entirely.\n";
+#    $use_driver_doh_coldstart = 0;
+#
+#    $ret = cth_set_cleos_url( $switches->{'cleos_url'} );
+#    if ($ret) { die "ERROR: cth_set_cleos_url failed\n"; }
+#}
+
+# -----------------------------------------------------------------------------------------
+# This test is using testname target filtering to restrict itself to staging & dev
+#   contract source code only.
+# -----------------------------------------------------------------------------------------
+#
+#if (exists $switches->{'target'}) {
+#    $doh_target = $switches->{'target'};
+#    print "Specific DoH target provided via --target test run switch: $doh_target\n";
+#} else {
+#    print "Using test's default DoH target: $doh_target\n";
+#}
+#
+if (exists $switches->{'target'} && ($switches->{'target'} eq "hg1" || $switches->{'target'} eq "hg2")) {
+    print "SKIP: DoH target " . $switches->{'target'} . " provided but this test only supports hg1 (staging) and hg2 (dev) DoH code, since e.g. hgm does not have deterministic clock and oracle provided to the test system.\n";
+    cth_skip_test();
+}
+
+$tcn_target = get_tcn_target($doh_target);
+print "TCN target set to: $tcn_target\n";
+
+$ret = cth_set_cleos_provider("cleos-driver");
+if ($ret) { die "ERROR: cth_set_cleos_provider failed\n"; }
+
+# CHANGED: driver doh-coldstart is required for this test.
+#
+#if ($use_driver_doh_coldstart) {
+
+    $ret = cth_call_driver("doh-coldstart", "configure --target=" . $doh_target);
+    if ($ret) { die "ERROR: cth_call_driver failed\n"; }
+
+    $ret = cth_call_driver("doh-coldstart", "start");
+    if ($ret) { die "ERROR: cth_call_driver failed\n"; }
+
+#} else {
+#    # we have to try to start the cleos-driver manually since coldstart won't be there to guarantee it for us.
+#    # this call actually never hurts and you can do it all the time, but it's more unnecessary logging.
+#    $ret = cth_call_driver("cleos-driver", "start");
+#    if ($ret) { die "ERROR: cth_call_driver failed\n"; }
+#}
+
+# --------------------------------------------------------------------------------------------
+# We will shut down the driver and fail the test whenever a test step fails.
+# --------------------------------------------------------------------------------------------
+
+sub cleanup {
+    # CHANGED: driver doh-coldstart is required for this test.
+    #
+    #if ($use_driver_doh_coldstart) {
+
+        $ret = cth_call_driver("doh-coldstart", "stop");
+        if ($ret) { die "ERROR: cth_call_driver failed\n"; }   # questionable whether this is actually needed
+
+    #}
+}
+
+sub crashed {
+    print "ERROR: Test has crashed.\n";
+    cleanup();
+    die;
+}
+
+sub failed {
+    print "ERROR: Test has failed.\n";
+    cleanup();
+    die;
+}
+
+# --------------------------------------------------------------------------------------------
+# Test logic here
+# --------------------------------------------------------------------------------------------
+
+# **********************
+# Create 90 test player accounts
+# **********************
+
+my @players = cth_generate_account_names('dohplayer.', 'aa', 90);
+foreach my $player (@players) {
+    crashed() if cth_cleos(qq|system newaccount eosio $player EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV --stake-cpu "10000.0000 EOS" --stake-net "10000.0000 EOS" --buy-ram-kbytes 1000 --transfer|);
+}
+
+# **********************
+# For each of 3 rounds for this test, in which we will split the 90 players in 3 groups.
+# First group claims in all rounds
+# Second group claims in rounds 2 and 3
+# Third group claims in round 3 only
+#
+# Actually check if this makes sense (I think it does but maybe not)
+# **********************
+
+
+
+
+
+# --------------------------------------------------------------------------------------------
+# Test done; default return value is zero (success).
+# --------------------------------------------------------------------------------------------
+
+cleanup();

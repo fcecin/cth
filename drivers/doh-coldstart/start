@@ -25,6 +25,8 @@ use warnings;
 #     do common setup tasks for the kind of test that it is.
 # --------------------------------------------------------------------------------------------
 
+$| = 1;  # Turn on auto-flush for STDOUT (Perl doesn't do this by default)
+
 my $verbose = 0;
 
 my $coldstart_dir    = "../coldstart";

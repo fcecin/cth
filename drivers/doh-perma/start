@@ -19,6 +19,8 @@ use warnings;
 #   to be debugged. Extra clearing, if deemed necessary, is done by the client.
 # --------------------------------------------------------------------------------------------
 
+$| = 1;  # Turn on auto-flush for STDOUT (Perl doesn't do this by default)
+
 my $verbose = 0;
 
 my $cleos_driver_dir = "../cleos-driver";
