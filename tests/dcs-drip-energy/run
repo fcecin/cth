@@ -210,14 +210,107 @@ sub failed {
 # Test logic here
 # --------------------------------------------------------------------------------------------
 
+my $o;
+
+my $gm_player = "dohplayer.aa";
+
 # **********************
-# Create 90 test player accounts
+# One-time (?) initialization rites
+# **********************
+
+crashed() if cth_cleos(qq|push action clock.${doh_target} useclock '{}' -p clock.${doh_target}|);
+
+crashed() if cth_cleos(qq|push action staking.${tcn_target} init '{ "distrib_contracts": [ "energy.${tcn_target}", "rep.${tcn_target}"], "drip_contracts": [ "main.${tcn_target}", "players.${tcn_target}"] }' -p staking.${tcn_target}|);
+
+## Already commented out
+###cleos -u "$endpoint" --verbose push action hegemon.hg1 updaterng '{}' --force-unique -p hegemon.hg1 >> log 2>&1
+
+crashed() if cth_cleos(qq|push action clock.${doh_target} sethash '{"hash":"092ba25b75b0ee1ac79c5a1aa1df28a5129cd8d15b878fdb50dc804fda79dbc7"}' --force-unique -p clock.${doh_target}|);
+
+crashed() if cth_cleos(qq|push action main.${tcn_target} adddrip '{"symbol":"4,TCN", "contract":"tokens.${tcn_target}", "buckets":["players.${tcn_target}"], "shares":[10000]}' --force-unique -p main.${tcn_target}\@active|);
+crashed() if cth_cleos(qq|push action players.${tcn_target} adddrip '{"symbol":"4,TCN", "contract":"tokens.${tcn_target}", "buckets":["energy.${tcn_target}","rep.${tcn_target}"], "shares":[7000, 3000]}' --force-unique -p players.${tcn_target}\@active|);
+
+crashed() if cth_cleos(qq|push action tokens.${tcn_target} create '{"issuer":"hegemon.${doh_target}", "maximum_supply":"100000000000.0000 TCN"}' -p tokens.${tcn_target}\@active|);
+crashed() if cth_cleos(qq|push action tokens.${tcn_target} issue '{"to":"hegemon.${doh_target}", "quantity":"100000000.0000 TCN", "memo":"initial issuance"}' -p hegemon.${doh_target}\@active|);
+crashed() if cth_cleos(qq|transfer hegemon.${doh_target} reserve.${tcn_target} "100000000.0000 TCN" "" --contract tokens.${tcn_target} -p hegemon.${doh_target}\@active|);
+
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} setgm '{"player":"$gmplayer"}' -p hegemon.${doh_target}|);
+
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} addfaction '{"id":1, "global_entity_id":52, "name":"Empire", "code":"em", "flag_asset_url":"/factions-flags/flag-empire.jpg"}' -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} addfaction '{"id":2, "global_entity_id":53, "name":"Confederacy", "code":"co", "flag_asset_url":"/factions-flags/flag-confederacy.jpg"}' -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} addfaction '{"id":3, "global_entity_id":54, "name":"Alliance", "code":"al", "flag_asset_url":"/factions-flags/flag-alliance.jpg"}' -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} addfaction '{"id":4, "global_entity_id":55, "name":"Dominion", "code":"do", "flag_asset_url":"/factions-flags/flag-dominion.jpg"}' -p hegemon.${doh_target}|);
+
+crashed() if cth_cleos(qq|push action crafting.${doh_target} addeffect '{"id":8, "name":"Plains", "description":"Farming production output increased by 50%. Mining production output decreased by 50%", "modifiers":[{ "modified_stat" : 3, "modifier_operator": 1, "condition": { "target":2, "filter":null, "value": 3 }, "value": 50 }, { "modified_stat" : 3, "modifier_operator": 1, "condition": { "target":2, "filter":null, "value": 1 }, "value": -50 }], "duration":-1 }' -p crafting.${doh_target}|);
+
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} addplanet '{"id":1, "area_map":"tulon","name":"Tulon", "code":"tu", "code":"tu", "asset_url":"/planets/tulon.png"}' -p hegemon.${doh_target}|);
+
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} addregion '{"id":1, "planet_id":1,"name":"Nefari", "code":"ne"}' -p hegemon.${doh_target}|);
+
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} addterrain '{"id":1, "type":"Plains", "map_asset_url":"/tiles/tile-plains.jpg", "background_asset_url":"/character-backgrounds/character-background-plains.png", "building_slots":6, "effects":[8]}' -p hegemon.${doh_target}|);
+
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} addtile '{"id":1,"area_map":"tulon","region_id":1,"q_coord":0,"r_coord":0,"terrain_type":1}' -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} addtile '{"id":2,"area_map":"tulon","region_id":1,"q_coord":0,"r_coord":1,"terrain_type":1}' -p hegemon.${doh_target}|);
+
+crashed() if cth_cleos(qq|push action staking.${tcn_target} enable '{}' -p staking.${tcn_target}|);
+
+
+# **********************
+# Create 90 test player accounts: dohplayer.aa , dohplayer.ab , dohplayer.ac   etc.
+# Also create each char, they will have the expected char ids 1-90
+# Also does init stuff
 # **********************
 
 my @players = cth_generate_account_names('dohplayer.', 'aa', 90);
+
+my $player_id = 0;
+
 foreach my $player (@players) {
+
+    # push a character name for this player
+    $player_id++;
+    crashed() if cth_cleos(qq|push action names.${doh_target} addcname '{"id":1, "first_name":"Jimmy", "middle_name":"$player", "last_name":"Page", "asset_url":"/characters/character-jimmy-page-neutral.png"}' -p names.${doh_target}|);
+
+    # create account
     crashed() if cth_cleos(qq|system newaccount eosio $player EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV --stake-cpu "10000.0000 EOS" --stake-net "10000.0000 EOS" --buy-ram-kbytes 1000 --transfer|);
+
+    # setup dejavu
+    crashed() if cth_cleos(qq|push action dejavu.${doh_target} setplayer '{"p":{"owner":"$player", "asset_url":"/players/empire/player-empire-01.png", "count":0, "reputation":0, "faction_id":1, "location_tile_id":1}}' -p hegemon.${doh_target}|);
+
+    # create this player's char
+    crashed() if cth_cleos(qq|push action hegemon.${doh_target} createchar '{"player":"$player"}' --force-unique -p $player|);
 }
+
+
+# *******************************************************************************
+# TODO/REVIEW:
+# Not sure how this is suppposed to work (or not). this crashes with
+#    "except": {
+#      "code": 3050014,
+#      "name": "action_return_value_exception",
+#      "message": "action return value size too big",
+#
+## **********************
+## Get information from the readonly contract
+## **********************
+#
+#$o = cth_cleos_pipe(qq*push action readonly.${doh_target} getconstants '{}' --force-unique -p readonly.${doh_target} --json*);
+#
+#crashed if (!defined $o);
+#
+#print "output of readonly constants:\n";
+#print "$o\n";
+# *******************************************************************************
+
+
+# **********************
+# Benchmark the energy uses of the activities we will be using
+# which tells us the numerator (spent energy --> TCN inflation) increases per player
+# **********************
+
+
+
+
 
 # **********************
 # For each of 3 rounds for this test, in which we will split the 90 players in 3 groups.
@@ -228,6 +321,13 @@ foreach my $player (@players) {
 # Actually check if this makes sense (I think it does but maybe not)
 # **********************
 
+print "Running the 3 phases of the test.\n";
+
+for (my $phase = 1; $phase <= 3; $phase++) {
+    
+    print "Running test phase $phase ...\n";
+    
+}
 
 
 
