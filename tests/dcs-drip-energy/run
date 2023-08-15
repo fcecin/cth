@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 # --------------------------------------------------------------------------------------------
-# dcs-drip-distrib
+# dcs-drip-energy
 #
 # Test naming convention:
 #   d  = DoH
@@ -22,7 +22,7 @@
 #   for example.
 #
 # This test does the following:
-# - Create 90(?) players and spawn a char for each
+# - Create 50 players and spawn a char for each
 # - For phases = 1 to 3
 #   - All chars spam random amounts of random actions to spend energy in various ways
 #     (advancing clock as needed to recuperate energy)
@@ -39,22 +39,30 @@ use warnings;
 use lib '../../tools/cth-goodies';
 use CthGoodies;
 
-# --------------------------------------------------------------------------------------------
-# Example subs that will end up in the DoHGoodies library
-# (FIXME/TODO -- make the library and use that instead of this)
-# --------------------------------------------------------------------------------------------
+# include the tools/doh-goodies library
+use lib '../../tools/doh-goodies';
+use DoHGoodies;
 
-sub get_tcn_target {
-    my $hgm = shift;
-    if (! defined $hgm) { die "ERROR: get_tcn_target: hgm is undefined\n"; }
-    if ($hgm eq 'hgm') {
-        return "tcn";
-    } elsif ($hgm =~ /^hg\d$/) {
-        return "tc" . substr($hgm, -1);
-    } else {
-        die "ERROR: Cannot infer tcn target for doh target: $hgm\n";
-    }
-}
+# -----------------------------------------------------------------------
+# Test logic & global parameters
+# -----------------------------------------------------------------------
+
+# CHANGED: We are changing this test to work with hg1 and hg2 (which support
+#   deterministic clock and oracle, but sadly hgm doesn't yet)
+my $doh_target = "hg2";
+
+my $tcn_target; # calculated later to match doh_target
+
+# Maximum number of players has been set to 50 in one of the version of
+#   the code, so we're going to be using that number a lot for tests.
+my $doh_max_players = 50;
+
+my $gmplayer = 'dohplayer.aa';   # game master & default tx/action signer for cleos calls
+
+my $energy_cost_work;   # cost of 1 work action (e.g. a char mines its tile); calculated later
+
+my $o;
+my $ret;
 
 # --------------------------------------------------------------------------------------------
 # Parse command-line parameters.
@@ -63,22 +71,7 @@ sub get_tcn_target {
 #
 # The cleos_url switch is ignored. The doh-coldstart driver currently starts at the
 #    default cleos address (https://127.0.0.1:8888).
-#
-# The target is forced to be 'hg2'. If the Auto Switch Filter did not trigger, this
-#    test will fail if a different target is given.
 # --------------------------------------------------------------------------------------------
-
-# CHANGED: We are changing this driver to only use doh-coldstart.
-#          The cleos_url, if given, is ignored.
-#my $use_driver_doh_coldstart = 1;
-
-# CHANGED: We are changing this test to work with hg1 and hg2 (which support
-#   deterministic clock and oracle, but sadly hgm doesn't yet)
-my $doh_target = "hg2";
-
-my $tcn_target;
-
-my $ret;
 
 my ($switches, $options) = cth_standard_args_parser(
 
@@ -120,78 +113,41 @@ if (exists $switches->{'cleos_url'}) {
 }
 
 # -----------------------------------------------------------------------------------------
-# CHANGED: We ignore cleos_url in this test. It is purely a coldstart test.
-#          We have to write specialized tests for each case to make it all work.
+# Staging & dev contract source code only.
 # -----------------------------------------------------------------------------------------
-##
-## Eventually, the setup below moves to one or more specialized DoH test drivers.
-## The goal is to have the test logic have only exactly what it needs.
-## Also, tests that are written specifically for a given deployment target, for example,
-##   can skip themselves.
-##
-#
-#if (exists $switches->{'cleos_url'}) {
-#    print "Test will not run local driver since --cleos_url test run switch sets the following endpoint: " . $switches->{'cleos_url'} . "\n";
-#    print "This test will abstain from management of the provided endpoint/blockchain and DoH contract code and data entirely.\n";
-#    $use_driver_doh_coldstart = 0;
-#
-#    $ret = cth_set_cleos_url( $switches->{'cleos_url'} );
-#    if ($ret) { die "ERROR: cth_set_cleos_url failed\n"; }
-#}
-
-# -----------------------------------------------------------------------------------------
-# This test is using testname target filtering to restrict itself to staging & dev
-#   contract source code only.
-# -----------------------------------------------------------------------------------------
-#
-#if (exists $switches->{'target'}) {
-#    $doh_target = $switches->{'target'};
-#    print "Specific DoH target provided via --target test run switch: $doh_target\n";
-#} else {
-#    print "Using test's default DoH target: $doh_target\n";
-#}
-#
 if (exists $switches->{'target'} && ($switches->{'target'} eq "hg1" || $switches->{'target'} eq "hg2")) {
     print "SKIP: DoH target " . $switches->{'target'} . " provided but this test only supports hg1 (staging) and hg2 (dev) DoH code, since e.g. hgm does not have deterministic clock and oracle provided to the test system.\n";
     cth_skip_test();
 }
 
-$tcn_target = get_tcn_target($doh_target);
+$tcn_target = doh_get_tcn_target($doh_target);
 print "TCN target set to: $tcn_target\n";
 
-$ret = cth_set_cleos_provider("cleos-driver");
-if ($ret) { die "ERROR: cth_set_cleos_provider failed\n"; }
+# -----------------------------------------------------------------------------------------
+# Start required drivers
+# -----------------------------------------------------------------------------------------
 
-# CHANGED: driver doh-coldstart is required for this test.
+# doh_init takes care of the cleos-driver for us
 #
-#if ($use_driver_doh_coldstart) {
+#$ret = cth_set_cleos_provider("cleos-driver");
+#if ($ret) { die "ERROR: cth_set_cleos_provider failed\n"; }
+#
+$ret = doh_init($doh_target, $gmplayer);
+if ($ret) { die "ERROR: doh_init failed\n"; }
 
-    $ret = cth_call_driver("doh-coldstart", "configure --target=" . $doh_target);
-    if ($ret) { die "ERROR: cth_call_driver failed\n"; }
+$ret = cth_call_driver("doh-coldstart", "configure --target=" . $doh_target);
+if ($ret) { die "ERROR: cth_call_driver failed\n"; }
 
-    $ret = cth_call_driver("doh-coldstart", "start");
-    if ($ret) { die "ERROR: cth_call_driver failed\n"; }
-
-#} else {
-#    # we have to try to start the cleos-driver manually since coldstart won't be there to guarantee it for us.
-#    # this call actually never hurts and you can do it all the time, but it's more unnecessary logging.
-#    $ret = cth_call_driver("cleos-driver", "start");
-#    if ($ret) { die "ERROR: cth_call_driver failed\n"; }
-#}
+$ret = cth_call_driver("doh-coldstart", "start");
+if ($ret) { die "ERROR: cth_call_driver failed\n"; }
 
 # --------------------------------------------------------------------------------------------
 # We will shut down the driver and fail the test whenever a test step fails.
 # --------------------------------------------------------------------------------------------
 
 sub cleanup {
-    # CHANGED: driver doh-coldstart is required for this test.
-    #
-    #if ($use_driver_doh_coldstart) {
-
-        $ret = cth_call_driver("doh-coldstart", "stop");
-        if ($ret) { die "ERROR: cth_call_driver failed\n"; }   # questionable whether this is actually needed
-
-    #}
+    $ret = cth_call_driver("doh-coldstart", "stop");
+    if ($ret) { die "ERROR: cth_call_driver failed\n"; }   # questionable whether this is actually needed
 }
 
 sub crashed {
@@ -210,12 +166,9 @@ sub failed {
 # Test logic here
 # --------------------------------------------------------------------------------------------
 
-my $o;
-
-my $gm_player = "dohplayer.aa";
-
 # **********************
 # One-time (?) initialization rites
+# deterministic clock & rng oracle, TCN token, boot staking system, add some factions because why not, game master (gm), tile type, planet, region, two tiles
 # **********************
 
 crashed() if cth_cleos(qq|push action clock.${doh_target} useclock '{}' -p clock.${doh_target}|);
@@ -254,14 +207,16 @@ crashed() if cth_cleos(qq|push action hegemon.${doh_target} addtile '{"id":2,"ar
 
 crashed() if cth_cleos(qq|push action staking.${tcn_target} enable '{}' -p staking.${tcn_target}|);
 
-
 # **********************
-# Create 90 test player accounts: dohplayer.aa , dohplayer.ab , dohplayer.ac   etc.
-# Also create each char, they will have the expected char ids 1-90
-# Also does init stuff
+# Create 50 test player accounts: dohplayer.aa , dohplayer.ab , dohplayer.ac   etc.
+# Also create each char, they will have the expected char ids 1-50
+# Also does some init stuff
 # **********************
 
-my @players = cth_generate_account_names('dohplayer.', 'aa', 90);
+my $char1    = 1;
+my $player1  = 'dohplayer.aa';
+
+my @players = cth_generate_account_names('dohplayer.', 'aa', $doh_max_players);
 
 my $player_id = 0;
 
@@ -277,49 +232,57 @@ foreach my $player (@players) {
     # setup dejavu
     crashed() if cth_cleos(qq|push action dejavu.${doh_target} setplayer '{"p":{"owner":"$player", "asset_url":"/players/empire/player-empire-01.png", "count":0, "reputation":0, "faction_id":1, "location_tile_id":1}}' -p hegemon.${doh_target}|);
 
+    # regplayer
+    crashed() if cth_cleos(qq|push action hegemon.${doh_target} regplayer '{"player":"$player", "opt_out_of_politics":0}' --force-unique -p $player|);
+    
     # create this player's char
     crashed() if cth_cleos(qq|push action hegemon.${doh_target} createchar '{"player":"$player"}' --force-unique -p $player|);
 }
 
-
-# *******************************************************************************
-# TODO/REVIEW:
-# Not sure how this is suppposed to work (or not). this crashes with
-#    "except": {
-#      "code": 3050014,
-#      "name": "action_return_value_exception",
-#      "message": "action return value size too big",
-#
-## **********************
-## Get information from the readonly contract
-## **********************
-#
-#$o = cth_cleos_pipe(qq*push action readonly.${doh_target} getconstants '{}' --force-unique -p readonly.${doh_target} --json*);
-#
-#crashed if (!defined $o);
-#
-#print "output of readonly constants:\n";
-#print "$o\n";
-# *******************************************************************************
-
-
 # **********************
-# Benchmark the energy uses of the activities we will be using
+# Benchmark the energy uses of the activities weso it will be using
 # which tells us the numerator (spent energy --> TCN inflation) increases per player
 # **********************
 
+print "Will calculate the energy expenditure of in-game actions.\n";
 
+# For now, work will be sufficient for this test.
+# Let's not write complicated tests before we have decent test libraries. 
 
+print "Calculating cost of work action...\n";
 
+my $e1 = doh_get_char_energy($char1);
+crashed() if ($e1 < 0);
+
+print "Char $char1 energy before work: $e1\n";
+
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} dowork '[$char1, 1]' -p $player1|); # 1 is "mining"; can be anything
+
+my $e2 = doh_get_char_energy($char1);
+crashed() if ($e2 < 0);
+
+print "Char $char1 energy after work: $e2\n";
+
+$energy_cost_work = $e1 - $e2;
+
+print "Energy cost of work is: $energy_cost_work\n";
 
 # **********************
-# For each of 3 rounds for this test, in which we will split the 90 players in 3 groups.
+# For each of 3 rounds for this test, in which we will split the 50 players in 3 groups.
 # First group claims in all rounds
 # Second group claims in rounds 2 and 3
 # Third group claims in round 3 only
 #
 # Actually check if this makes sense (I think it does but maybe not)
 # **********************
+
+#   - All chars spam random amounts of random actions to spend energy in various ways
+#     (advancing clock as needed to recuperate energy)
+#   - The players #1 to #30*phase make TCN/drip claims
+#   - Advance clock sufficiently to end the day
+#   - Obtain (& print) raw results
+#   - Assert on a bunch of invariants on players, drip contract objects, global objects, ...
+
 
 print "Running the 3 phases of the test.\n";
 
