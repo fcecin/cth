@@ -51,11 +51,17 @@ use DoHGoodies;
 #   deterministic clock and oracle, but sadly hgm doesn't yet)
 my $doh_target = "hg2";
 
+# FIXME/TODO: This has to be obtained either from the source code of the target or
+#             the running contract (e.g. consulting the readonly contract)
+my $ONE_DAY = 300;
+
 my $tcn_target; # calculated later to match doh_target
 
 # Maximum number of players has been set to 50 in one of the version of
 #   the code, so we're going to be using that number a lot for tests.
-my $doh_max_players = 50;
+my $doh_max_players      = 30;
+my $doh_test_phases      = 3;
+my $doh_test_group_size  = $doh_max_players / $doh_test_phases;
 
 my $gmplayer = 'dohplayer.aa';   # game master & default tx/action signer for cleos calls
 
@@ -166,18 +172,18 @@ sub failed {
 # Test logic here
 # --------------------------------------------------------------------------------------------
 
-# FIXME/TODO
+my $expected;
+my $actual;
+
+# We are first doing a basic test scenario:
+# - Some players work, some players claim, for a day; check TCN is delivered to people in the expected proportion.
 #
-# Test scenarios:
+# FIXME/TODO: Advanced test scenarios:
 #
 # The other function we need to cover with the unit tests is the transfer notification handler, which is triggered by the inflation payment, which is itself initiated by the endday action in the hegemon.hgm contract.
-#
 # For instance, we need to be testing situations where a single deposit is received, multiple deposits are received or no deposits are received for a given period.
-#
 # We must also test periods where multiple users are eligible, where a single user is eligible, and where no users are eligible.
-#
 # We need to test users sometimes performing actions, and sometimes not, over a number of periods.
-#
 # Invariants tested:
 # - if  spend x energy yields Y% of the TCN, then spending x' energy should yield Y'% of the inflation TCN.  (?)
 
@@ -215,7 +221,7 @@ crashed() if cth_cleos(qq|push action crafting.${doh_target} addeffect '{"id":8,
 
 crashed() if cth_cleos(qq|push action hegemon.${doh_target} addplanet '{"id":1, "area_map":"tulon","name":"Tulon", "code":"tu", "code":"tu", "asset_url":"/planets/tulon.png"}' -p hegemon.${doh_target}|);
 
-crashed() if cth_cleos(qq|push action hegemon.${doh_target} addregion '{"id":1, "planet_id":1,"name":"Nefari", "code":"ne"}' -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} addregion '{"id":1, "area_map":"tulon","name":"Nefari", "code":"ne"}' -p hegemon.${doh_target}|);
 
 crashed() if cth_cleos(qq|push action hegemon.${doh_target} addterrain '{"id":1, "type":"Plains", "map_asset_url":"/tiles/tile-plains.jpg", "background_asset_url":"/character-backgrounds/character-background-plains.png", "building_slots":6, "effects":[8]}' -p hegemon.${doh_target}|);
 
@@ -225,8 +231,8 @@ crashed() if cth_cleos(qq|push action hegemon.${doh_target} addtile '{"id":2,"ar
 crashed() if cth_cleos(qq|push action staking.${tcn_target} enable '{}' -p staking.${tcn_target}|);
 
 # **********************
-# Create 50 test player accounts: dohplayer.aa , dohplayer.ab , dohplayer.ac   etc.
-# Also create each char, they will have the expected char ids 1-50
+# Create 30 test player accounts: dohplayer.aa , dohplayer.ab , dohplayer.ac   etc.
+# Also create each char, they will have the expected char ids 1-30
 # Also does some init stuff
 # **********************
 
@@ -251,7 +257,7 @@ foreach my $player (@players) {
 
     # regplayer
     crashed() if cth_cleos(qq|push action hegemon.${doh_target} regplayer '{"player":"$player", "opt_out_of_politics":0}' --force-unique -p $player|);
-    
+
     # create this player's char
     crashed() if cth_cleos(qq|push action hegemon.${doh_target} createchar '{"player":"$player"}' --force-unique -p $player|);
 }
@@ -261,10 +267,13 @@ foreach my $player (@players) {
 # which tells us the numerator (spent energy --> TCN inflation) increases per player
 # **********************
 
+# Total number of times we worked
+my $total_work = 0;
+
 print "Will calculate the energy expenditure of in-game actions.\n";
 
 # For now, work will be sufficient for this test.
-# Let's not write complicated tests before we have decent test libraries. 
+# Let's not write complicated tests before we have decent test libraries.
 
 print "Calculating cost of work action...\n";
 
@@ -273,7 +282,8 @@ crashed() if ($e1 < 0);
 
 print "Char $char1 energy before work: $e1\n";
 
-crashed() if cth_cleos(qq|push action hegemon.${doh_target} dowork '[$char1, 1]' -p $player1|); # 1 is "mining"; can be anything
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} dowork '[$char1, 1]' --force-unique -p $player1|); # 1 is "mining"; can be anything
+$total_work++;
 
 my $e2 = doh_get_char_energy($char1);
 crashed() if ($e2 < 0);
@@ -285,37 +295,83 @@ $energy_cost_work = $e1 - $e2;
 print "Energy cost of work is: $energy_cost_work\n";
 
 # **********************
-# For each of 3 rounds for this test, in which we will split the 50 players in 3 groups.
-# First group claims in all rounds
-# Second group claims in rounds 2 and 3
-# Third group claims in round 3 only
-#
-# Actually check if this makes sense (I think it does but maybe not)
+# We will run this test three times.
+# In each phase, a new third of the players will do work, starting at the current day.
+# The day is advanced at the end of the work phase, and claims are made for all players that worked.
 # **********************
-
-#   - All chars spam random amounts of random actions to spend energy in various ways
-#     (advancing clock as needed to recuperate energy)
-#   - The players #1 to #30*phase make TCN/drip claims
-#   - Advance clock sufficiently to end the day
-#   - Obtain (& print) raw results
-#   - Assert on a bunch of invariants on players, drip contract objects, global objects, ...
-
-
-# ** Performing actions makes a claim. ** (if the day has ended) this is the case; it happens in-game.
-#
-# Then, assume User A claims their balance (either by explicitly calling the claim action, or by performing an in-game action that costs energy).
-
 
 print "Running the 3 phases of the test.\n";
 
-for (my $phase = 1; $phase <= 3; $phase++) {
-    
-    print "Running test phase $phase ...\n";
-    
+for (my $phase = 1; $phase <= $doh_test_phases; $phase++) {
+
+    print "Running test phase $phase/$doh_test_phases ...\n";
+
+    # -----------------------------------------------------------------------------------------
+    # The players #1 to #group-size*phase do "random" (pid % 5) amounts of work.
+    # -----------------------------------------------------------------------------------------
+
+    for (my $pid = 1; $pid <= $doh_test_group_size * $phase; $pid++) {
+
+        my $player_name = $players[ $pid - 1 ];
+
+        # We expect the player's char to have the same ID since each player creates exactly 1 char.
+        my $char_id = $pid;
+
+        # all chars mine pid % 5 times
+        # except player1 which has 1 extra work cycle from the benchmark step above
+        my $work_count = ($pid % 5) + 1;
+        print "Player $pid ('$player_name') will work $work_count times today\n";
+        for (my $i = 1; $i <= $work_count; $i++) {
+            crashed() if cth_cleos(qq|push action hegemon.${doh_target} dowork '[$char_id, 1]' --force-unique -p $player_name|);
+            $total_work++;
+        }
+    }
+
+    # -----------------------------------------------------------------------------------------
+    # Advance clock, end the day
+    # -----------------------------------------------------------------------------------------
+
+    crashed() if cth_cleos(qq|push action clock.${doh_target} clockaddsec '{"seconds":$ONE_DAY}' --force-unique -p clock.${doh_target}|);
+
+    crashed() if cth_cleos(qq|push action hegemon.${doh_target} endday '{}' --force-unique -p hegemon.${doh_target}|);
+
+    my $date_string = cth_cleos_pipe(qq*get table hegemon.${doh_target} hegemon.${doh_target} global | jq .rows[0].day_stats.day_start | tr -d '"'*);
+
+    crashed() if (!defined $date_string);
+
+    $expected = $ONE_DAY * $phase;
+
+    $actual = qx(TZ=UTC date -d "$date_string" +"%s");
+    chomp($actual);
+
+    failed() if cth_assert("unix timestamp for day_start is $expected", "$expected == $actual");
+
+    # -----------------------------------------------------------------------------------------
+    # The players #1 to #group-size*phase make TCN/drip claims
+    # -----------------------------------------------------------------------------------------
+
+    for (my $pid = 1; $pid <= $doh_test_group_size * $phase; $pid++) {
+
+        my $player_name = $players[ $pid - 1 ];
+
+        print "Player $pid ('$player_name') will now claim their TCN.\n";
+        crashed() if cth_cleos(qq|push action energy.${tcn_target} claim '[$player_name]' -p $player_name|);
+    }
+
+    # -----------------------------------------------------------------------------------------
+    # Check that the TCN balance between all players is proportional to their work.
+    # Check that all TCN has been distributed.
+    # -----------------------------------------------------------------------------------------
+
+    for (my $pid = 1; $pid <= $doh_max_players; $pid++) {
+
+        my $player_name = $players[ $pid - 1 ];
+
+        my $bal = cth_cleos_pipe(qq*get table tokens.${tcn_target} $player_name accounts*); # | jq .rows[0].day_stats.day_start | tr -d '"'*);
+
+        print "Player $pid ('$player_name') balance: $bal\n";
+    }
 }
-
-
-
 
 # --------------------------------------------------------------------------------------------
 # Test done; default return value is zero (success).

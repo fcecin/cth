@@ -222,6 +222,7 @@ sub cth_cleos_pipe {
 
 sub cth_assert {
     my ($desc, $expr, $orig) = @_;
+    chomp($expr);
     if (! defined $desc) {
         print "ERROR: cth_assert: desc argument is undefined\n";
         return 1;
@@ -230,7 +231,7 @@ sub cth_assert {
         print "ERROR: cth_cleos: expr argument is undefined\n";
         return 1;
     }
-    if ($expr) {
+    if (eval $expr) {
         print "cth_assert: '$desc': '$expr' is true";
         if (defined $orig) { print " ('$orig')"; }
         print ".\n";
