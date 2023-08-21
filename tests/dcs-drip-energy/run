@@ -198,6 +198,7 @@ my $actual;
 
 crashed() if cth_cleos(qq|push action clock.${doh_target} useclock '{}' -p clock.${doh_target}|);
 
+# This takes care of also initializing energy.tc? and rep.tc? with the period_reset_mode set to true (the correct value for these).
 crashed() if cth_cleos(qq|push action staking.${tcn_target} init '{ "distrib_contracts": [ "energy.${tcn_target}", "rep.${tcn_target}"], "drip_contracts": [ "main.${tcn_target}", "players.${tcn_target}"] }' -p staking.${tcn_target}|);
 
 ## Already commented out
@@ -330,6 +331,28 @@ for (my $phase = 1; $phase <= $doh_test_phases; $phase++) {
     }
 
     # -----------------------------------------------------------------------------------------
+    # Check that all numerators are the values that are expected of that player at the
+    #    end of a day of work.
+    # -----------------------------------------------------------------------------------------
+
+    print "Checking numerator of all players whose characters have worked today...\n";
+
+    for (my $pid = 1; $pid <= $doh_test_group_size * $phase; $pid++) {
+
+        my $player_name = $players[ $pid - 1 ];
+
+        my $num = cth_cleos_pipe(qq*get table energy.${tcn_target} energy.${tcn_target} users -L$player_name -U$player_name | jq .rows[0].numerator | tr -d '"'*);
+        crashed() if (!defined $num);
+
+        my $work_cycles = ($pid % 5) + 1;
+        if ($pid == 1 && $phase == 1) { $work_cycles++; } # extra work on first day to benchmark work cost
+
+        $expected = $work_cycles * $energy_cost_work;   # $energy_cost_work should be 30 if nothing changed, and the numerator is directly a sum of spent energy working
+
+        cth_assert("player $player_name numerator $num equals $work_cycles work cycles (i.e. $expected)", "$expected == $num");
+    }
+
+    # -----------------------------------------------------------------------------------------
     # Advance clock, end the day
     # -----------------------------------------------------------------------------------------
 
@@ -390,27 +413,45 @@ for (my $phase = 1; $phase <= $doh_test_phases; $phase++) {
     # The players #1 to #group-size*phase make TCN/drip claims
     # -----------------------------------------------------------------------------------------
 
-    for (my $pid = 1; $pid <= $doh_test_group_size * $phase; $pid++) {
+#    if ($phase > 999) {
 
-        my $player_name = $players[ $pid - 1 ];
+        for (my $pid = 1; $pid <= $doh_test_group_size * $phase; $pid++) {
 
-        print "Player $pid ('$player_name') will now claim their TCN.\n";
-        crashed() if cth_cleos(qq|push action energy.${tcn_target} claim '[$player_name]' -p $player_name|);
-    }
+            my $player_name = $players[ $pid - 1 ];
+
+            print "Player $pid ('$player_name') will now claim their TCN.\n";
+            crashed() if cth_cleos(qq|push action energy.${tcn_target} claim '[$player_name]' -p $player_name|);
+        }
+ #   } else {
+ #       print "Skipping claims in phase 1 as it seems no TCN is given in the first day.\n";
+ #   }
 
     # -----------------------------------------------------------------------------------------
     # Check that the TCN balance between all players is proportional to their work.
     # Check that all TCN has been distributed.
     # -----------------------------------------------------------------------------------------
 
-    for (my $pid = 1; $pid <= $doh_max_players; $pid++) {
+    # just check p1's money for now until this is not zero (FIXME/TODO) 
 
-        my $player_name = $players[ $pid - 1 ];
+    my $player_name = $players[ 1 ];
 
-        my $bal = cth_cleos_pipe(qq*get table tokens.${tcn_target} $player_name accounts*); # | jq .rows[0].day_stats.day_start | tr -d '"'*);
+    my $bal = cth_cleos_pipe(qq*get table tokens.${tcn_target} $player_name accounts*); # | jq .rows[0].day_stats.day_start | tr -d '"'*);
 
-        print "Player $pid ('$player_name') balance: $bal\n";
-    }
+    print "P1 MONEY PHASE $phase is: $bal\n";
+
+  #  if ($phase > 999) {
+
+   #     for (my $pid = 1; $pid <= $doh_max_players; $pid++) {
+
+    #        my $player_name = $players[ $pid - 1 ];
+
+     #       my $bal = cth_cleos_pipe(qq*get table tokens.${tcn_target} $player_name accounts*); # | jq .rows[0].day_stats.day_start | tr -d '"'*);
+
+      #      print "Player $pid ('$player_name') balance: $bal\n";
+       # }
+    #} else {
+    #    print "Skipping printing the balances in phase 1 as it seems no TCN is given in the first day\n";
+    #}
 }
 
 # --------------------------------------------------------------------------------------------
