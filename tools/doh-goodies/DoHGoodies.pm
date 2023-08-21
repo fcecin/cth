@@ -123,6 +123,14 @@ sub doh_get_char_energy {
     # At least for immediate-term development (ie. with doh-coldstart), this will do. And perhaps it will work for every
     #    realistic test setup as well (i.e. why would you spin up a non-print() blockchain for running tests?).
     # This also cleanly breaks if the existing prints are messed with.
+    #
+    # ANOTHER way to do it would be to create a function that has a side-effect. That is, it does not JUST get the char
+    #  energy. Instead, it performs an action, which calls check_action, which will THEN update the energy field of
+    #  the character. In deterministic clock mode (what we use for all, or at least most, testing) then it is just a
+    #  matter of reading the "energy" field of the character. This would be best with a dummy game action that spends
+    #  zero energy, i.e. you just apply the energy regeneration to the energy field, set last action time to now, and
+    #  that's it. But this requires support from the hegemon contract.
+    #
     my $energy_str = cth_cleos_pipe(qq|--verbose push action hegemon.${doh_target} calcenergy '[$charid]' --force-unique -p $default_signer|);
 
     if (!defined $energy_str) {

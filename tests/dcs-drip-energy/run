@@ -166,9 +166,26 @@ sub failed {
 # Test logic here
 # --------------------------------------------------------------------------------------------
 
+# FIXME/TODO
+#
+# Test scenarios:
+#
+# The other function we need to cover with the unit tests is the transfer notification handler, which is triggered by the inflation payment, which is itself initiated by the endday action in the hegemon.hgm contract.
+#
+# For instance, we need to be testing situations where a single deposit is received, multiple deposits are received or no deposits are received for a given period.
+#
+# We must also test periods where multiple users are eligible, where a single user is eligible, and where no users are eligible.
+#
+# We need to test users sometimes performing actions, and sometimes not, over a number of periods.
+#
+# Invariants tested:
+# - if  spend x energy yields Y% of the TCN, then spending x' energy should yield Y'% of the inflation TCN.  (?)
+
 # **********************
 # One-time (?) initialization rites
 # deterministic clock & rng oracle, TCN token, boot staking system, add some factions because why not, game master (gm), tile type, planet, region, two tiles
+#
+# FIXME/TODO: move this into the DoHGoodies lib e.g. doh_test_boot_std() will initialize a simple standard test world.
 # **********************
 
 crashed() if cth_cleos(qq|push action clock.${doh_target} useclock '{}' -p clock.${doh_target}|);
@@ -282,6 +299,11 @@ print "Energy cost of work is: $energy_cost_work\n";
 #   - Advance clock sufficiently to end the day
 #   - Obtain (& print) raw results
 #   - Assert on a bunch of invariants on players, drip contract objects, global objects, ...
+
+
+# ** Performing actions makes a claim. ** (if the day has ended) this is the case; it happens in-game.
+#
+# Then, assume User A claims their balance (either by explicitly calling the claim action, or by performing an in-game action that costs energy).
 
 
 print "Running the 3 phases of the test.\n";
