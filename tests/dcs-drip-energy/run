@@ -67,6 +67,8 @@ my $gmplayer = 'dohplayer.aa';   # game master & default tx/action signer for cl
 
 my $energy_cost_work;   # cost of 1 work action (e.g. a char mines its tile); calculated later
 
+my $FARM = 3;   # work code
+
 my $o;
 my $ret;
 
@@ -282,7 +284,7 @@ crashed() if ($e1 < 0);
 
 print "Char $char1 energy before work: $e1\n";
 
-crashed() if cth_cleos(qq|push action hegemon.${doh_target} dowork '[$char1, 1]' --force-unique -p $player1|); # 1 is "mining"; can be anything
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} dowork '[$char1, $FARM]' --force-unique -p $player1|);
 $total_work++;
 
 my $e2 = doh_get_char_energy($char1);
@@ -322,7 +324,7 @@ for (my $phase = 1; $phase <= $doh_test_phases; $phase++) {
         my $work_count = ($pid % 5) + 1;
         print "Player $pid ('$player_name') will work $work_count times today\n";
         for (my $i = 1; $i <= $work_count; $i++) {
-            crashed() if cth_cleos(qq|push action hegemon.${doh_target} dowork '[$char_id, 1]' --force-unique -p $player_name|);
+            crashed() if cth_cleos(qq|push action hegemon.${doh_target} dowork '[$char_id, $FARM]' --force-unique -p $player_name|);
             $total_work++;
         }
     }
@@ -333,7 +335,45 @@ for (my $phase = 1; $phase <= $doh_test_phases; $phase++) {
 
     crashed() if cth_cleos(qq|push action clock.${doh_target} clockaddsec '{"seconds":$ONE_DAY}' --force-unique -p clock.${doh_target}|);
 
-    crashed() if cth_cleos(qq|push action hegemon.${doh_target} endday '{}' --force-unique -p hegemon.${doh_target}|);
+    # Check that the inflation data makes basic sense
+
+    my $text_blob = cth_cleos_pipe(qq|push action hegemon.${doh_target} endday '{}' --force-unique -p hegemon.${doh_target}|);
+    crashed() if (! defined $text_blob);
+
+    my $daily_inflation;
+    my $energy_transfer;
+    my $rep_transfer;
+
+    if ($text_blob =~ /daily_inflation : (\d+\.\d+) TCN/) {
+        $daily_inflation = $1;
+    } else {
+        print "ERROR: can't find endday daily_inflation\n";
+        crashed();
+    }
+    if ($text_blob =~ /Transfer detected : players\.tc. energy\.tc. (\d+\.\d+) TCN/) {
+        $energy_transfer = $1;
+    } else {
+        print "ERROR: can't find endday energy transfer\n";
+        crashed();
+    }
+    if ($text_blob =~ /Transfer detected : players\.tc. rep\.tc. (\d+\.\d+) TCN/) {
+        $rep_transfer = $1;
+    } else {
+        print "ERROR: can't find endday rep transfer\n";
+        crashed();
+    }
+
+    if ($daily_inflation > 0 && ($energy_transfer + $rep_transfer) == $daily_inflation) {
+        print "Consistent hegemon::endday result received:\n";
+        print "Daily Inflation: $daily_inflation TCN\n";
+        print "Energy Transfer: $energy_transfer TCN\n";
+        print "Rep Transfer: $rep_transfer TCN\n";
+    } else {
+        print "ERROR: Invalid data from hegemon::endday.\n";
+        failed();
+    }
+
+    # Check that the end of the day has been reached as expected
 
     my $date_string = cth_cleos_pipe(qq*get table hegemon.${doh_target} hegemon.${doh_target} global | jq .rows[0].day_stats.day_start | tr -d '"'*);
 
