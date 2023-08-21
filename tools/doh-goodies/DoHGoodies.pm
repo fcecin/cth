@@ -16,7 +16,7 @@ use strict;
 use warnings;
 
 use Exporter qw(import);
-our @EXPORT = qw(doh_init doh_get_tcn_target doh_get_char_energy);
+our @EXPORT = qw(doh_init doh_get_tcn_target doh_get_char_energy doh_extract_tcn_amount);
 
 # -----------------------------------------------------------------------
 # Uses CthGoodies
@@ -142,6 +142,33 @@ sub doh_get_char_energy {
         return $1;
     } else {
         print "ERROR: doh_get_char_energy: cannot calculate the character energy from the output of calcenergy($charid): $energy_str\n";
+        return -1;
+    }
+}
+
+# -----------------------------------------------------------------------
+# doh_extract_tcn_amount
+#
+# Extract the TCN amount from a "XXX.YYY TCN" string (with or
+#   without quotes or other surrounding noise).
+#
+# inputs:
+#   $amount_str : TCN amount string
+#
+# output:
+#   $amount : TCN amount ("xxx.yyy" real/float number) or -1
+#     on any error.
+# -----------------------------------------------------------------------
+
+sub doh_extract_tcn_amount {
+    my ($amount_str) = @_;
+    if (! defined $amount_str) {
+        print "ERROR: doh_extract_tcn_amount: amount_str argument is undefined\n";
+        return -1;
+    }
+    if ($amount_str =~ /(\d+\.\d+)\s+TCN/) {
+        return $1;
+    } else {
         return -1;
     }
 }
