@@ -1,6 +1,6 @@
-doh-coldstart takes a long time to install because, currently, it will always compile all of the doh-contracts three times: once for production (prod, hgm/tcn), once for staging (staging, hg1/tc1) and once for development (dev, hg2/tc2).
+doh-coldstart downloads and configures the source code for all DoH targets, but it ONLY COMPILES the test target (hg3/tc3) during driver installation.
 
-If you wish to do something smarter (that is, faster) manually, then DO NOT RUN cth -i or invoke doh-coldstart/install, and then instead you can compile and recompile the version of the contracts that you are effectively using by placing it under the following directories:
+You can still write tests that use the other targets and enable/select those targets in your tests, but you will have to ensure the targets are properly compiled and present in the standard directories expected by the tests:
 
 production:
   <cth root directory>/local/prod/doh-coldstart/
@@ -10,3 +10,6 @@ staging:
 
 development:
   <cth root directory>/local/dev/doh-coldstart/
+
+development:
+  <cth root directory>/local/test/doh-coldstart/
