@@ -14,7 +14,7 @@ my $current_dir = getcwd();
 
 my $driver = "doh-coldstart";
 
-my $source_dir = "../../tools/doh-contracts"; # source dir with the template
+my $source_dir = "../../local/doh-contracts"; # source dir with the template
 
 my $run_build_sh = "run-build.sh";
 
@@ -64,6 +64,15 @@ sub copy_doh {
     system("mkdir -p $destination") == 0 or die "ERROR: doh-coldstart: Failed to create target directory $destination: $!";
     system("cp -r $source_dir $destination") == 0 or die "ERROR: doh-coldstart: Failed to copy $source_dir to $destination: $!";
 }
+
+# ---------------------------------------------------------------------------
+# First, we need to download the DoH source code, since it is no longer
+#   a submodule. This is done by tools/get-doh/get-doh.sh.
+# ---------------------------------------------------------------------------
+
+print "$driver: Downloading latest DoH source code to $source_dir using tools/get-doh.sh\n";
+
+system("../../tools/get-doh/get-doh.sh $source_dir") == 0 or die "ERROR: doh-coldstart: Failed to get DoH source code: $!";
 
 # ---------------------------------------------------------------------------
 # The doh-contracts/ meta-submodule is a CODE TEMPLATE. It is not actual
