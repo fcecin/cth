@@ -21,7 +21,7 @@ my $run_build_sh = "run-build.sh";
 my $local_prod_dir     = "../../local/prod/doh-contracts";
 my $local_staging_dir  = "../../local/staging/doh-contracts";
 my $local_dev_dir      = "../../local/dev/doh-contracts";
-my $local_dev_dir      = "../../local/test/doh-contracts";
+my $local_test_dir      = "../../local/test/doh-contracts";
 
 # ---------------------------------------------------------------------------
 # Utils
