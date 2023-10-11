@@ -21,6 +21,7 @@ my $run_build_sh = "run-build.sh";
 my $local_prod_dir     = "../../local/prod/doh-contracts";
 my $local_staging_dir  = "../../local/staging/doh-contracts";
 my $local_dev_dir      = "../../local/dev/doh-contracts";
+my $local_dev_dir      = "../../local/test/doh-contracts";
 
 # ---------------------------------------------------------------------------
 # Utils
@@ -49,7 +50,13 @@ sub chdir_dev_dir {
     print "Current working directory: " . getcwd() .  "\n";
 }
 
-# target is prod, staging, dev
+sub chdir_test_dir {
+    chdir_driver_dir();    # absolute
+    chdir $local_test_dir; # relative
+    print "Current working directory: " . getcwd() .  "\n";
+}
+
+# target is prod, staging, dev, test
 sub copy_doh {
     my $target = shift;
     die "ERROR: doh-coldstart: copy target not defined" unless (defined $target);
@@ -75,15 +82,34 @@ print "$driver: Downloading latest DoH source code to $source_dir using tools/ge
 system("../../tools/get-doh/get-doh.sh $source_dir") == 0 or die "ERROR: doh-coldstart: Failed to get DoH source code: $!";
 
 # ---------------------------------------------------------------------------
-# The doh-contracts/ meta-submodule is a CODE TEMPLATE. It is not actual
+# The doh-contracts assembled by get-doh.sh is a CODE TEMPLATE. It is not actual
 #   source code for the DoH contracts suite. It has to be preprocessed for
-#   ALL DoH targets, i.e. prod (hgm/tcn), staging (hg1/tc1) and dev (hg2/tc2),
-#   to produce THREE different DoH contract suites that are specific to each
-#   target.
+#   ALL DoH targets, i.e. prod (hgm/tcn), staging (hg1/tc1), dev (hg2/tc2),
+#   test (hg3/tc3) to produce THREE different DoH contract suites that are
+#   specific to each target.
 #
 # This installer will recompile ALL targets, FULLY. The build system as a
 #   whole is not smart enough yet to save work. Run cth -i dummy and grab
 #   a mug of coffee.
+#
+# NEW (Oct 2023):
+#   Actually, we will only build one target, which is "test" (hg3/tc3).
+#   Ideally, we'd build and test only the production target: we'd like to
+#     test the version of the game that is actually deployed. The various
+#     targets were invented to facilitate humans and human-interactive
+#     shell scripts testing vs. a shared remote game deployment.
+#   On the other hand, automated testing is (mostly) run against a local
+#     blockchain node with the deployed game, with full control of setting
+#     objects (setplayer, etc.), the RNG and clock. The added convenience
+#     of having more forgiving game constants is more of a hindrance than
+#     a help for automated testing, though its great for people-testers
+#     and shared blockchain/contracts remote testing.
+#   It's still contentions whether we want to enable clock and RNG for
+#     the production constants/content, which would allow automated testing
+#     (I don't remember why exactly this was disabled and how right now),
+#     so as discussed we'll write automated tests for the test (hg3/tc3)
+#     target for now.
+#
 # ---------------------------------------------------------------------------
 
 chdir_driver_dir();
@@ -102,6 +128,7 @@ if (-e "$source_dir/$run_build_sh") {
 #   local/prod/doh-contracts/
 #   local/staging/doh-contracts/
 #   local/dev/doh-contracts/
+#   local/test/doh-contracts/
 # ---------------------------------------------------------------------------
 
 print "$driver: Copying contract templates to local/ for all DoH targets ...\n";
@@ -109,12 +136,14 @@ print "$driver: Copying contract templates to local/ for all DoH targets ...\n";
 copy_doh("prod");
 copy_doh("staging");
 copy_doh("dev");
+copy_doh("test");
 
 # ---------------------------------------------------------------------------
 # And then run:
 #   local/prod/doh-contracts/set-prod.sh
 #   local/staging/doh-contracts/set-staging.sh
 #   local/dev/doh-contracts/set-dev.sh
+#   local/test/doh-contracts/set-test.sh
 # ---------------------------------------------------------------------------
 
 print "$driver: Instantiating contract templates on local/ for all DoH targets ...\n";
@@ -128,42 +157,63 @@ system("set-staging.sh") == 0 or die "ERROR: $driver: Failed to create staging c
 chdir_dev_dir();
 system("set-dev.sh") == 0 or die "ERROR: $driver: Failed to create dev contracts: $!";
 
+chdir_test_dir();
+system("set-test.sh") == 0 or die "ERROR: $driver: Failed to create test contracts: $!";
+
 # ---------------------------------------------------------------------------
 # And then run:
-#   local/prod/doh-contracts/run-build.sh
-#   local/staging/doh-contracts/run-build.sh
-#   local/dev/doh-contracts/run-build.sh
+#   REMOVED: local/prod/doh-contracts/run-build.sh
+#   REMOVED: local/staging/doh-contracts/run-build.sh
+#   REMOVED: local/dev/doh-contracts/run-build.sh
+#   local/test/doh-contracts/run-build.sh
 # ---------------------------------------------------------------------------
 
 my $ret;
 
-print "$driver: Running DoH contracts build script for prod...\n";
-chdir_prod_dir();
-$ret = system($run_build_sh);
-if ($ret == 0) {
-    print "$driver: DoH contracts built successfully at $local_prod_dir\n";
-} else {
-    my $exit_code = $ret >> 8;
-    print "$driver: ERROR: DoH contracts build failed. system() returned: $ret, exit code: $exit_code.\n";
-    exit 1;
-}
+print "$driver: ************************************************************************************************\n";
+print "$driver: *** SKIPPING COMPILATION of prod (hgm/tcn), staging (hg1/tc1) and dev (hg2/tc2) targets!!!\n";
+print "$driver: *** Tests that try to run with any target other than the test target with this driver will fail.\n";
+print "$driver: ************************************************************************************************\n";
 
-print "$driver: Running DoH contracts build script for staging...\n";
-chdir_staging_dir();
-$ret = system($run_build_sh);
-if ($ret == 0) {
-    print "$driver: DoH contracts built successfully at $local_staging_dir\n";
-} else {
-    my $exit_code = $ret >> 8;
-    print "$driver: ERROR: DoH contracts build failed. system() returned: $ret, exit code: $exit_code.\n";
-    exit 1;
-}
+#print "$driver: Running DoH contracts build script for prod...\n";
+#chdir_prod_dir();
+#$ret = system($run_build_sh);
+#if ($ret == 0) {
+#    print "$driver: DoH contracts built successfully at $local_prod_dir\n";
+#} else {
+#    my $exit_code = $ret >> 8;
+#    print "$driver: ERROR: DoH contracts build failed. system() returned: $ret, exit code: $exit_code.\n";
+#    exit 1;
+#}
 
-print "$driver: Running DoH contracts build script for dev...\n";
-chdir_dev_dir();
+#print "$driver: Running DoH contracts build script for staging...\n";
+#chdir_staging_dir();
+#$ret = system($run_build_sh);
+#if ($ret == 0) {
+#    print "$driver: DoH contracts built successfully at $local_staging_dir\n";
+#} else {
+#    my $exit_code = $ret >> 8;
+#    print "$driver: ERROR: DoH contracts build failed. system() returned: $ret, exit code: $exit_code.\n";
+#    exit 1;
+#}
+
+#print "$driver: Running DoH contracts build script for dev...\n";
+#chdir_dev_dir();
+#$ret = system($run_build_sh);
+#if ($ret == 0) {
+#    print "$driver: DoH contracts built successfully at $local_dev_dir\n";
+#} else {
+#    my $exit_code = $ret >> 8;
+#    print "$driver: ERROR: DoH contracts build failed. system() returned: $ret, exit code: $exit_code.\n";
+#    exit 1;
+#}
+
+
+print "$driver: Running DoH contracts build script for test...\n";
+chdir_test_dir();
 $ret = system($run_build_sh);
 if ($ret == 0) {
-    print "$driver: DoH contracts built successfully at $local_dev_dir\n";
+    print "$driver: DoH contracts built successfully at $local_test_dir\n";
 } else {
     my $exit_code = $ret >> 8;
     print "$driver: ERROR: DoH contracts build failed. system() returned: $ret, exit code: $exit_code.\n";

@@ -175,13 +175,13 @@ if ($? != 0) {
 print "Configured DoH contracts target: $target\n";
 
 # -------------------------------------------------------------------------
-# Load and parse the corresponding contracts map from tool doh-contracts/,
-#   in submodule doh-deployment-script.
+# Load and parse the corresponding contracts map from local doh-contracts/
+#   (fetched by get-doh.sh) in repository doh-deployment-script.
 # -------------------------------------------------------------------------
 
 print "Loading contracts map file for given driver target ...\n";
 
-my $contracts_map = "../../tools/doh-contracts/doh-deployment-script/contracts_map.$target.json";
+my $contracts_map = "../../local/doh-contracts/doh-deployment-script/contracts_map.$target.json";
 
 if (! -e $contracts_map) {
     die "ERROR: Contracts map file cannot be found: $contracts_map\n";
@@ -232,6 +232,8 @@ if ($target eq 'hgm') {
     $doh_contracts_dir .= "staging";
 } elsif ($target eq 'hg2') {
     $doh_contracts_dir .= "dev";
+} elsif ($target eq 'hg3') {
+    $doh_contracts_dir .= "test";
 } else {
     die "ERROR: doh-coldstart: does not know where to fetch doh-contracts for target: $target; expected hgm, hg1 or hg2 as configured target names in the driver.\n";
 }
