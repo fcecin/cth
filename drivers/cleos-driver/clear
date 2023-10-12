@@ -1,7 +1,12 @@
 #!/bin/bash
 
-# make sure the current working dir is where this script is
+# make sure the current working dir is the cleos-driver working dir
+# at ../../local/cleos-driver/
 cd "$(dirname "$0")"
+if ! cd "../../local/cleos-driver"; then
+  echo "ERROR: cleos-driver clear: cannot change directory to local/cleos-driver"
+  exit 1
+fi
 
 # force stopping *our* keosd by PID, so we can clear the wallet files
 

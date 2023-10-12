@@ -17,8 +17,11 @@ use strict;
 use warnings;
 use Time::HiRes qw(sleep);
 use Scalar::Util qw(looks_like_number);
+use File::Path qw(make_path);
 
 $| = 1;  # Turn on auto-flush for STDOUT (Perl doesn't do this by default)
+
+my $wallet_dir = "../../local/cleos-driver";
 
 my $verbose = 1;
 
@@ -28,24 +31,41 @@ my $keosd_pid_file = "keosd.pid";
 
 my $wallet_password_file = "default.wallet.password";
 
-my $cleos = "cleos --wallet-url unix://./keosd.sock";
-
 my $cmd;
 my $o;
 
 my $running_keosd_pid;    # defined to the PID of our keosd if we find it
 
 # --------------------------------------------------------------------------------------------
-# We have to force the working directory to where this script is
+# The wallet_dir is relative to the script's directory. Make sure to create it, then find it,
+#   then change to it.
 # --------------------------------------------------------------------------------------------
 
-use FindBin qw($RealBin);
-if (chdir($RealBin)) {
-    if ($verbose) { print "Forced working directory to cleos-driver start script location: $RealBin\n"; }
+use Cwd 'abs_path';
+use FindBin '$RealBin';
+my $abs_wallet_dir = abs_path("$RealBin/$wallet_dir");
+if (!defined $abs_wallet_dir) {
+    print "ERROR: Malformed abs_wallet_dir from '$RealBin' + '$wallet_dir': $!\n";
+    exit 1;
+}
+
+# Create the directory and its parent directories
+if (!-d $abs_wallet_dir && !make_path($abs_wallet_dir)) {
+    print "ERROR: Failed to create path for abs_wallet_dir '$abs_wallet_dir': $!\n";
+    exit 1;
+}
+
+if (chdir($abs_wallet_dir)) {
+    if ($verbose) { print "Forced working directory to cleos-driver working location: $abs_wallet_dir\n"; }
 } else {
     print "ERROR: Failed to change working directory: $!\n";
     exit 1;
 }
+
+# Now that we have the absolute path to the working directory, we can use it in the
+#  cleos command line that starts the wallet.
+
+my $cleos = "cleos --wallet-url unix://$abs_wallet_dir/keosd.sock";
 
 # --------------------------------------------------------------------------------------------
 # Utils
@@ -81,7 +101,7 @@ sub check_keosd_running {
     my $kpid;
     
     for (my $i = 0; $i < $iters; $i++) {
-        $o = `ps -efww | grep \"keosd --wallet-dir $RealBin --data-dir $RealBin\" | grep -v grep | awk '{print \$2}'`;
+        $o = `ps -efww | grep \"keosd --wallet-dir $abs_wallet_dir --data-dir $abs_wallet_dir\" | grep -v grep | awk '{print \$2}'`;
         chomp($o);
         if (looks_like_number($o)) {
             $kpid = $o;
@@ -147,7 +167,7 @@ $o = check_keosd_running(1);
 if (looks_like_number($o)) {
 
     $running_keosd_pid = $o;
-    if ($verbose) { print "keosd already running on this driver's directory as PID $running_keosd_pid\n"; }
+    if ($verbose) { print "keosd already running on $abs_wallet_dir as PID $running_keosd_pid\n"; }
     # Don't write to file; should already be there (change to writing/overwriting the file if it turns out to be needed)
 
 } else {
@@ -164,7 +184,7 @@ if (looks_like_number($o)) {
         # Run keosd while redirecting all of its output to keosd.log
         if (open(STDOUT, '>>', $keosd_log)) {
             open(STDERR, '>>&', \*STDOUT);
-            my $keosd_cmd = "keosd --wallet-dir \"$RealBin\" --data-dir \"$RealBin\"";
+            my $keosd_cmd = "keosd --wallet-dir \"$abs_wallet_dir\" --data-dir \"$abs_wallet_dir\"";
             if ($verbose) { print "Running keosd with: $keosd_cmd\n"; }
             $o = `$keosd_cmd`;
             if ($? != 0) {
@@ -192,13 +212,13 @@ if (looks_like_number($o)) {
 
 my $wallet_files_exist = 0;
 
-if (-e "$RealBin/default.wallet") {
-    if ($verbose) { print "File '$RealBin/default.wallet' already exists.\n"; }
+if (-e "$abs_wallet_dir/default.wallet") {
+    if ($verbose) { print "File '$abs_wallet_dir/default.wallet' already exists.\n"; }
     $wallet_files_exist = 1;
 }
 
-if (-e "$RealBin/default.wallet.password") {
-    if ($verbose) { print "File '$RealBin/default.wallet.password' already exists.\n"; }
+if (-e "$abs_wallet_dir/default.wallet.password") {
+    if ($verbose) { print "File '$abs_wallet_dir/default.wallet.password' already exists.\n"; }
     $wallet_files_exist = 1;
 }
 
@@ -208,10 +228,10 @@ if ($wallet_files_exist) {
 
 } else {
 
-    $cmd = "$cleos wallet create -f \"$RealBin/$wallet_password_file\"";
+    $cmd = "$cleos wallet create -f \"$abs_wallet_dir/$wallet_password_file\"";
     
     if ($verbose) {
-        print "Creating wallet $RealBin/default.wallet\n";
+        print "Creating wallet $abs_wallet_dir/default.wallet\n";
         print "Command: $cmd\n";
     }
     
@@ -231,7 +251,7 @@ if ($wallet_files_exist) {
 $cmd = "$cleos wallet open 2>&1";
 
 if ($verbose) {
-    print "Opening wallet $RealBin/default.wallet\n";
+    print "Opening wallet $abs_wallet_dir/default.wallet\n";
     print "Command: $cmd\n";
 }
 
@@ -252,7 +272,7 @@ if ($wallet_password eq '') {
 $cmd = "$cleos wallet unlock --password=$wallet_password 2>&1";
 
 if ($verbose) {
-    print "Unlocking wallet $RealBin/default.wallet\n";
+    print "Unlocking wallet $abs_wallet_dir/default.wallet\n";
     print "Command: $cmd\n";
 }
 
@@ -269,7 +289,7 @@ if ($? != 0) {
 $cmd = "$cleos wallet import --private-key=5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3 2>&1";
 
 if ($verbose) {
-    print "Storing developer key in wallet $RealBin/default.wallet\n";
+    print "Storing developer key in wallet $abs_wallet_dir/default.wallet\n";
     print "Command: $cmd\n";
 }
 
