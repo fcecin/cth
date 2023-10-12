@@ -8,6 +8,9 @@ script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 if [ -z "$target_dir" ]; then
     echo "Fetches the latest version of the DoH codebase to a specified directory." 
+    echo "If the target directory doesn't exist, will download the DoH source code to it."
+    echo "If the target directory exists, will assume the DoH source code is already in it"
+    echo "  and thus will just update (git fetch/pull) to the latest version if any."
     echo ""
     echo "Usage:"
     echo "   $0 <target_directory>"
@@ -15,13 +18,12 @@ if [ -z "$target_dir" ]; then
     echo "<target_directory> is relative to this script's path:"
     echo "   $script_dir/"
     echo ""
-    echo "The parent of <target_directory> must exist."
-    echo "The <target_directory> must not exist."
+    echo "If the <target_directory> doesn't exist, then its parent directory must exist."
     echo "Directory $script_dir/../../local/ must exist."
     echo "Directory $script_dir/../../local/tmp/doh-contracts will be deleted if it exists."
     echo ""
     echo "Recommended usage (under cth conventions):"
-    echo "   get_doh.sh ../../local/doh"
+    echo "   get_doh.sh ../../local/doh-contracts"
     echo ""
     exit 1
 fi
@@ -36,8 +38,19 @@ fi
 
 # Check if the target directory already exists
 if [ -d "$real_target_dir" ]; then
-  echo "ERROR: get-doh: The target directory '$target_dir' already exists (full path: $real_target_dir)."
-  exit 1
+  echo "get-doh: The target directory '$target_dir' already exists (full path: $real_target_dir). Assuming the DoH source code is already downloaded, and will instead attempt to update it."
+
+  # Go to the target directory
+  echo "get-doh: Changing working directory to $real_target_dir"
+  cd "$real_target_dir" || { echo "ERROR: get-doh: Failed to change directory." && exit 1; }
+  for dir in */; do
+      if [ -d "$dir/.git" ]; then
+          echo "get-doh: updating local DoH repo $dir"
+          (cd "$dir" && git fetch --all && git pull --all)
+      fi
+  done
+  echo "get-doh: Done trying to update the DoH source code at the target directory."
+  exit 0
 fi
 
 # Create the tmp directory if it doesn't exist
