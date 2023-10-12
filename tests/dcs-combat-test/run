@@ -16,8 +16,8 @@ use lib '../../tools/cth-goodies';
 use CthGoodies;
 
 # hardcoded for test (hg3/tc3) DoH compilation target
-my $doh_target = "hg2";
-my $tcn_target = "tc2";
+my $doh_target = "hg3";
+my $tcn_target = "tc3";
 
 my $ret;
 

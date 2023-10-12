@@ -24,7 +24,7 @@ our @EXPORT = qw(cth_skip_test cth_set_cleos_provider cth_set_cleos_url cth_cleo
 
 # no cleos provider configured by default
 my $cleos_provider_driver;
-my $cleos_provider_dir;
+my $cleos_provider_working_dir;
 
 # no cleos url argument by default
 my $cleos_url_param = '';
@@ -64,13 +64,13 @@ sub cth_set_cleos_provider {
         print "ERROR: cth_set_cleos_provider: driver argument is undefined\n";
         return 1;
     }
-    my $driver_dir = "../../drivers/$driver";
-    if (! -d $driver_dir) {
-        print "ERROR: cth_set_cleos_provider: driver $driver not found at '$driver_dir'\n";
+    my $driver_working_dir = "../../local/$driver"; # a driver's default working directory is now under /local
+    if (! -d $driver_working_dir) {
+        print "ERROR: cth_set_cleos_provider: driver $driver working directory not found at '$driver_working_dir'\n";
         return 1;
     }
-    $cleos_provider_driver = $driver;
-    $cleos_provider_dir    = $driver_dir;
+    $cleos_provider_driver      = $driver;
+    $cleos_provider_working_dir = $driver_working_dir;
     return 0;
 }
 
@@ -123,12 +123,12 @@ sub cth_cleos {
         return 1;
     }
 
-    if (!defined $cleos_provider_driver || !defined $cleos_provider_dir) {
+    if (!defined $cleos_provider_driver || !defined $cleos_provider_working_dir) {
         print "ERROR: cth_cleos: cleos provider was not set\n";
         return 1;
     }
 
-    my $cmd = "cleos $cleos_url_param --wallet-url unix://$cleos_provider_dir/keosd.sock --verbose $args";
+    my $cmd = "cleos $cleos_url_param --wallet-url unix://$cleos_provider_working_dir/keosd.sock --verbose $args";
 
     print "cth_cleos: run command: $cmd\n";
 
@@ -172,12 +172,12 @@ sub cth_cleos_pipe {
         return 1;
     }
 
-    if (!defined $cleos_provider_driver || !defined $cleos_provider_dir) {
+    if (!defined $cleos_provider_driver || !defined $cleos_provider_working_dir) {
         print "ERROR: cth_cleos_pipe: cleos provider was not set\n";
         return 1;
     }
 
-    my $cmd = "cleos $cleos_url_param --wallet-url unix://$cleos_provider_dir/keosd.sock --verbose $args";
+    my $cmd = "cleos $cleos_url_param --wallet-url unix://$cleos_provider_working_dir/keosd.sock --verbose $args";
 
     print "cth_cleos_pipe: run command: $cmd\n";
 

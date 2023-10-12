@@ -244,14 +244,90 @@ print "Compiled DoH contracts for deployment will be taken from '$doh_contracts_
 # end result is something like:  "../../local/prod/doh-contracts"
 
 # -------------------------------------------------------------------------
+# Scan the entire contracts map for actor references that aren't created by
+#   the contracts map itself.
+# Create those accounts with the developer key.
+# -------------------------------------------------------------------------
+
+print "Scanning for accounts that the contracts map assumes already exist, creating them, and assigning them the developer key ...\n";
+
+my @all_contracts_map_accounts;
+my @all_permission_actor_accounts;
+
+if (ref($data) eq 'ARRAY') {
+    foreach my $e (@$data) {
+        if (ref($e) eq 'HASH') {
+
+            # save all contracts-map accounts
+            my $account = $e->{account};
+            if (! grep { $_ eq $account } @all_contracts_map_accounts) {
+                push @all_contracts_map_accounts, $account;
+            }
+
+            # save all permission actor accounts
+            foreach my $permission_level ('owner_permission_level', 'active_permission_level') {
+                if (defined $e->{$permission_level} && $e->{$permission_level} ne '' && defined $e->{$permission_level}->{accounts}) {
+                    my $paccs = $e->{$permission_level}->{accounts};
+                    foreach my $pa (@$paccs) {
+                        if (defined $pa->{permission} && defined $pa->{permission}->{actor}) {
+                            my $actor = $pa->{permission}->{actor};
+                            if (!grep { $_ eq $actor } @all_permission_actor_accounts) {
+                                push @all_permission_actor_accounts, $actor;
+                            }
+                        } else {
+                            print "ERROR: contracts map parse error at $account $permission_level (permission_level->accounts->permission[->actor])\n";
+                        }
+                    }
+                } else {
+                    print "ERROR: contracts map parse error at $account $permission_level (permission_level[->accounts])\n";
+                }
+            }
+        }
+    }
+}
+
+# Printing the contents of @all_contracts_map_accounts
+print "Contents of \@all_contracts_map_accounts: ";
+foreach my $account (@all_contracts_map_accounts) {
+    print "$account ";
+}
+print "\n";
+
+# Printing the contents of @all_permission_actor_accounts
+print "\nContents of \@all_permission_actor_accounts: ";
+foreach my $actor (@all_permission_actor_accounts) {
+    print "$actor ";
+}
+print "\n";
+
+my @superusers;
+
+# Loop through @all_permission_actor_accounts and check if an element is not in @all_contracts_map_accounts
+foreach my $actor (@all_permission_actor_accounts) {
+    unless (grep { $_ eq $actor } @all_contracts_map_accounts) {
+        push @superusers, $actor;
+    }
+}
+
+# Print the contents of @superusers
+print "Contents of \@superusers (Permission actors not in Contracts map): ";
+foreach my $superuser (@superusers) {
+    print "$superuser ";
+}
+print "\n";
+
+print "Creating superusers...\n";
+foreach my $superuser (@superusers) {
+    print "Creating missing referenced permission actor account as superuser: $superuser\n";
+    my $cleos_command = qq|$cleos system newaccount eosio $superuser EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV --stake-cpu "10000.0000 EOS" --stake-net "10000.0000 EOS" --buy-ram-kbytes 1000 --transfer|;
+    system($cleos_command);
+}
+
+# -------------------------------------------------------------------------
 # For each doh-deployment-script entry, create accounts and deploy code
 # -------------------------------------------------------------------------
 
 print "Creating accounts and deploying contracts ...\n";
-
-# Create gnomegenomes magic account
-
-command(qq|$cleos system newaccount eosio gnomegenomes EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV --stake-cpu "10000.0000 EOS" --stake-net "10000.0000 EOS" --buy-ram-kbytes 1000 --transfer|);
 
 # Create and deploy from the deployment script
 
@@ -279,53 +355,56 @@ if (ref($data) eq 'ARRAY') {
             my $net = '--stake-net "1.0000 EOS"';
             my $ram = '--buy-ram-kbytes 8';
             if ($code eq "hegemon") {
-                $cpu = '--stake-cpu "1500.0000 EOS"';
-                $net = '--stake-net "300.0000 EOS"';
-                #$ram = '--buy-ram-kbytes 4500';
-                $ram = '--buy-ram-kbytes 10000'; # needs more
+                $cpu = '--stake-cpu "3000.0000 EOS"';
+                $net = '--stake-net "800.0000 EOS"';
+                $ram = '--buy-ram-kbytes 12500'; # needs more
             } elsif ($code eq "crafting") {
-                $cpu = '--stake-cpu "600.0000 EOS"';
-                $net = '--stake-net "200.0000 EOS"';
-                $ram = '--buy-ram-kbytes 2500';
+                $cpu = '--stake-cpu "1500.0000 EOS"';
+                $net = '--stake-net "600.0000 EOS"';
+                $ram = '--buy-ram-kbytes 3000';
             } elsif ($code eq "dejavu") {
-                $cpu = '--stake-cpu "400.0000 EOS"';
-                $net = '--stake-net "200.0000 EOS"';
-                $ram = '--buy-ram-kbytes 500';
+                $cpu = '--stake-cpu "800.0000 EOS"';
+                $net = '--stake-net "400.0000 EOS"';
+                $ram = '--buy-ram-kbytes 1500';
             } elsif ($code eq "distrib") {
-                $cpu = '--stake-cpu "400.0000 EOS"';
-                $net = '--stake-net "200.0000 EOS"';
-                $ram = '--buy-ram-kbytes 1500';
+                $cpu = '--stake-cpu "800.0000 EOS"';
+                $net = '--stake-net "400.0000 EOS"';
+                $ram = '--buy-ram-kbytes 2000';
             } elsif ($code eq "drip") {
-                $cpu = '--stake-cpu "400.0000 EOS"';
-                $net = '--stake-net "200.0000 EOS"';
-                $ram = '--buy-ram-kbytes 500';
+                $cpu = '--stake-cpu "800.0000 EOS"';
+                $net = '--stake-net "300.0000 EOS"';
+                $ram = '--buy-ram-kbytes 1500';
+            } elsif ($code eq "readonly") {
+                $cpu = '--stake-cpu "800.0000 EOS"';
+                $net = '--stake-net "400.0000 EOS"';
+                $ram = '--buy-ram-kbytes 3500';
             } elsif ($code eq "logs") {
-                $cpu = '--stake-cpu "400.0000 EOS"';
-                $net = '--stake-net "200.0000 EOS"';
-                $ram = '--buy-ram-kbytes 1000';
+                $cpu = '--stake-cpu "800.0000 EOS"';
+                $net = '--stake-net "400.0000 EOS"';
+                $ram = '--buy-ram-kbytes 1700';
             } elsif ($code eq "names") {
-                $cpu = '--stake-cpu "400.0000 EOS"';
-                $net = '--stake-net "200.0000 EOS"';
-                $ram = '--buy-ram-kbytes 1000';
+                $cpu = '--stake-cpu "800.0000 EOS"';
+                $net = '--stake-net "400.0000 EOS"';
+                $ram = '--buy-ram-kbytes 17000';
             } elsif ($code eq "politics") {
-                $cpu = '--stake-cpu "400.0000 EOS"';
-                $net = '--stake-net "200.0000 EOS"';
-                $ram = '--buy-ram-kbytes 1500';
-            } elsif ($code eq "sighandler") {
-                $cpu = '--stake-cpu "400.0000 EOS"';
-                $net = '--stake-net "200.0000 EOS"';
-                $ram = '--buy-ram-kbytes 1500';
-            } elsif ($code eq "staking") {
-                $cpu = '--stake-cpu "600.0000 EOS"';
-                $net = '--stake-net "200.0000 EOS"';
-                $ram = '--buy-ram-kbytes 1500';
-            } elsif ($code eq "tokens") {
-                $cpu = '--stake-cpu "600.0000 EOS"';
-                $net = '--stake-net "200.0000 EOS"';
+                $cpu = '--stake-cpu "800.0000 EOS"';
+                $net = '--stake-net "400.0000 EOS"';
                 $ram = '--buy-ram-kbytes 2500';
+            } elsif ($code eq "sighandler") {
+                $cpu = '--stake-cpu "800.0000 EOS"';
+                $net = '--stake-net "400.0000 EOS"';
+                $ram = '--buy-ram-kbytes 2500';
+            } elsif ($code eq "staking") {
+                $cpu = '--stake-cpu "1500.0000 EOS"';
+                $net = '--stake-net "600.0000 EOS"';
+                $ram = '--buy-ram-kbytes 2500';
+            } elsif ($code eq "tokens") {
+                $cpu = '--stake-cpu "1500.0000 EOS"';
+                $net = '--stake-net "600.0000 EOS"';
+                $ram = '--buy-ram-kbytes 3500';
             } elsif ($code ne "") {
-                $cpu = '--stake-cpu "400.0000 EOS"';
-                $net = '--stake-net "200.0000 EOS"';
+                $cpu = '--stake-cpu "800.0000 EOS"';
+                $net = '--stake-net "400.0000 EOS"';
                 $ram = '--buy-ram-kbytes 1500';
             }
 
