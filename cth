@@ -173,6 +173,7 @@ GetOptions(
     "reset"        => \$opt_reset,
     "switch|s=s%"  => sub { push @opt_switch, [$_[1], $_[2]] },
     "verbose|v"    => \$opt_verbose,
+    "testdir=s"    => \$tests_dir,
 ) or die "ERROR: cth: Error in command line arguments.\n";
 
 # keys must be azAZ09_ only
@@ -223,6 +224,7 @@ if ($opt_help) {
     print "                      (note: switches are preferred over options)\n";
     print "  --reset             Run 'reset' on all drivers\n";
     print "  --switch, -s <k=v>  Pass a '--k \"v\"' parameter to all tests\n";
+    print "  --testdir <dir>     Set directory with all tests to run (default: 'tests')\n";
     print "  --verbose, -v       Print more messages\n";
     print "\n";
     exit;
