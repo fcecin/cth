@@ -19,11 +19,18 @@ use strict;
 use warnings;
 use Time::HiRes qw(sleep);
 use Scalar::Util qw(looks_like_number);
+use File::Path qw(make_path);
 
 $| = 1;  # Turn on auto-flush for STDOUT (Perl doesn't do this by default)
 
-my $cleos_driver_dir = "../cleos-driver"; # driver location (e.g. 'start' script)
-my $cleos_driver_wallet_dir = "../../local/cleos-driver"; # cleos data dir w/ keosd.pid, wallet file, password file etc.
+# All drivers should chdir to their working dir, which should be a directory named after the
+#   driver under /local (e.g. cth/local/coldstart) which should be created if it doesn't exist.
+# The path below is relative to the location of this script (which is the driver's directory)
+my $working_dir = "../../local/coldstart";
+
+# These are relative to the driver's working dir, not the driver dir
+my $cleos_driver_dir = "../../drivers/cleos-driver"; # driver location (e.g. 'start' script)
+my $cleos_driver_wallet_dir = "../cleos-driver"; # cleos data dir w/ keosd.pid, wallet file, password file etc.
 
 my $cleos = "cleos --wallet-url unix://$cleos_driver_wallet_dir/keosd.sock";
 
@@ -37,12 +44,26 @@ my $cmd;
 my $o;
 
 # --------------------------------------------------------------------------------------------
-# We have to force the working directory to where the coldstart script is
+# The working_dir is relative to the script's directory. Make sure to create it, then find it,
+#   then change to it.
 # --------------------------------------------------------------------------------------------
 
-use FindBin qw($RealBin);
-if (chdir($RealBin)) {
-    if ($verbose) { print "Forced working directory to coldstart start script location: $RealBin\n"; }
+use Cwd 'abs_path';
+use FindBin '$RealBin';
+my $abs_working_dir = abs_path("$RealBin/$working_dir");
+if (!defined $abs_working_dir) {
+    print "ERROR: Malformed abs_working_dir from '$RealBin' + '$working_dir': $!\n";
+    exit 1;
+}
+
+# Create the directory and its parent directories
+if (!-d $abs_working_dir && !make_path($abs_working_dir)) {
+    print "ERROR: Failed to create path for abs_working_dir '$abs_working_dir': $!\n";
+    exit 1;
+}
+
+if (chdir($abs_working_dir)) {
+    if ($verbose) { print "Forced working directory to driver working location: $abs_working_dir\n"; }
 } else {
     print "ERROR: Failed to change working directory: $!\n";
     exit 1;
@@ -66,7 +87,16 @@ sub read_from_file {
 # This actually calls clear
 sub do_stop {
     print "Stopping driver and wiping it clean ('clear')...\n";
-    my $o = `clear 2>&1`;
+
+    # we have moved the working dir to local/coldstart so have to go back to the driver dir
+    my $clear_script = "../../drivers/coldstart/clear";
+    if (!-e $clear_script) {
+        print "ERROR: can't find drivers/coldstart/clear script, nodeos not stopped / cleared\n";
+        exit 1;
+    } else {
+        my $o = `$clear_script 2>&1`;
+        print "Result: $o\n";
+    }
 }
 
 # This is called after nodeos is started; any failure results in stopping the driver.
@@ -136,10 +166,93 @@ if ($? != 0) {
 }
 
 # --------------------------------------------------------------------------------------------
+# Generate the genesis.json in the driver's working directory (which will be for nodeos also)
+# --------------------------------------------------------------------------------------------
+
+`rm -f genesis.json`;
+
+`echo '{
+  "initial_timestamp": "2018-12-05T08:55:11.000",
+  "initial_key": "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV",
+  "initial_configuration": {
+    "max_block_net_usage": 1048576,
+    "target_block_net_usage_pct": 1000,
+    "max_transaction_net_usage": 524288,
+    "base_per_transaction_net_usage": 12,
+    "net_usage_leeway": 500,
+    "context_free_discount_net_usage_num": 20,
+    "context_free_discount_net_usage_den": 100,
+    "max_block_cpu_usage": 100000,
+    "target_block_cpu_usage_pct": 500,
+    "max_transaction_cpu_usage": 99899,
+    "min_transaction_cpu_usage": 100,
+    "max_transaction_lifetime": 3600,
+    "deferred_trx_expiration_window": 600,
+    "max_transaction_delay": 3888000,
+    "max_inline_action_size": 4096,
+    "max_inline_action_depth": 4,
+    "max_authority_depth": 6
+  },
+  "initial_chain_id": "0000000000000000000000000000000000000000000000000000000000000000"
+}' > genesis.json`;
+
+# --------------------------------------------------------------------------------------------
+# Generate the config.ini in the driver's working directory (which will be for nodeos also)
+# --------------------------------------------------------------------------------------------
+
+`rm -f config.ini`;
+
+`echo '
+http-server-address = 127.0.0.1:8888
+p2p-listen-endpoint = 127.0.0.1:10000
+enable-stale-production = true
+producer-name = eosio
+producer-name = bpa
+producer-name = bpb
+producer-name = bpc
+producer-name = bpd
+producer-name = bpe
+producer-name = bpf
+producer-name = bpg
+producer-name = bph
+producer-name = bpi
+producer-name = bpj
+producer-name = bpk
+producer-name = bpl
+producer-name = bpm
+producer-name = bpn
+producer-name = bpo
+producer-name = bpp
+producer-name = bpq
+producer-name = bpr
+producer-name = bps
+producer-name = bpt
+producer-name = bpu
+chain-state-db-size-mb = 2048
+plugin = eosio::chain_plugin
+plugin = eosio::chain_api_plugin
+plugin = eosio::http_plugin
+plugin = eosio::producer_api_plugin
+plugin = eosio::producer_plugin
+access-control-allow-origin = *
+http-validate-host = false
+contracts-console = true
+signature-provider = EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV=KEY:5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3
+net-threads = 3
+wasm-runtime = eos-vm-jit
+p2p-max-nodes-per-host = 999
+http-max-response-time-ms = 5000
+' > config.ini`;
+
+# --------------------------------------------------------------------------------------------
 # Start nodeos
 # --------------------------------------------------------------------------------------------
 
-$cmd = "start_nodeos.sh";
+`rm -rf start_nodeos.sh`;
+`echo 'nodeos --config-dir ./ --data-dir ./data --genesis-json ./genesis.json  >> "./chain.log" 2>&1 & echo \$! > "./nodeos.pid"' > start_nodeos.sh`;
+`chmod +x start_nodeos.sh`;
+
+$cmd = 'start_nodeos.sh';
 
 print "Starting nodeos...\n";
 print "Command: $cmd\n";
@@ -148,14 +261,21 @@ $o = `$cmd 2>&1`;
 
 if ($? != 0) {
     print "Result: $o\n";
-    die "ERROR: failed to start nodeos.\n";
+    die "ERROR: failed to start nodeos (`start_nodeos.sh` failed).\n";
 }
 
 print "Trying to read nodeos PID from $nodeos_pid_file ...\n";
 
 $running_nodeos_pid = read_from_file($nodeos_pid_file);
 
-print "nodeos PID is $running_nodeos_pid ...\n"; 
+print "nodeos PID is $running_nodeos_pid ...\n";
+
+# If there's some error starting nodeos (which we can't capture because of the way start_nodeos.sh invocation works with
+#   the PID redirect etc. then this should help debug it.
+print "It SEEMS that nodeos is started successfully. If not, the nodeos output dump below (chain.log) should have error information.\n";
+print "\n==== chain.log start =====\n";
+print `cat chain.log`;
+print "\n==== chain.log end =====\n";
 
 # --------------------------------------------------------------------------------------------
 # Boot the chain
