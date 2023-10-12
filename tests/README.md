@@ -1,4 +1,18 @@
 
+DoH notes:
+
+This is the default testcase directory for cth.
+
+This directory contains the entire automated test suite for DoH.
+
+For now (October 2023 and onwards), the automated test suite is hard-coded to the 'test' (hg3/tc3) compilation target *only*, and with no support whatsoever for remote execution (cleos-url). If any funky test scenarios are needed, those should be placed in different test dirs (use cth --testdir to select). The main tests will simply ignore switches and options.
+
+TODO: The goal is to have all tests running with a 'doh-hotstart' driver which allows tests to start from a chainbase that is built by the drivers' installer. During installation, the driver can use coldstart to boot the chain, then deploy the DoH contracts, then save the chainbase under /local/hotstart/. When the driver is started, it simply copies the template chainbase to the driver's working directory and starts nodeos from there, resulting in a DoH test that takes zero time to boot the chain and contracts. This also needs a bit of work to prepare for parallelism (i.e. multiple nodeos working directories/chainbases, ports, config.ini files generated, etc).
+
+----
+
+Generic cth notes:
+
 The `tests` directory is a good place to put all your testcases in.
 
 Each testcase should go into its own subdirectory, whose name is the name of test.

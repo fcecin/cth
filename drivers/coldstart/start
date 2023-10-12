@@ -5,7 +5,7 @@
 # Operation: start
 #
 # This driver depends on one other driver:
-# - cleos-driver: has the wallet file and a running keosd
+# - cleos-driver: has the wallet file and a running keosd (from /local/cleos-driver/)
 #
 # What this driver does:
 # - Start cleos-driver
@@ -22,9 +22,10 @@ use Scalar::Util qw(looks_like_number);
 
 $| = 1;  # Turn on auto-flush for STDOUT (Perl doesn't do this by default)
 
-my $cleos_driver_dir = "../cleos-driver";
+my $cleos_driver_dir = "../cleos-driver"; # driver location (e.g. 'start' script)
+my $cleos_driver_wallet_dir = "../../local/cleos-driver"; # cleos data dir w/ keosd.pid, wallet file, password file etc.
 
-my $cleos = "cleos --wallet-url unix://$cleos_driver_dir/keosd.sock";
+my $cleos = "cleos --wallet-url unix://$cleos_driver_wallet_dir/keosd.sock";
 
 my $verbose = 1;
 
