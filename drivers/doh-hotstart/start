@@ -6,7 +6,8 @@
 #
 # This driver depends on three drivers:
 # - coldstart & doh-coldstart: to create a chainbase for a fully-booted and activated
-#     Antelope blockchain that has all DoH accounts and contracts deployed
+#     Antelope blockchain that has all DoH accounts and contracts deployed. This is done
+#     at installation time. At runtime, these dependencies don't exist.
 # - cleos-driver: has the wallet file and a running keosd (from /local/cleos-driver/)
 #
 # The template chainbase is created during driver installation using the (already installed)
@@ -14,7 +15,7 @@
 #   'depends' file.
 #
 # This driver supports parallel execution. It will create a directory
-#   /local/doh-hotstart/<nodeos-p2p-port-number> for a local port that isn't taken yet,
+#   /local/doh-hotstart/instances/<nodeos-p2p-port-number> for a local port that isn't taken,
 #   and if it can't create the directory, it will try again until it can find a port
 #   number that isn't taken by another hotstart instance (synchronized via folder creation).
 #   When successful, that directory will be where the new nodeos will be started. When
@@ -40,6 +41,9 @@ my $working_dir = "../../local/doh-hotstart";
 my $verbose = 1;
 
 my $target; # passed as command-line argument: --target xxx
+
+# This default can be changed by command-line argument --max_instances xxx or by lscpu (see below)
+my $max_instances = 1;
 
 my $cmd;
 my $o;
@@ -75,12 +79,12 @@ if (chdir($abs_working_dir)) {
 # --------------------------------------------------------------------------------------------
 
 # include the tools/cth-goodies library
-use lib '../../tools/cth-goodies';
+use lib "$RealBin/../../tools/cth-goodies";
 use CthGoodies;
 
 print "doh-hotstart start: will now attempt to parse command-line args; single '--target xxx' argument expected with the DoH compilation target.\n";
 
-my ($switches, $options) = cth_standard_args_parser("target", "");
+my ($switches, $options) = cth_standard_args_parser("target max_instances", "");
 
 if (!exists $switches->{'target'}) {
     die "ERROR: doh-hotstart start: required '--target xxx' command-line argument not found.";
@@ -101,14 +105,43 @@ if ($switches->{'target'} eq 'hgm' || $switches->{'target'} eq 'prod') {
 print "doh-hotstart start: Configured DoH contracts target: $target\n";
 
 # --------------------------------------------------------------------------------------------
-# Create a /local/doh-hotstart/<p2p-port> directory for the new nodeos instance.
-# Lock the driver's directory, do these operations, and unlock it.
-# Do non-blocking locking and wait for at most e.g. 10 seconds before giving up.
-# nuke script destroys all nodeos instances that map to hotstart and erases the lock file.
+# Determine max_instances configuration.
+# --------------------------------------------------------------------------------------------
+
+if (exists $switches->{'max_instances'}) {
+    $max_instances = $switches->{'max_instances'};
+    if (! $max_instances =~ /^\d+$/) {
+        die "ERROR: doh-hotstart start: bad --max_instances parameter: '" . $max_instances . "'.";
+    }
+} else {
+    my $cpus = `lscpu -b -p=Core,Socket | grep -v '^#' | sort -u | wc -l`;
+    chomp($cpus);
+    if (!defined $cpus || !($cpus =~ /^\d+$/)) {
+        print "doh-hotstart start: WARNING: Can't retrieve number of cpu cores; will assume only 1 core.\n";
+    } else {
+        print "doh-hotstart start: Detected $cpus cpu cores.\n";
+        $max_instances = $cpus;
+    }
+}
+
+print "doh-hotstart start: Configured DoH contracts max_instances: $max_instances\n";
+
+# --------------------------------------------------------------------------------------------
+# Check that the chainbase has been generated during install
 # --------------------------------------------------------------------------------------------
 
 # TODO
 
+# --------------------------------------------------------------------------------------------
+# Create a /local/doh-hotstart/instances/<p2p-port> directory for the new nodeos instance.
+# Lock the driver's directory, do these operations, and unlock it.
+# Do non-blocking locking and wait for at most e.g. 10 seconds before giving up.
+# nuke script destroys all nodeos instances that map to hotstart and erases the lock file.
+# Wait indefinitely while $max_instances limit is reached (i.e. the number of <p2p-port>
+#   directories is equal or over max_instances); sleep for e.g. 3 seconds between checks.
+# --------------------------------------------------------------------------------------------
+
+# TODO
 
 # --------------------------------------------------------------------------------------------
 # Ensure cleos-driver is running
@@ -118,6 +151,24 @@ print "doh-hotstart start: Configured DoH contracts target: $target\n";
 
 # TODO
 
+
+# --------------------------------------------------------------------------------------------
+# Copy the chainbase over to this instance's created work dir
+# --------------------------------------------------------------------------------------------
+
+# TODO
+
+# --------------------------------------------------------------------------------------------
+# Start nodeos from the chainbase
+# --------------------------------------------------------------------------------------------
+
+# TODO
+
+# --------------------------------------------------------------------------------------------
+# Ensure it has finished starting and a test will be able to send commands to it
+# --------------------------------------------------------------------------------------------
+
+# TODO
 
 # --------------------------------------------------------------------------------------------
 # Done
