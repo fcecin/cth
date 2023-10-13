@@ -340,7 +340,7 @@ sub cth_standard_args_parser {
 
     # Print a warning for any option in the command line not in the given array
     for my $opt (keys %options) {
-        print "WARNING: cth_standard_args_parser: Unexpected option '$opt' passed to the test.\n" unless grep { $_ eq $opt } @options;
+        print "WARNING: cth_standard_args_parser: Unexpected option '$opt' received.\n" unless grep { $_ eq $opt } @options;
     }
 
     # Print the parsed switches

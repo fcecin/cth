@@ -26,6 +26,45 @@
 # TODO: take target ("hg3" or "test") as argument.
 # --------------------------------------------------------------------------------------------
 
+use strict;
+use warnings;
+
+my $target;
+
+# --------------------------------------------------------------------------------------------
+# Get the desired DoH compilation target from the command-line.
+# --------------------------------------------------------------------------------------------
+
+# include the tools/cth-goodies library
+use lib '../../tools/cth-goodies';
+use CthGoodies;
+
+print "doh-hotstart start: will now attempt to parse command-line args; single '--target xxx' argument expected with the DoH compilation target.\n";
+
+my ($switches, $options) = cth_standard_args_parser("target", "");
+
+if (!exists $switches->{'target'}) {
+    die "ERROR: doh-hotstart start: required '--target xxx' command-line argument not found.";
+}
+
+if ($switches->{'target'} eq 'hgm' || $switches->{'target'} eq 'prod') {
+    $target = 'hgm';
+} elsif ($switches->{'target'} eq 'hg1' || $switches->{'target'} eq 'staging') {
+    $target = 'hg1';
+} elsif ($switches->{'target'} eq 'hg2' || $switches->{'target'} eq 'dev') {
+    $target = 'hg2';
+} elsif ($switches->{'target'} eq 'hg3' || $switches->{'target'} eq 'test') {
+    $target = 'hg3';
+} else {
+    die "ERROR: doh-hotstart start: unknown target: '" . $switches->{'target'} . "'.";
+}
+
+print "doh-hotstart start: Configured DoH contracts target: $target\n";
+
+
+
+
+
 print "NOT IMPLEMENTED\n";
 exit 1;
 

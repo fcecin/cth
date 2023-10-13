@@ -34,6 +34,8 @@ my $cleos_driver_wallet_dir = "../../local/cleos-driver";
 
 my $cleos = "cleos --wallet-url unix://$cleos_driver_wallet_dir/keosd.sock";
 
+my $target; # passed as command-line argument: --target xxx
+
 my $cmd;
 my $o;
 
@@ -153,26 +155,43 @@ use lib '../../tools/JSON-Tiny/lib';
 # Load the JSON_Tiny module
 use JSON::Tiny;
 
-# -------------------------------------------------------------------------
-# Load the DoH target (hgm, hg1, hg2, ...) from driver.ini
-# -------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------
+# Recycle cth_standard_args_parser() to process switches passed to this test driver starter.
+# We'll use the "target" switch ("start --target=xxx") to allow the caller to configure
+#   this driver session to use a specific target.
+#
+# NOTE: The underlying driver 'coldstart' doesn't care, as it has already compiled only the
+#   targets that it happens to like during its install.
+# If you choose a target here that coldstart hasn't compiled, then this script will blow up
+#   below when it is deploying the DoH contracts, since the wasm/abi files won't be there.
+# As of Oct/23, the only good target is the 'test' target, but the driver doesn't know that.
+# --------------------------------------------------------------------------------------------
 
-my $target = `configure --get=target`;
-chomp($target);
+# include the tools/cth-goodies library
+use lib '../../tools/cth-goodies';
+use CthGoodies;
 
-if ($target eq '') {
-    die "ERROR: driver was not configured with a target";
-} elsif (!($target =~ /^hg./)) {
-    die "ERROR: driver was likely configured with an invalid target: '$target'";
+print "doh-coldstart start: will now attempt to parse command-line args; single '--target xxx' argument expected with the DoH compilation target.\n";
+
+my ($switches, $options) = cth_standard_args_parser("target", "");
+
+if (!exists $switches->{'target'}) {
+    die "ERROR: doh-coldstart start: required '--target xxx' command-line argument not found.";
 }
 
-if ($? != 0) {
-    print "ERROR: configure script returned an error code.\n";
-    print "Output: $target\n";
-    exit 1;
+if ($switches->{'target'} eq 'hgm' || $switches->{'target'} eq 'prod') {
+    $target = 'hgm';
+} elsif ($switches->{'target'} eq 'hg1' || $switches->{'target'} eq 'staging') {
+    $target = 'hg1';
+} elsif ($switches->{'target'} eq 'hg2' || $switches->{'target'} eq 'dev') {
+    $target = 'hg2';
+} elsif ($switches->{'target'} eq 'hg3' || $switches->{'target'} eq 'test') {
+    $target = 'hg3';
+} else {
+    die "ERROR: doh-coldstart start: unknown target: '" . $switches->{'target'} . "'.";
 }
 
-print "Configured DoH contracts target: $target\n";
+print "doh-coldstart start: Configured DoH contracts target: $target\n";
 
 # -------------------------------------------------------------------------
 # Load and parse the corresponding contracts map from local doh-contracts/
@@ -485,3 +504,5 @@ if (ref($data) eq 'ARRAY') {
 } else {
     fail("ERROR: decoded contracts map not an array.\n");
 }
+
+print "doh-coldstart start: successfully started coldstart (localhost nodeos/Antelope at standard ports) and deployed all DoH contracts and accounts to it.\n";
