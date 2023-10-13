@@ -30,6 +30,7 @@ use warnings;
 use Time::HiRes qw(sleep);
 use Scalar::Util qw(looks_like_number);
 use File::Path qw(make_path);
+use Socket;
 
 $| = 1;  # Turn on auto-flush for STDOUT (Perl doesn't do this by default)
 
@@ -51,6 +52,23 @@ my $max_instances = 1;
 
 my $cmd;
 my $o;
+
+# --------------------------------------------------------------------------------------------
+# Utils
+# --------------------------------------------------------------------------------------------
+
+sub test_port {
+    my $port = shift;
+    if (! defined $port) { die "ERROR: test_port(): invalid port"; }
+    socket(my $sock, PF_INET, SOCK_STREAM, 0) or die "ERROR: Can´t create socket(): $!";
+    my $addr = sockaddr_in($port, INADDR_LOOPBACK);
+    my $ret;
+    if (bind($sock, $addr)) {
+        $ret = 1;
+    }
+    close($sock);
+    return $ret; # '1'(true) or undef(false)
+}
 
 # --------------------------------------------------------------------------------------------
 # The working_dir is relative to the script's directory. Make sure to create it, then find it,
@@ -165,6 +183,7 @@ print "doh-hotstart start: Configured DoH contracts max_instances: $max_instance
 my @inst_dirs;
 my $total_inst_dirs;
 my $p2p_port_number;
+my $http_port_number;
 my $abs_this_inst_dir;
 
 my $nblock_tries = 10;
@@ -193,8 +212,13 @@ while (1) {
                 }
             }
 
-            # our p2p port number will be the largest + 1
+            # scan for available local TCP listen port numbers starting from the largest found + 1
             $p2p_port_number = $largest + 1;
+            $http_port_number = $p2p_port_number + 10000;
+            while (!test_port($p2p_port_number) || !test_port($http_port_number)) {
+                $p2p_port_number++;
+                $http_port_number++;
+            }
 
             # so create it (guaranteed that it's not there)
             $abs_this_inst_dir = "$abs_instances_dir/$p2p_port_number";
