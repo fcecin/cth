@@ -4,6 +4,8 @@ use strict;
 use warnings;
 use Cwd;
 
+$| = 1;  # Turn on auto-flush for STDOUT (Perl doesn't do this by default)
+
 # ---------------------------------------------------------------------------
 # Global vars
 # ---------------------------------------------------------------------------
@@ -124,6 +126,8 @@ if (-e "$source_dir/$run_build_sh") {
 }
 
 # ---------------------------------------------------------------------------
+# Create a DoH source code copy for each compilation target
+#
 # Copy the tools/doh-contracts template to:
 #   local/prod/doh-contracts/
 #   local/staging/doh-contracts/
@@ -139,7 +143,8 @@ copy_doh("dev");
 copy_doh("test");
 
 # ---------------------------------------------------------------------------
-# And then run:
+# Customize contract source code for each compilation target
+#
 #   local/prod/doh-contracts/set-prod.sh
 #   local/staging/doh-contracts/set-staging.sh
 #   local/dev/doh-contracts/set-dev.sh
@@ -161,20 +166,24 @@ chdir_test_dir();
 system("set-test.sh") == 0 or die "ERROR: $driver: Failed to create test contracts: $!";
 
 # ---------------------------------------------------------------------------
-# And then run:
-#   REMOVED: local/prod/doh-contracts/run-build.sh
-#   REMOVED: local/staging/doh-contracts/run-build.sh
-#   REMOVED: local/dev/doh-contracts/run-build.sh
-#   local/test/doh-contracts/run-build.sh
+# Compile DoH
+#
+# Currently, the test system compiles only the test target:
+#
+#   local/test/doh-contracts/
 # ---------------------------------------------------------------------------
 
 my $ret;
 
 print "$driver: ************************************************************************************************\n";
 print "$driver: *** SKIPPING COMPILATION of prod (hgm/tcn), staging (hg1/tc1) and dev (hg2/tc2) targets!!!\n";
-print "$driver: *** Tests that try to run with any target other than the test target with this driver will fail.\n";
+print "$driver: *** Tests that try to run with any target other than the test target (hg3/tc3) will fail.\n";
 print "$driver: ************************************************************************************************\n";
 
+# *************************************************************************************************************
+# Disabled compilation of all targets that aren't the test target
+# *************************************************************************************************************
+#
 #print "$driver: Running DoH contracts build script for prod...\n";
 #chdir_prod_dir();
 #$ret = system($run_build_sh);
@@ -185,7 +194,6 @@ print "$driver: ****************************************************************
 #    print "$driver: ERROR: DoH contracts build failed. system() returned: $ret, exit code: $exit_code.\n";
 #    exit 1;
 #}
-
 #print "$driver: Running DoH contracts build script for staging...\n";
 #chdir_staging_dir();
 #$ret = system($run_build_sh);
@@ -196,7 +204,6 @@ print "$driver: ****************************************************************
 #    print "$driver: ERROR: DoH contracts build failed. system() returned: $ret, exit code: $exit_code.\n";
 #    exit 1;
 #}
-
 #print "$driver: Running DoH contracts build script for dev...\n";
 #chdir_dev_dir();
 #$ret = system($run_build_sh);
@@ -208,15 +215,199 @@ print "$driver: ****************************************************************
 #    exit 1;
 #}
 
+# *************************************************************************************************************
+# run-build.sh doesn't compile contracts in parallel and it eats the build errors instead of propagating them.
+# *************************************************************************************************************
+#
+#print "$driver: Running DoH contracts build script for test...\n";
+#chdir_test_dir();
+#$ret = system($run_build_sh);
+#if ($ret == 0) {
+#    print "$driver: DoH contracts built successfully at $local_test_dir\n";
+#} else {
+#    my $exit_code = $ret >> 8;
+#    print "$driver: ERROR: DoH contracts build failed. system() returned: $ret, exit code: $exit_code.\n";
+#    exit 1;
+#}
 
-print "$driver: Running DoH contracts build script for test...\n";
+# *************************************************************************************************************
+# Compile DoH contracts
+# *************************************************************************************************************
+
+my $cpus = `lscpu -b -p=Core,Socket | grep -v '^#' | sort -u | wc -l`;
+chomp($cpus);
+if (!defined $cpus || !($cpus =~ /^\d+$/)) {
+    print "WARNING: Can't retrieve number of cpu cores; will assume only 1 core.\n";
+    $cpus = 1;
+}
+
+# ***********************
+# FIXME/REMOVE:
+$cpus = 1;  # Getting some weird crashes, so disabling parallel compilation for now
+# ***********************
+
+print "Detected $cpus processors available to build DoH contracts.\n";
+
+print "Building DoH for compilation target 'test' (hg3/tc3)...\n";
 chdir_test_dir();
-$ret = system($run_build_sh);
-if ($ret == 0) {
-    print "$driver: DoH contracts built successfully at $local_test_dir\n";
-} else {
-    my $exit_code = $ret >> 8;
-    print "$driver: ERROR: DoH contracts build failed. system() returned: $ret, exit code: $exit_code.\n";
+
+use File::Temp qw(tempfile);
+use File::Path qw(make_path);
+
+# Find all subdirectories that have a CMakeLists.txt in them (meaning its a compilable contract dir)
+opendir(my $dh, '.') or die "ERROR: Could not open current directory: $!";
+my @directories = grep { -d "./$_" && ! /^\.{1,2}$/ && -e "./$_/CMakeLists.txt"} readdir($dh);
+closedir($dh);
+my $total_dirs = scalar @directories;
+print "Found $total_dirs contracts to compile.\n";
+
+# Push doh-hegemon-contract to the top since it is the one that takes the longest
+my $hegemon_contract = "doh-hegemon-contract";
+my $hegemon_index = -1;
+for my $i (0 .. $#directories) {
+    if ($directories[$i] eq $hegemon_contract) {
+        $hegemon_index = $i;
+        last;  # Element found, exit the loop
+    }
+}
+if ($hegemon_index >= 0) {
+    splice(@directories, $hegemon_index, 1);  # Remove the element
+    unshift(@directories, $hegemon_contract);  # Add it to the beginning
+}
+
+# Print the contract list and clean up the build dirs on each
+foreach my $di (@directories) {
+    `rm -rf $di/build`;
+    print "Contract to compile: $di\n";
+}
+
+# Remove the compile error file if any
+`rm -f COMPILE_ERROR`;
+
+# Create a temporary directory to hold task files
+# If it exists, get rid of it
+my $task_dir = 'task_files';
+`rm -rf $task_dir`;
+make_path($task_dir);
+
+# Create a global lock file
+# If it exists, get rid of it
+my $lock_file = 'lock_file';
+`rm -f $lock_file`;
+open(my $lock_fh, '>', $lock_file) or die "Could not create lock file: $!";
+close($lock_fh);  # Close the lock file
+
+# Create task files for each directory
+for my $i (0 .. $total_dirs - 1) {
+    my $dir = $directories[$i];
+    my $task_file = "$task_dir/task_$i";
+    open(my $fh, '>', $task_file) or die "Could not create task file: $!";
+    print $fh $dir;
+    close($fh);
+}
+
+# Fork processes
+for my $i (0 .. $cpus - 1) {
+    print "doh-coldstart: install: compiler child process " . ($i+1) . "/$cpus starting.\n";
+
+    my $pid;
+    if ($cpus == 1) {
+        # if only one CPU, just run it here
+        $pid = 0;
+    } else {
+        $pid = fork();
+        die "ERROR: Failed to fork: $!" unless defined $pid;
+    }
+
+    if ($pid == 0) {
+        my $child_id = $$;  # Get the PID of the current process
+
+        while (1) {
+            # Acquire the global lock before processing the task
+            open my $lockfile, ">", "$lock_file" or die "FATAL ERROR: Runner $child_id: Can't acquire lock file: $!";
+            flock($lockfile, 2);  # Lock for writing
+
+            my @task_files = glob("$task_dir/task_*");
+            my $task_file = shift @task_files;
+
+            if (! defined $task_file) {
+                print "Runner $child_id: Can't find a task file (probably there are no more compilation tasks to pick up).\n";
+                last;
+            }
+
+            my $dir;
+            open(my $fh, '<', $task_file) or die "FATAL ERROR: Runner $child_id: Could not read task file: $!";
+            $dir = <$fh>;
+            close($fh);
+
+            unlink($task_file);  # Remove the task file
+            close($lockfile);  # Unlock
+
+            print "Runner $child_id: compiling $dir\n";
+
+            `mkdir -p $dir/build`;
+
+            my $error = 0;
+
+            if (chdir("$dir/build")) {
+                my $build_dir = `pwd`;
+                chomp($build_dir);
+                #print "Runner $child_id: changed to directory: $dir/build\n";
+                system("cmake .. > cmake.log 2>&1");
+                if ($? != 0) {
+                    print "Runner $child_id: COMPILE ERROR: cmake error for '$dir'. Log in $build_dir/cmake.log\n"; # $o
+                    $error = 1;
+                } else {
+                    system("make -j 6 > make.log 2>&1"); # not sure if -j actually buys us anything here... (copypaste)
+                    if ($? != 0) {
+                        print "Runner $child_id: COMPILE ERROR: make error for '$dir'. Log in $build_dir/make.log\n"; # $o
+                        $error = 1;
+                    } else {
+                        print "Runner $child_id: successfully compiled '$dir'\n";
+                    }
+                }
+                chdir("../..");
+            } else {
+                print "Runner $child_id: ERROR: Failed to change to directory: $dir - $!\n";
+                $error = 1;
+            }
+
+            if ($error != 0) {
+                open my $lockfile, ">", "$lock_file" or die "FATAL ERROR: Runner $child_id: Can't acquire lock file: $!";
+                flock($lockfile, 2);  # Lock for writing
+
+                `echo "$dir" >> COMPILE_ERROR`;
+
+                close($lockfile);  # Unlock
+            }
+        }
+
+        print "Runner $child_id: done.\n";
+
+        # Don't exit if not actually spawning child processes
+        if ($cpus > 1) {
+            exit;  # Child process exits
+        }
+    }
+}
+
+# Parent process waits for child processes to finish
+for my $i (0 .. $cpus - 1) {
+    # If only one cpu, did not actually fork so no need to wait()
+    if ($cpus > 1) {
+        wait();
+    }
+    print "doh-coldstart: install: compiler child process " . ($i+1) . "/$cpus finished.\n";
+}
+
+`rm -r task_files`;
+
+`rm -f lock_file`;
+
+if (-e 'COMPILE_ERROR') {
+    print "ERROR: doh-coldstart: install: DoH source code compilation failed for the following contracts:\n";
+    print `cat COMPILE_ERROR`;
     exit 1;
 }
 
+print "doh-coldstart: install: Successfully built DoH.\n";

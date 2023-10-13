@@ -322,6 +322,68 @@ if ($opt_reset) {
 # --------------------------------------------------------------------------------------------
 
 if ($opt_install) {
+
+    #
+    # Fetch all driver installation dependencies
+    #
+    print "Fetching driver installation dependencies...\n";
+    my %deps;
+    foreach my $driver (@drivers) {
+        my $depends = "$drivers_dir/$driver/depends";
+        if (-e $depends) {
+            open my $fh, '<', $depends or die "ERROR: cth: Cannot open driver '$driver' depends file '$depends': $!";
+            my @driver_deps;
+            while (<$fh>) {
+                chomp;
+                $_ =~ s/^\s+|\s+$//g;  # Trim leading and trailing whitespace
+                # Ignore lines with pure whitespace
+                next if $_ eq '';
+                # Check if the string is a valid POSIX directory name
+                if ($_ =~ /^[a-zA-Z0-9_.-]+$/) {
+                    print "Driver '$driver' depends on driver '$_'\n";
+                    push @driver_deps, $_;
+                } else {
+                    die "ERROR: cth: Invalid driver '$driver' dependency directory name: $_\n";
+                }
+            }
+            $deps{$driver} = \@driver_deps;
+            close $fh;
+        }
+    }
+
+    #
+    # Resolve driver installation dependencies
+    #
+    print "Resolving driver installation dependencies...\n";
+    my @sorted_drivers = @drivers;
+    my $inconsistent = 1;
+    my $max_iters = scalar(@drivers) * scalar(@drivers);
+    while ($inconsistent) {
+        $inconsistent = 0;
+        for my $i (0 .. $#sorted_drivers) {
+            for my $j ($i + 1 .. $#sorted_drivers) {
+                my $driver1 = $sorted_drivers[$i];
+                my $driver2 = $sorted_drivers[$j];
+                if (defined $deps{$driver1} && grep { $_ eq $driver2 } @{$deps{$driver1}}) {
+                    # Swap drivers if driver1 depends on driver2
+                    ($sorted_drivers[$i], $sorted_drivers[$j]) = ($sorted_drivers[$j], $sorted_drivers[$i]);
+                    $inconsistent = 1;
+                }
+            }
+        }
+        $max_iters -= 1;
+        if ($max_iters <= 0 && $inconsistent) {
+            die "ERROR: cth: drivers likely have circular dependencies; can't install them.";
+        }
+    }
+    print "Original driver list: @drivers\n";
+    print "Resolved driver list: @sorted_drivers\n";
+    @drivers = @sorted_drivers;
+    exit 0;
+
+    #
+    # Install all drivers
+    #
     print "Running 'install' on all drivers ...\n";
     foreach my $driver (@drivers) {
         my $work_dir = "$drivers_dir/$driver";
@@ -349,7 +411,10 @@ if ($opt_install) {
             print "Running install script for driver $driver (output: $work_dir/$log_file) ...\n";
             my $ret = system($script . " > $log_file 2>&1");
             if ($ret) {
-                print "Driver $driver installation failed with code: $ret\n";
+                print "*******************************************************************************\n";
+                print "WARNING: cth: Driver $driver installation failed with code: $ret\n";
+                print "              This will probably cause any tests that use this driver to fail.\n";
+                print "*******************************************************************************\n";
             } else {
                 print "Driver $driver installed successfully.\n";
             }

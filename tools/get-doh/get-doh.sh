@@ -46,7 +46,7 @@ if [ -d "$real_target_dir" ]; then
   for dir in */; do
       if [ -d "$dir/.git" ]; then
           echo "get-doh: updating local DoH repo $dir"
-          (cd "$dir" && git fetch --all && git pull --all)
+          (cd "$dir" && git pull --all)
       fi
   done
   echo "get-doh: Done trying to update the DoH source code at the target directory."
