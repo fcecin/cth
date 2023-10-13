@@ -34,10 +34,7 @@ if ($ret) { die "ERROR: cth_set_cleos_provider failed\n"; }
 # Run fresh nodeos, deploy system contracts, deploy DoH
 # --------------------------------------------------------------------------------------------
 
-$ret = cth_call_driver("doh-coldstart", "configure --target=" . $doh_target);
-if ($ret) { die "ERROR: cth_call_driver failed\n"; }
-
-$ret = cth_call_driver("doh-coldstart", "start");
+$ret = cth_call_driver("doh-coldstart", "start --target=" . $doh_target);
 if ($ret) { die "ERROR: cth_call_driver failed\n"; }
 
 # --------------------------------------------------------------------------------------------

@@ -1,6 +1,5 @@
 *.log
 *.pid
-driver.ini
 /local/*
 !/local/README.md
 /extras/*
