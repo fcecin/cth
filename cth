@@ -250,7 +250,7 @@ use File::Spec;
 
 my $tools_reference_contracts = 'tools/reference-contracts';
 
-if (-d $tools_reference_contracts) {
+if (-d $tools_reference_contracts && !$opt_install) { # if we are going to install now, then no problem
     my $wasm_found = 0;
     sub search_wasm {
         if (-f $_ && $_ =~ /\.wasm$/) {
@@ -318,6 +318,7 @@ if ($opt_reset) {
         }
         chdir $root_dir or die "ERROR: cth: Cannot change to root test directory: $!";
     }
+    print "\n";
 }
 
 # --------------------------------------------------------------------------------------------
@@ -426,6 +427,8 @@ if ($opt_install) {
         }
         chdir $root_dir or die "ERROR: cth: Cannot change to root test directory: $!;"
     }
+
+    print "\n";
 }
 
 # --------------------------------------------------------------------------------------------
@@ -504,6 +507,8 @@ if ($opt_clear) {
         }
         chdir $root_dir or die "ERROR: cth: Cannot change to root test directory: $!;"
     }
+
+    print "\n";
 }
 
 # --------------------------------------------------------------------------------------------
@@ -552,7 +557,7 @@ while (scalar(@opt_run) > 0) {
         die "ERROR: cth: system('$cmd') returned error: $ret\n";
     }
 
-    print "cth: '$cmd' finished successfully.\n";
+    print "cth: --run '$cmd' finished successfully.\n\n";
 }
 
 # --------------------------------------------------------------------------------------------
