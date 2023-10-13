@@ -78,12 +78,6 @@
 #
 # --------------------------------------------------------------------------------------------
 #
-# (TODO) CTH FINER CONTROLS:
-#
-# Currently, there are no options to directly start, stop, reset, install or clear
-#   individual drivers. There are also no options to clear individual tests. You can
-#   however just change into the driver or test directory and run these directly.
-#
 # (TODO) SNAPSHOT (HOT) TESTING:
 #
 # This is very simple. The easiest driver just resumes a binary chainbase that
@@ -109,7 +103,12 @@
 #
 # (TODO) finish tools/cth-goodies test library
 #
-# (TODO) tools/doh-goodies test library
+# (TODO) finish tools/doh-goodies test library
+#
+# (TODO) re-enable parallel contract compilation (test that it works and doesn't crash)
+#        if it's unstable for some reason, make it an explicit cth option
+#
+# (TODO) refactor everything
 #
 # --------------------------------------------------------------------------------------------
 
@@ -555,8 +554,6 @@ while (scalar(@opt_run) > 0) {
 
     print "cth: '$cmd' finished successfully.\n";
 }
-
-exit;
 
 # --------------------------------------------------------------------------------------------
 # Run tests
