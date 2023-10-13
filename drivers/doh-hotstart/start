@@ -23,8 +23,6 @@
 #   script in a well-known format that can be captured by the caller.
 #
 # The HTTP port number is the P2P port number + 10000 (example: p2p:10000, HTTP:20000).
-#
-# TODO: take target ("hg3" or "test") as argument.
 # --------------------------------------------------------------------------------------------
 
 use strict;
@@ -35,8 +33,14 @@ use File::Path qw(make_path);
 
 $| = 1;  # Turn on auto-flush for STDOUT (Perl doesn't do this by default)
 
-# The path below is relative to the location of this script (which is the driver's directory)
-my $working_dir = "../../local/doh-hotstart";
+my $lock_file = "lock_file";
+
+# The paths below is relative to the location of this script (which is the driver's directory)
+my $working_dir   = "../../local/doh-hotstart";
+
+# The paths below are relative to the $working_dir which should be the current working dir
+my $template_dir  = "nodeos-template";
+my $instances_dir = "instances";
 
 my $verbose = 1;
 
@@ -55,24 +59,47 @@ my $o;
 
 use Cwd 'abs_path';
 use FindBin '$RealBin';
+
+# Compute absolute path to working directory in /local/doh-hotstart
 my $abs_working_dir = abs_path("$RealBin/$working_dir");
 if (!defined $abs_working_dir) {
     print "ERROR: Malformed abs_working_dir from '$RealBin' + '$working_dir': $!\n";
     exit 1;
 }
 
-# Create the directory and its parent directories
-if (!-d $abs_working_dir && !make_path($abs_working_dir)) {
-    print "ERROR: Failed to create path for abs_working_dir '$abs_working_dir': $!\n";
+# Not needed. Also, the installer is the one that creates the $working_dir/lock_file. Not sure if that's needed but it's better in theory.
+#
+# Create the working directory and its parent directories (should already exist
+#   if the driver was successfully installed, but anyway)
+#if (!-d $abs_working_dir && !make_path($abs_working_dir)) {
+#    print "ERROR: Failed to create path for abs_working_dir '$abs_working_dir': $!\n";
+#    exit 1;
+#}
+
+# Check that the template dir is there (should have been created by the driver installer)
+my $abs_template_dir = abs_path("$abs_working_dir/$template_dir");
+if (!defined $abs_template_dir || !-d $abs_template_dir) {
+    die "ERROR: doh-hotstart start: nodeos template data dir '$abs_template_dir' directory not found. (Was the doh-hotstart driver installed?)";
+}
+
+# Create the instances subdirectory if it's not there
+my $abs_instances_dir = abs_path("$abs_working_dir/$instances_dir");
+if (!defined $abs_instances_dir || (!-d $abs_instances_dir && !make_path($abs_instances_dir))) {
+    print "ERROR: Failed to create path for abs_instances_dir '$abs_instances_dir': $!\n";
     exit 1;
 }
 
+# Change into the working dir
 if (chdir($abs_working_dir)) {
     if ($verbose) { print "Forced working directory to driver working location: $abs_working_dir\n"; }
 } else {
     print "ERROR: Failed to change working directory: $!\n";
     exit 1;
 }
+
+# global lock_file should already exist but touch it just to make sure it does (creating it in parallel is less bad
+#   than having it not exist at all for some reason).
+`touch lock_file`;
 
 # --------------------------------------------------------------------------------------------
 # Get the desired DoH compilation target from the command-line.
@@ -127,12 +154,6 @@ if (exists $switches->{'max_instances'}) {
 print "doh-hotstart start: Configured DoH contracts max_instances: $max_instances\n";
 
 # --------------------------------------------------------------------------------------------
-# Check that the chainbase has been generated during install
-# --------------------------------------------------------------------------------------------
-
-# TODO
-
-# --------------------------------------------------------------------------------------------
 # Create a /local/doh-hotstart/instances/<p2p-port> directory for the new nodeos instance.
 # Lock the driver's directory, do these operations, and unlock it.
 # Do non-blocking locking and wait for at most e.g. 10 seconds before giving up.
@@ -141,7 +162,75 @@ print "doh-hotstart start: Configured DoH contracts max_instances: $max_instance
 #   directories is equal or over max_instances); sleep for e.g. 3 seconds between checks.
 # --------------------------------------------------------------------------------------------
 
-# TODO
+my @inst_dirs;
+my $total_inst_dirs;
+my $p2p_port_number;
+my $abs_this_inst_dir;
+
+my $nblock_tries = 10;
+
+while (1) {
+
+    # Acquire global lock on instances dir
+    open my $lockfile, ">", "$lock_file" or die "FATAL ERROR: Can't acquire lock file: $!";
+    if (flock($lockfile, 2 | 4)) {
+
+        # scan instances dir
+        opendir(my $dh, "$abs_instances_dir") or die "ERROR: Could not open instances directory: $!";
+        @inst_dirs = grep { -d "$abs_instances_dir/$_" && ! /^\.{1,2}$/} readdir($dh);
+        closedir($dh);
+        $total_inst_dirs = scalar @inst_dirs;
+        print "Found $total_inst_dirs instances.\n";
+
+        # if there's room, create our instance, which will use the next available port number
+        if ($total_inst_dirs < $max_instances) {
+
+            # find the largest p2p port number among created instances
+            my $largest = 9999;
+            foreach my $number (@inst_dirs) {
+                if ($number > $largest) {
+                    $largest = $number;
+                }
+            }
+
+            # our p2p port number will be the largest + 1
+            $p2p_port_number = $largest + 1;
+
+            # so create it (guaranteed that it's not there)
+            $abs_this_inst_dir = "$abs_instances_dir/$p2p_port_number";
+            if (!make_path($abs_this_inst_dir)) {
+                close($lockfile); # unlock before dying
+                die "ERROR: Failed to create path for our new instance: '$abs_this_inst_dir': $!\n";
+            }
+        }
+
+        # unlock
+        close($lockfile);
+
+        # if there was room, we are done
+        if ($total_inst_dirs < $max_instances) {
+            last;
+        }
+
+        # otherwise,
+        print "doh-hotstart start: max_instances reached ($total_inst_dirs/$max_instances); waiting to try again...\n";
+        sleep(3);
+
+    } else {
+        # non-blocking lock failed
+        $nblock_tries--;
+        if ($nblock_tries <= 0) {
+            die "FATAL ERROR: Timed out while trying to acquire lock_file\n";
+        } else {
+            print "doh-hotstart start: lock_file acquisition failed; will try again..\n";
+        }
+
+        # try again later
+        sleep(1);
+    }
+}
+
+print "doh-hotstart start: instance directory allocated for my p2p-port $p2p_port_number & my instance dir '$abs_this_inst_dir'\n";
 
 # --------------------------------------------------------------------------------------------
 # Ensure cleos-driver is running
@@ -151,12 +240,15 @@ print "doh-hotstart start: Configured DoH contracts max_instances: $max_instance
 
 # TODO
 
-
 # --------------------------------------------------------------------------------------------
 # Copy the chainbase over to this instance's created work dir
 # --------------------------------------------------------------------------------------------
 
-# TODO
+print "doh-hotstart start: copying nodeos template from '$abs_template_dir' to my instance dir '$abs_this_inst_dir'\n";
+print `cp -r $abs_template_dir/* $abs_this_inst_dir`;
+if ($? != 0) {
+    die "ERROR: doh-hotstart start: Failed to copy nodeos data directory: $!\n";
+}
 
 # --------------------------------------------------------------------------------------------
 # Start nodeos from the chainbase
@@ -174,6 +266,4 @@ print "doh-hotstart start: Configured DoH contracts max_instances: $max_instance
 # Done
 # --------------------------------------------------------------------------------------------
 
-# FIXME/TODO
-die "NOT IMPLEMENTED";
-
+print "doh-hotstart start: instance $p2p_port_number started successfully.";

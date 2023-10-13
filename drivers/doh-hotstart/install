@@ -26,7 +26,8 @@ $| = 1;  # Turn on auto-flush for STDOUT (Perl doesn't do this by default)
 # All are relative to this script's location
 my $coldstart_dir        = "../coldstart";
 my $doh_coldstart_dir    = "../doh-coldstart";
-my $template_dir         = "../../local/doh-hotstart/nodeos-template";
+my $working_dir          = "../../local/doh-hotstart";
+my $template_dir         = "$working_dir/nodeos-template";
 my $source_template_dir  = "../../local/coldstart";
 
 my $verbose = 1;
@@ -44,6 +45,14 @@ if (chdir($RealBin)) {
 } else {
     print "ERROR: Failed to change working directory: $!\n";
     exit 1;
+}
+
+# --------------------------------------------------------------------------------------------
+# Create the global lock file (used for instance-dir creation synchronization)
+# --------------------------------------------------------------------------------------------
+
+if (system("touch $working_dir/lock_file") != 0) {
+    die "ERROR: failed to create global lock file '$working_dir/lock_file'\n";
 }
 
 # --------------------------------------------------------------------------------------------
