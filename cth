@@ -163,6 +163,7 @@ my $opt_clear = 0;
 my $opt_help = 0;
 my $opt_install = 0;
 my $opt_reset = 0;
+my @opt_run;
 my $opt_verbose = 0;
 
 GetOptions(
@@ -171,9 +172,11 @@ GetOptions(
     "install|i"    => \$opt_install,
     "option|o=s%"  => sub { push @opt_option, [$_[1], $_[2]] },
     "reset"        => \$opt_reset,
+    "run=s{3}"     => sub { push @opt_run, $_[1]; },
     "switch|s=s%"  => sub { push @opt_switch, [$_[1], $_[2]] },
     "verbose|v"    => \$opt_verbose,
     "testdir=s"    => \$tests_dir,
+
 ) or die "ERROR: cth: Error in command line arguments.\n";
 
 # keys must be azAZ09_ only
@@ -206,8 +209,6 @@ if ($opt_help) {
     print "    cth testname1 test2 othertestname\n";
     print "  Install drivers and run no tests:\n";
     print "    cth -i bogustest\n";
-    print "  Run all cth-goodies tests against a public testnet:\n";
-    print "    cth -s cleos_url=https://testnet.uxnetwork.io\n";
     print "\n";
     print "Auto Switch Filter:\n";
     print "  Test directories with the SWITCHNAME:VALUE pattern in their name will be\n";
@@ -223,6 +224,9 @@ if ($opt_help) {
     print "  --option, -o <k=v>  Pass a '-o \"k=v\"' parameter to all tests\n";
     print "                      (note: switches are preferred over options)\n";
     print "  --reset             Run 'reset' on all drivers\n";
+    print "  --run <c> <e> <p>   Call component <c>'s executable <s> with parameters <p>\n";
+    print "                      <c> is a driver dir (1st try) or test dir (2nd try)\n";
+    print "                      All --run commands are processed after -c and -i\n";
     print "  --switch, -s <k=v>  Pass a '--k \"v\"' parameter to all tests\n";
     print "  --testdir <dir>     Set directory with all tests to run (default: 'tests')\n";
     print "  --verbose, -v       Print more messages\n";
@@ -502,6 +506,57 @@ if ($opt_clear) {
         chdir $root_dir or die "ERROR: cth: Cannot change to root test directory: $!;"
     }
 }
+
+# --------------------------------------------------------------------------------------------
+# Process all --run commands
+# --------------------------------------------------------------------------------------------
+
+while (scalar(@opt_run) > 0) {
+
+    if (scalar(@opt_run) < 3) {
+        die "ERROR: --run option should have exactly 3 arguments; too few arguments.\n";
+    }
+    my $component = shift @opt_run;
+    my $executable = shift @opt_run;
+    my $parameters = shift @opt_run;
+
+    print "cth: Running component:'$component' executable:'$executable' parameters:'$parameters' ...\n";
+
+    my $dir;
+    if (grep { $_ eq $component } @drivers) {
+        $dir = "drivers/$component";
+    } elsif (grep { $_ eq $component } @tests) {
+        $dir = "$tests_dir/$component";
+    } else {
+        die "ERROR: cth: cannot --run component '$component': no such driver or test (under '$tests_dir') found.\n";
+    }
+
+    if (! -d $dir) {
+        die "ERROR: cth: cannot --run component '$component': directory not found: '$dir'\n";
+    }
+
+    my $exe = "$dir/$executable";
+
+    if (! -e $exe) {
+        die "ERROR: cth: cannot --run component '$component' executable '$executable': executable not found at: '$exe'\n";
+    }
+
+    if (! -x $exe) {
+        die "ERROR: cth: cannot --run component '$component' executable '$executable': executable isn't: '$exe'\n";
+    }
+
+    my $cmd = "$exe $parameters";
+    $cmd =~ s/\s+$//; # remove whitespace
+
+    my $ret = system("$cmd 2>&1");
+    if ($ret) {
+        die "ERROR: cth: system('$cmd') returned error: $ret\n";
+    }
+
+    print "cth: '$cmd' finished successfully.\n";
+}
+
+exit;
 
 # --------------------------------------------------------------------------------------------
 # Run tests

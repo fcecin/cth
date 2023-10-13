@@ -24,7 +24,9 @@ my $tcn_target = "tc3";
 my $ret;
 
 # --------------------------------------------------------------------------------------------
-# Run wallet
+# Point the CthGoodies library to the expected location of the running wallet (keosd), so
+#   that calls to cth_cleos() and cth_pipe() will work. The wallet daemon is actually started
+#   by the main test driver when it starts, so we don't have to start cleos-driver here.
 # --------------------------------------------------------------------------------------------
 
 $ret = cth_set_cleos_provider("cleos-driver");
