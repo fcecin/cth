@@ -31,6 +31,8 @@ use Time::HiRes qw(sleep);
 use Scalar::Util qw(looks_like_number);
 use File::Path qw(make_path);
 use Socket;
+use Cwd 'abs_path';
+use FindBin '$RealBin';
 
 $| = 1;  # Turn on auto-flush for STDOUT (Perl doesn't do this by default)
 
@@ -43,12 +45,21 @@ my $working_dir   = "../../local/doh-hotstart";
 my $template_dir  = "nodeos-template";
 my $instances_dir = "instances";
 
+# This is relative to the driver's working dir, not the driver dir
+my $cleos_driver_dir = "../../drivers/cleos-driver"; # /drivers/cleos-driver
+
 my $verbose = 1;
 
 my $target; # passed as command-line argument: --target xxx
 
+my $label; # passed as command-line argument: --label xxx
+
 # This default can be changed by command-line argument --max_instances xxx or by lscpu (see below)
 my $max_instances = 1;
+
+my $nodeos_pid_file = "nodeos.pid";
+
+my $running_nodeos_pid;
 
 my $cmd;
 my $o;
@@ -70,13 +81,60 @@ sub test_port {
     return $ret; # '1'(true) or undef(false)
 }
 
+sub read_from_file {
+    my $file_path = shift;
+    if (!defined $file_path) { die "ERROR: read_from_file: undefined file_path"; }
+    local $/;
+    open my $file_handle, '<', $file_path or die "ERROR: read_from_file: Could not open file '$file_path': $!";
+    my $string = <$file_handle>;
+    close $file_handle;
+    $string =~ s/\R\z//;
+    return $string;
+}
+
+# This actually calls clear
+sub do_stop {
+    print "doh-hotstart start: Stopping driver and wiping it clean ('clear')...\n";
+    my $clear_script = "$RealBin/clear --label=$label";
+    if (!-e $clear_script) {
+        print "ERROR: can't find $RealBin/clear, nodeos not stopped and/or instance dir not cleared\n";
+        exit 1;
+    } else {
+        my $o = `$clear_script 2>&1`;
+        print "Result: $o\n";
+    }
+}
+
+# Not needed
+#
+# This is called after nodeos is started; any failure results in stopping the driver.
+# Run a cleos ... command.
+# We will assume that all of these calls have to succeed.
+# If some of the calls can ever fail, create a cleos_can_fail() sub and then both of them call a
+#   do_cleos() as their back-end.
+#sub cleos {
+#    my $args = shift; # custom arguments to cleos
+#    if (!defined $args) { die "ERROR: cleos: undefined args"; }
+#
+#    # We will add our own argument to cleos, which is the keosd sock (via $cleos)
+#
+#    my $cmd = "$cleos $args 2>&1";
+#
+#    my $o = `$cmd`;
+#
+#    if ($? != 0) {
+#        print "ERROR: Failed to execute: $cmd\n";
+#        print "Output: $o\n";
+#        do_stop();
+#        exit 1;
+#    }
+#}
+
+
 # --------------------------------------------------------------------------------------------
 # The working_dir is relative to the script's directory. Make sure to create it, then find it,
 #   then change to it.
 # --------------------------------------------------------------------------------------------
-
-use Cwd 'abs_path';
-use FindBin '$RealBin';
 
 # Compute absolute path to working directory in /local/doh-hotstart
 my $abs_working_dir = abs_path("$RealBin/$working_dir");
@@ -84,6 +142,18 @@ if (!defined $abs_working_dir) {
     print "ERROR: Malformed abs_working_dir from '$RealBin' + '$working_dir': $!\n";
     exit 1;
 }
+
+# None of this is needed
+#
+# Compute absolute path to cleos-driver working dir in /local/cleos-driver
+#my $abs_cleos_driver_wallet_dir = abs_path("$RealBin/$cleos_driver_wallet_dir");
+#if (!defined $abs_cleos_driver_wallet_dir) {
+#    print "ERROR: Malformed abs_cleos_driver_Wallet_dir from '$RealBin' + '$cleos_driver_wallet_dir': $!\n";
+#    exit 1;
+#}
+#
+# Set cleos command with an absolute path since we will be doing chdir() in this script
+#$cleos = "cleos --wallet-url unix://$abs_cleos_driver_wallet_dir/keosd.sock";
 
 # Not needed. Also, the installer is the one that creates the $working_dir/lock_file. Not sure if that's needed but it's better in theory.
 #
@@ -120,16 +190,30 @@ if (chdir($abs_working_dir)) {
 `touch lock_file`;
 
 # --------------------------------------------------------------------------------------------
-# Get the desired DoH compilation target from the command-line.
+# Parse command-line arguments.
 # --------------------------------------------------------------------------------------------
 
-# include the tools/cth-goodies library
 use lib "$RealBin/../../tools/cth-goodies";
 use CthGoodies;
 
-print "doh-hotstart start: will now attempt to parse command-line args; single '--target xxx' argument expected with the DoH compilation target.\n";
+my ($switches, $options) = cth_standard_args_parser("target label max_instances", "");
 
-my ($switches, $options) = cth_standard_args_parser("target max_instances", "");
+# --------------------------------------------------------------------------------------------
+# Get the test label.
+# --------------------------------------------------------------------------------------------
+
+if (exists $switches->{'label'} && $switches->{'label'} ne '') {
+    $label = $switches->{'label'};
+    print "doh hotstart start: Test label (unique identifier): '$label'\n";
+} else {
+    die "ERROR: doh-hotstart start: --label <test-UID> is a required argument.\n";
+}
+
+# --------------------------------------------------------------------------------------------
+# Get the desired DoH compilation target from the command-line.
+# --------------------------------------------------------------------------------------------
+
+print "doh-hotstart start: will now attempt to parse command-line args; single '--target xxx' argument expected with the DoH compilation target.\n";
 
 if (!exists $switches->{'target'}) {
     die "ERROR: doh-hotstart start: required '--target xxx' command-line argument not found.";
@@ -172,6 +256,22 @@ if (exists $switches->{'max_instances'}) {
 print "doh-hotstart start: Configured DoH contracts max_instances: $max_instances\n";
 
 # --------------------------------------------------------------------------------------------
+# Ensure cleos-driver is running
+# TODO: maybe it always works if cleos-driver start is invoked in parallel, but maybe
+#       it doesn't. Test it and confirm.
+# --------------------------------------------------------------------------------------------
+
+print "Starting cleos-driver ...\n";
+
+$cmd = "$cleos_driver_dir/start";
+$o = `$cmd`;
+if ($? != 0) {
+    print "ERROR: cleos-driver start returned an error code.\n";
+    print "Output: $o\n";
+    exit 1;
+}
+
+# --------------------------------------------------------------------------------------------
 # Create a /local/doh-hotstart/instances/<p2p-port> directory for the new nodeos instance.
 # Lock the driver's directory, do these operations, and unlock it.
 # Do non-blocking locking and wait for at most e.g. 10 seconds before giving up.
@@ -205,7 +305,7 @@ while (1) {
         if ($total_inst_dirs < $max_instances) {
 
             # find the largest p2p port number among created instances
-            my $largest = 9999;
+            my $largest = 10000; # start from 10001 since coldstart actually uses 10000
             foreach my $number (@inst_dirs) {
                 if ($number > $largest) {
                     $largest = $number;
@@ -225,6 +325,13 @@ while (1) {
             if (!make_path($abs_this_inst_dir)) {
                 close($lockfile); # unlock before dying
                 die "ERROR: Failed to create path for our new instance: '$abs_this_inst_dir': $!\n";
+            }
+
+            # write the unique label there
+            `echo '$label' > $abs_this_inst_dir/label`;
+            if ($? != 0) {
+                close($lockfile); # unlock before dying
+                die "ERROR: Failed to create label file for our new instance: '$abs_this_inst_dir/label': $!\n";
             }
         }
 
@@ -257,12 +364,17 @@ while (1) {
 print "doh-hotstart start: instance directory allocated for my p2p-port $p2p_port_number & my instance dir '$abs_this_inst_dir'\n";
 
 # --------------------------------------------------------------------------------------------
-# Ensure cleos-driver is running
-# TODO: maybe it always works if cleos-driver start is invoked in parallel, but maybe
-#       it doesn't. Test it and confirm.
+# FIXME/TODO: From now on, any fatal errors will require us to clean up this instance.
+#             Can't just leave the directories up (or a half-baked nodeos for that matter).
+#             Tests calling drivers only clean up after themselves, not the drivers.
 # --------------------------------------------------------------------------------------------
 
-# TODO
+# Change into the instance's dir
+if (!chdir($abs_this_inst_dir)) {
+    print "ERROR: Failed to change working directory to 'abs_this_inst_dir': $!\n";
+    do_stop();
+    exit 1;
+}
 
 # --------------------------------------------------------------------------------------------
 # Copy the chainbase over to this instance's created work dir
@@ -271,20 +383,57 @@ print "doh-hotstart start: instance directory allocated for my p2p-port $p2p_por
 print "doh-hotstart start: copying nodeos template from '$abs_template_dir' to my instance dir '$abs_this_inst_dir'\n";
 print `cp -r $abs_template_dir/* $abs_this_inst_dir`;
 if ($? != 0) {
-    die "ERROR: doh-hotstart start: Failed to copy nodeos data directory: $!\n";
+    print "ERROR: doh-hotstart start: Failed to copy nodeos data directory: $!\n";
+    do_stop();
+    exit 1;
+}
+
+
+# --------------------------------------------------------------------------------------------
+# Change the config.ini from the template to use the P2P port and HTTP port allocated for
+#   this new instance.
+# --------------------------------------------------------------------------------------------
+
+`sed -i 's/http-server-address = .*/http-server-address = 127.0.0.1:$http_port_number/g; s/p2p-listen-endpoint = .*/p2p-listen-endpoint = 127.0.0.1:$p2p_port_number/g' config.ini`;
+if ($? != 0) {
+    print "ERROR: doh-hotstart start: Failed to update config.ini with correct instance port numbers: $!\n";
+    do_stop();
+    exit 1;
 }
 
 # --------------------------------------------------------------------------------------------
 # Start nodeos from the chainbase
 # --------------------------------------------------------------------------------------------
 
-# TODO
+$cmd = 'start_nodeos.sh';
 
-# --------------------------------------------------------------------------------------------
-# Ensure it has finished starting and a test will be able to send commands to it
-# --------------------------------------------------------------------------------------------
+print "Starting nodeos...\n";
+print "Command: $cmd\n";
 
-# TODO
+$o = `$cmd 2>&1`;
+
+if ($? != 0) {
+    print "Result: $o\n";
+    print "ERROR: doh-hotstart start: failed to start nodeos (`start_nodeos.sh` failed).\n";
+    do_stop();
+    exit 1;
+}
+
+# Sleep just a little bit to give the chain.log time to show signs of activity, which helps in diagnosing any problems later
+sleep(1);
+
+print "doh-hotstart start: Trying to read nodeos PID from $nodeos_pid_file ...\n";
+
+$running_nodeos_pid = read_from_file($nodeos_pid_file);
+
+print "doh-hotstart start: nodeos PID is $running_nodeos_pid ...\n";
+
+# If there's some error starting nodeos (which we can't capture because of the way start_nodeos.sh invocation works with
+#   the PID redirect etc. then this should help debug it.
+print "doh-hotstart start: It SEEMS that nodeos is started successfully. If not, the nodeos output dump below (chain.log) should have error information.\n";
+print "\n==== chain.log start =====\n";
+print `cat chain.log`;
+print "\n==== chain.log end =====\n";
 
 # --------------------------------------------------------------------------------------------
 # Done

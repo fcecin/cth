@@ -3,10 +3,21 @@
 # --------------------------------------------------------------------------------------------
 # dcs-combat-test
 # --------------------------------------------------------------------------------------------
-# This is a test of the doh-coldstart driver that has been written to help develop the DoH
-#   test system. It is a port of cryptomechanics/doh-unit-tests/combat-test.sh as of
-#   early August, 2023.
+# This test is a port of cryptomechanics/doh-unit-tests/combat-test.sh from August, 2023.
 # --------------------------------------------------------------------------------------------
+
+
+# FIXME/TODO:
+#   CthGoodies cleos: take this instance's http port to use on cth_cleos calls (call doh-hotstart findinstance first)
+#   implement hotstart:
+#       findinstance <label> --> returns port
+#       stop --label    (calls findinstance then runs stop --port logic)
+#       stop --port
+#       stop --all
+#       clear --label   (calls findinstance then runs clear --port logic)
+#       clear --port
+#       clear --all
+#   change hotstart stop call to use the port since we know that now
 
 use strict;
 use warnings;
@@ -24,6 +35,16 @@ my $tcn_target = "tc3";
 my $ret;
 
 # --------------------------------------------------------------------------------------------
+# doh-hotstart needs this so that it knows which test to stop
+# --------------------------------------------------------------------------------------------
+
+# FIXME/TODO try to move this inside of CthGoodies
+use FindBin qw($RealBin);
+use File::Basename;
+my $test_uid = $$ . "_" . fileparse($RealBin);
+print "Test label: $test_uid\n";
+
+# --------------------------------------------------------------------------------------------
 # Point the CthGoodies library to the expected location of the running wallet (keosd), so
 #   that calls to cth_cleos() and cth_pipe() will work. The wallet daemon is actually started
 #   by the main test driver when it starts, so we don't have to start cleos-driver here.
@@ -36,7 +57,7 @@ if ($ret) { die "ERROR: cth_set_cleos_provider failed\n"; }
 # Run fresh nodeos, deploy system contracts, deploy DoH
 # --------------------------------------------------------------------------------------------
 
-$ret = cth_call_driver("doh-coldstart", "start --target=" . $doh_target);
+$ret = cth_call_driver("doh-hotstart", "start --target=" . $doh_target . " --label='$test_uid'");
 if ($ret) { die "ERROR: cth_call_driver failed\n"; }
 
 # --------------------------------------------------------------------------------------------
@@ -44,7 +65,7 @@ if ($ret) { die "ERROR: cth_call_driver failed\n"; }
 # --------------------------------------------------------------------------------------------
 
 sub cleanup {
-    $ret = cth_call_driver("doh-coldstart", "stop");
+    $ret = cth_call_driver("doh-hotstart", "stop --label='$test_uid'");
     if ($ret) { die "ERROR: cth_call_driver failed\n"; }
 }
 sub crashed { print "ERROR: Test has crashed.\n"; cleanup(); die; }
