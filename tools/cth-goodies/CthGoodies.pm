@@ -69,8 +69,18 @@ sub cth_set_cleos_provider {
         print "ERROR: cth_set_cleos_provider: driver $driver working directory not found at '$driver_working_dir'\n";
         return 1;
     }
+
+    # Since we found via relative path, now transform in absolute path so that
+    #   we don't run into errors if the working directory changes for whatever reason.
+    use Cwd 'abs_path';
+    my $abs_driver_working_dir = abs_path("$driver_working_dir");
+    if (!defined $abs_driver_working_dir) {
+        print "ERROR: cth_set_cleos_provider: cannot compute absolute path for driver $driver working directory '$driver_working_dir'\n";
+        exit 1;
+    }
+
     $cleos_provider_driver      = $driver;
-    $cleos_provider_working_dir = $driver_working_dir;
+    $cleos_provider_working_dir = $abs_driver_working_dir;
     return 0;
 }
 
@@ -109,7 +119,8 @@ sub cth_set_cleos_url {
 #
 # inputs:
 #   $args : arguments to cleos, with the exception of --wallet-url,
-#     which is set to the directory of the configured cleos provider.
+#     which is set to the working directory of the configured cleos
+#     provider driver, and --url, which is set by cth_set_cleos_url.
 #
 # outouts:
 #  $retval : zero if all OK, nonzero if failed.
@@ -157,7 +168,8 @@ sub cth_cleos {
 #
 # inputs:
 #   $args : arguments to cleos, with the exception of --wallet-url,
-#     which is set to the directory of the configured cleos provider,
+#     which is set to the directory of the configured cleos provider
+#     working directory, and --url which is set by cth_set_cleos_url,
 #     plus any other piped commands (|) you want to execute.
 #
 # outouts:
@@ -370,10 +382,16 @@ sub cth_standard_args_parser {
 #      directory, plus any parameters.
 #
 # output:
+#    $output : text output (stdout and stderr) from the command
 #    $retval : raw integer return code from the system call. If this
 #      is not zero, the call has failed, and the test should fail. This
 #      sub does not kill the test because it gives a chance for e.g.
 #      cleanups to be performed.
+#
+# NOTE: my $ret = cth_call_driver(...) will capture the $retval only,
+#    which is the last argument. That's how Perl behaves.
+#
+# NOTE: my ($out, $ret) = cth_call_driver(...) will capture both.
 # -----------------------------------------------------------------------
 
 sub cth_call_driver {
@@ -381,11 +399,11 @@ sub cth_call_driver {
     my ($driver, $command) = @_;
     if (! defined $driver) {
         print "ERROR: cth_call_driver: driver argument is undefined\n";
-        return 1;
+        return ("ERROR", 100000);
     }
     if (! defined $command) {
         print "ERROR: cth_call_driver: command argument is undefined\n";
-        return 1;
+        return ("ERROR", 100001);
     }
 
     my $command_path = "../../drivers/$driver/$command";
@@ -401,7 +419,7 @@ sub cth_call_driver {
     }
     print "cth_call_driver: command output: $output\n";
 
-    return $retval;
+    return ($output, $retval);
 }
 
 # -----------------------------------------------------------------------

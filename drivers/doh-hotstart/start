@@ -93,43 +93,21 @@ sub read_from_file {
 }
 
 # This actually calls clear
+# This driver (doh-hotstart) allows for the creation of multiple nodeos/chainbases, so when a test fails,
+#   we can't really have the luxury of letting a bunch of directories available for debug.
+# During development of the driver itself, you may want to change this to 'stop' instead of 'clear' to
+#   leave the directory with logs etc. that you can inspect.
 sub do_stop {
     print "doh-hotstart start: Stopping driver and wiping it clean ('clear')...\n";
-    my $clear_script = "$RealBin/clear --label=$label";
+    my $clear_script = "$RealBin/clear";
     if (!-e $clear_script) {
-        print "ERROR: can't find $RealBin/clear, nodeos not stopped and/or instance dir not cleared\n";
+        print "ERROR: can't find $clear_script, nodeos not stopped and/or instance dir not cleared\n";
         exit 1;
     } else {
-        my $o = `$clear_script 2>&1`;
+        my $o = `$clear_script  --label $label 2>&1`;
         print "Result: $o\n";
     }
 }
-
-# Not needed
-#
-# This is called after nodeos is started; any failure results in stopping the driver.
-# Run a cleos ... command.
-# We will assume that all of these calls have to succeed.
-# If some of the calls can ever fail, create a cleos_can_fail() sub and then both of them call a
-#   do_cleos() as their back-end.
-#sub cleos {
-#    my $args = shift; # custom arguments to cleos
-#    if (!defined $args) { die "ERROR: cleos: undefined args"; }
-#
-#    # We will add our own argument to cleos, which is the keosd sock (via $cleos)
-#
-#    my $cmd = "$cleos $args 2>&1";
-#
-#    my $o = `$cmd`;
-#
-#    if ($? != 0) {
-#        print "ERROR: Failed to execute: $cmd\n";
-#        print "Output: $o\n";
-#        do_stop();
-#        exit 1;
-#    }
-#}
-
 
 # --------------------------------------------------------------------------------------------
 # The working_dir is relative to the script's directory. Make sure to create it, then find it,
@@ -142,27 +120,6 @@ if (!defined $abs_working_dir) {
     print "ERROR: Malformed abs_working_dir from '$RealBin' + '$working_dir': $!\n";
     exit 1;
 }
-
-# None of this is needed
-#
-# Compute absolute path to cleos-driver working dir in /local/cleos-driver
-#my $abs_cleos_driver_wallet_dir = abs_path("$RealBin/$cleos_driver_wallet_dir");
-#if (!defined $abs_cleos_driver_wallet_dir) {
-#    print "ERROR: Malformed abs_cleos_driver_Wallet_dir from '$RealBin' + '$cleos_driver_wallet_dir': $!\n";
-#    exit 1;
-#}
-#
-# Set cleos command with an absolute path since we will be doing chdir() in this script
-#$cleos = "cleos --wallet-url unix://$abs_cleos_driver_wallet_dir/keosd.sock";
-
-# Not needed. Also, the installer is the one that creates the $working_dir/lock_file. Not sure if that's needed but it's better in theory.
-#
-# Create the working directory and its parent directories (should already exist
-#   if the driver was successfully installed, but anyway)
-#if (!-d $abs_working_dir && !make_path($abs_working_dir)) {
-#    print "ERROR: Failed to create path for abs_working_dir '$abs_working_dir': $!\n";
-#    exit 1;
-#}
 
 # Check that the template dir is there (should have been created by the driver installer)
 my $abs_template_dir = abs_path("$abs_working_dir/$template_dir");
@@ -190,11 +147,21 @@ if (chdir($abs_working_dir)) {
 `touch lock_file`;
 
 # --------------------------------------------------------------------------------------------
-# Parse command-line arguments.
+# While we are in a well-behaved directory depth, set up the cleos helper, as we will
+#   actually need it at the tail end of this script.
 # --------------------------------------------------------------------------------------------
 
 use lib "$RealBin/../../tools/cth-goodies";
 use CthGoodies;
+
+my $err = cth_set_cleos_provider('cleos-driver');
+if ($err) {
+    die "ERROR: doh-hotstart start: cth_set_cleos_provider failed for some reason.\n";
+}
+
+# --------------------------------------------------------------------------------------------
+# Parse command-line arguments.
+# --------------------------------------------------------------------------------------------
 
 my ($switches, $options) = cth_standard_args_parser("target label max_instances", "");
 
@@ -328,7 +295,7 @@ while (1) {
             }
 
             # write the unique label there
-            `echo '$label' > $abs_this_inst_dir/label`;
+            `echo -n '$label' > $abs_this_inst_dir/label`;
             if ($? != 0) {
                 close($lockfile); # unlock before dying
                 die "ERROR: Failed to create label file for our new instance: '$abs_this_inst_dir/label': $!\n";
@@ -419,24 +386,73 @@ if ($? != 0) {
     exit 1;
 }
 
-# Sleep just a little bit to give the chain.log time to show signs of activity, which helps in diagnosing any problems later
-sleep(1);
-
 print "doh-hotstart start: Trying to read nodeos PID from $nodeos_pid_file ...\n";
 
 $running_nodeos_pid = read_from_file($nodeos_pid_file);
 
 print "doh-hotstart start: nodeos PID is $running_nodeos_pid ...\n";
 
-# If there's some error starting nodeos (which we can't capture because of the way start_nodeos.sh invocation works with
-#   the PID redirect etc. then this should help debug it.
-print "doh-hotstart start: It SEEMS that nodeos is started successfully. If not, the nodeos output dump below (chain.log) should have error information.\n";
-print "\n==== chain.log start =====\n";
-print `cat chain.log`;
-print "\n==== chain.log end =====\n";
+# --------------------------------------------------------------------------------------------
+# Check that the nodeos process is actually there
+# --------------------------------------------------------------------------------------------
+
+# To test nodeos process dying quickly
+#`kill -9 $running_nodeos_pid`;
+
+# Sleep a tiny bit before checking if nodeos is alive, helps to diagnose insta-deaths
+#   sooner (instead of cleos connection exception later in the test)
+sleep(0.2);
+
+if (kill(0, $running_nodeos_pid)) {
+    print "doh-hotstart start: It SEEMS that nodeos is started successfully; nodeos log: $abs_this_inst_dir/chain.log\n";
+} else {
+    print "ERROR: doh-hotstart start: nodeos failed to start, as PID $running_nodeos_pid doesn't seem to be alive. The chain.log was:\n";
+    print "\n==== chain.log start =====\n";
+    print `cat chain.log`;
+    print "\n==== chain.log end =====\n";
+    do_stop();
+    exit 1;
+}
+
+# --------------------------------------------------------------------------------------------
+# Since the hotstart strategy starts from an existing chainbase and so is too fast, we need
+#   to loop trying to connect to the HTTP port, to see if nodeos is already up. We don't
+#   want to do some ugly sleep(1) here.
+# If we don't do this, the test will explode the first time it tries to call cleos since
+#   nodeos takes some time to be ready to respond to cleos requests.
+# --------------------------------------------------------------------------------------------
+
+cth_set_cleos_url("http://127.0.0.1:$http_port_number");
+
+my $max_tries = 30;  # 30 x 0.2s = 6 seconds
+
+while (1) {
+    my $out = cth_cleos_pipe("get info");
+    if (defined $out && $out =~ /chain_id/) {
+        # seems like cleos get info is working on our nodeos instance
+        print "doh-hotstart start: nodeos is alive (responded to cleos get info)\n";
+        last;
+    }
+
+    # did not find it yet, sleep a bit and retry (or give up if too many retries)
+    $max_tries--;
+    if ($max_tries <= 0) {
+        print "ERROR: doh-hotstart start: nodeos is taking too long to allow cleos get info to go through, assuming it is dead.\n";
+        do_stop();
+        exit 1;
+    }
+    sleep(0.2);
+}
+
+# --------------------------------------------------------------------------------------------
+# Unfortunately, we still need to sleep more, to avoid "expired transaction" errors for
+#   some dumb reason. Looks like nodeos is still warming up at this point.
+# --------------------------------------------------------------------------------------------
+
+sleep(1);
 
 # --------------------------------------------------------------------------------------------
 # Done
 # --------------------------------------------------------------------------------------------
 
-print "doh-hotstart start: instance $p2p_port_number started successfully.";
+print "doh-hotstart start: instance $p2p_port_number started successfully.\n";

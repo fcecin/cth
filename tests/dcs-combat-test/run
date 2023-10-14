@@ -6,19 +6,6 @@
 # This test is a port of cryptomechanics/doh-unit-tests/combat-test.sh from August, 2023.
 # --------------------------------------------------------------------------------------------
 
-
-# FIXME/TODO:
-#   CthGoodies cleos: take this instance's http port to use on cth_cleos calls (call doh-hotstart findinstance first)
-#   implement hotstart:
-#       findinstance <label> --> returns port
-#       stop --label    (calls findinstance then runs stop --port logic)
-#       stop --port
-#       stop --all
-#       clear --label   (calls findinstance then runs clear --port logic)
-#       clear --port
-#       clear --all
-#   change hotstart stop call to use the port since we know that now
-
 use strict;
 use warnings;
 
@@ -26,54 +13,51 @@ use warnings;
 use lib '../../tools/cth-goodies';
 use CthGoodies;
 
+# include the tools/doh-goodies library
+use lib '../../tools/doh-goodies';
+use DoHGoodies;
+
 $| = 1;  # Turn on auto-flush for STDOUT (Perl doesn't do this by default)
 
 # hardcoded for test (hg3/tc3) DoH compilation target
 my $doh_target = "hg3";
 my $tcn_target = "tc3";
 
-my $ret;
+# this test's DoH game master account
+my $doh_gm = "dohplayer1";
 
 # --------------------------------------------------------------------------------------------
-# doh-hotstart needs this so that it knows which test to stop
+# Set up the test
 # --------------------------------------------------------------------------------------------
 
-# FIXME/TODO try to move this inside of CthGoodies
-use FindBin qw($RealBin);
-use File::Basename;
-my $test_uid = $$ . "_" . fileparse($RealBin);
-print "Test label: $test_uid\n";
+print "TEST: starting setup...\n";
 
-# --------------------------------------------------------------------------------------------
-# Point the CthGoodies library to the expected location of the running wallet (keosd), so
-#   that calls to cth_cleos() and cth_pipe() will work. The wallet daemon is actually started
-#   by the main test driver when it starts, so we don't have to start cleos-driver here.
-# --------------------------------------------------------------------------------------------
+my $ret = doh_init($doh_target, $doh_gm);
+if ($ret) { die "ERROR: TEST: doh_init failed\n"; }
 
-$ret = cth_set_cleos_provider("cleos-driver");
-if ($ret) { die "ERROR: cth_set_cleos_provider failed\n"; }
+my $instance_port = doh_hotstart_start($doh_target);
+if ($instance_port < 0) { die "ERROR: TEST: doh_hotstart_start failed code: $instance_port\n"; }
 
-# --------------------------------------------------------------------------------------------
-# Run fresh nodeos, deploy system contracts, deploy DoH
-# --------------------------------------------------------------------------------------------
-
-$ret = cth_call_driver("doh-hotstart", "start --target=" . $doh_target . " --label='$test_uid'");
-if ($ret) { die "ERROR: cth_call_driver failed\n"; }
+print "TEST: setup OK.\n";
 
 # --------------------------------------------------------------------------------------------
 # Test helper functions
 # --------------------------------------------------------------------------------------------
 
 sub cleanup {
-    $ret = cth_call_driver("doh-hotstart", "stop --label='$test_uid'");
-    if ($ret) { die "ERROR: cth_call_driver failed\n"; }
+    print "TEST: starting cleanup...\n";
+    my $ret = doh_hotstart_clear($instance_port);
+    if ($ret) { die "ERROR: TEST: doh_hostart_clear failed\n"; }
+    print "TEST: cleanup OK.\n";
 }
-sub crashed { print "ERROR: Test has crashed.\n"; cleanup(); die; }
-sub failed { print "ERROR: Test has failed.\n"; cleanup(); die; }
+sub crashed { print "ERROR: TEST: testcase has crashed.\n"; cleanup(); die; }
+sub failed { print "ERROR: TEST: testcase has failed.\n"; cleanup(); die; }
 
 # --------------------------------------------------------------------------------------------
-# Test logic
+# Testcase
 # --------------------------------------------------------------------------------------------
+
+print "TEST: testcase started.\n";
 
 # **********************
 # Creates the player accounts for the test (not in combat-test.sh)
@@ -106,7 +90,7 @@ crashed() if cth_cleos(qq|push action names.${doh_target} addcname '{"id":1, "fi
 crashed() if cth_cleos(qq|push action names.${doh_target} addcname '{"id":2, "first_name":"Robert", "middle_name":"", "last_name":"Plant", "asset_url":"/characters/character-robert-plant-neutral.png", "faction_id":2}' -p names.${doh_target}|);
 crashed() if cth_cleos(qq|push action names.${doh_target} addcname '{"id":3, "first_name":"Jimi", "middle_name":"", "last_name":"Hendrix", "asset_url":"/characters/character-jimi-hendrix-neutral.png", "faction_id":4}' -p names.${doh_target}|);
 
-crashed() if cth_cleos(qq|push action hegemon.${doh_target} setgm '{"player":"dohplayer1"}' -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} setgm '{"player":"$doh_gm"}' -p hegemon.${doh_target}|);
 
 crashed() if cth_cleos(qq|push action hegemon.${doh_target} addfaction '{"id":1, "global_entity_id":52, "name":"Empire", "code":"em", "flag_asset_url":"/factions-flags/flag-empire.jpg"}' -p hegemon.${doh_target}|);
 crashed() if cth_cleos(qq|push action hegemon.${doh_target} addfaction '{"id":2, "global_entity_id":53, "name":"Confederacy", "code":"co", "flag_asset_url":"/factions-flags/flag-confederacy.jpg"}' -p hegemon.${doh_target}|);
@@ -206,3 +190,5 @@ failed() if cth_assert("last derived hash is 3786e2d0a8286823a1586b3996537d106e3
 # --------------------------------------------------------------------------------------------
 
 cleanup();
+
+print "TEST: completed successfully.\n";

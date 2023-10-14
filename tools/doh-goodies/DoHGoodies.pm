@@ -16,7 +16,15 @@ use strict;
 use warnings;
 
 use Exporter qw(import);
-our @EXPORT = qw(doh_init doh_get_tcn_target doh_get_char_energy doh_extract_tcn_amount);
+our @EXPORT = qw(
+    doh_init
+    doh_hotstart_start
+    doh_hotstart_stop
+    doh_hotstart_clear
+    doh_get_tcn_target
+    doh_get_char_energy
+    doh_extract_tcn_amount
+);
 
 # -----------------------------------------------------------------------
 # Uses CthGoodies
@@ -61,6 +69,127 @@ sub doh_init {
         return 1;
     }
     return cth_set_cleos_provider("cleos-driver");
+}
+
+# -----------------------------------------------------------------------
+# doh_hotstart_start
+#
+# Gets a hotstart instance created.
+#
+# outputs:
+#   $instance_port : greater than zero if we got an instance up, or a
+#     negative value on error.
+# -----------------------------------------------------------------------
+
+sub doh_hotstart_start {
+    if (! defined $doh_target) {
+        print "ERROR: doh_hotstart_start: doh_target is undefined; must call doh_init() first.\n";
+        return -1;
+    }
+
+    my ($ret, $out, $args);
+
+    $ret = cth_set_cleos_provider("cleos-driver");
+    if ($ret) {
+        print "ERROR: doh_hotstart_start: cth_set_cleos_provider failed\n";
+        return -1;
+    }
+
+    # Assemble a label for the new instance
+    use FindBin qw($RealBin);
+    use File::Basename;
+    my $instance_uid = $$ . "_" . fileparse($RealBin);
+    print "doh_hotstart start: generated instance UID (doh-hotstart --label): $instance_uid\n";
+
+    # run doh-hotstart start
+    $args = "start --target " . $doh_target . " --label '$instance_uid'";
+    ($out, $ret) = cth_call_driver("doh-hotstart", $args);
+    if ($ret) {
+        print "ERROR: doh_hotstart_start: cth_call_driver doh-hotstart '$args' failed\n";
+        return -1;
+    }
+
+    # Figure out which port was given to this instance_uid
+    $args = "findinstance $instance_uid";
+    ($out, $ret) = cth_call_driver("doh-hotstart", $args);
+    if ($ret) {
+        print "ERROR: doh_hotstart_start: cth_call_driver doh-hotstart '$args' failed\n";
+        print "out: $out\n";
+        print "ret: $ret\n";
+        return -1;
+    }
+
+    # point cth_cleos to the correct nodeos URL (doh-hotstart invariant: web port is P2P port + 10000)
+    my $instance_port = $out;
+    my $instance_port_http = $instance_port + 10000;
+    $ret = cth_set_cleos_url("http://127.0.0.1:$instance_port_http");
+    if ($ret) {
+        print "ERROR: doh_hotstart_start: cth_set_cleos_url failed.\n";
+        return -1;
+    }
+
+    print "doh_hotstart start: successfully started at P2P port $instance_port (HTTP port: $instance_port_http)\n";
+    return $instance_port;
+}
+
+# -----------------------------------------------------------------------
+# doh_hotstart_stop
+#
+# Stops a hotstart instance (does not clear it).
+#
+# input:
+#   $instace_port : the instance port to stop.
+#
+# outputs:
+#   $retval : zero on success, nonzero on failure.
+# -----------------------------------------------------------------------
+
+sub doh_hotstart_stop {
+    my $instance_port = shift;
+    if (! defined $instance_port) {
+        print "ERROR: doh_hotstart_stop: instance_port is undefined\n";
+        return -1;
+    }
+
+    # run doh-hotstart stop
+    my $args = "stop --port $instance_port";
+    my $ret = cth_call_driver("doh-hotstart", $args);
+    if ($ret) {
+        print "ERROR: doh_hotstart_start: cth_call_driver doh-hotstart '$args' failed\n";
+        return -1;
+    }
+
+    return 0;
+}
+
+# -----------------------------------------------------------------------
+# doh_hotstart_clear
+#
+# Stops and clears (rm -rf) a hotstart instance directory.
+#
+# input:
+#   $instace_port : the instance port to stop and clear.
+#
+# outputs:
+#   $retval : zero on success, nonzero on failure.
+# -----------------------------------------------------------------------
+
+sub doh_hotstart_clear {
+    my $instance_port = shift;
+    if (! defined $instance_port) {
+        print "ERROR: doh_hotstart_clear: instance_port is undefined\n";
+        return -1;
+    }
+
+    # run doh-hotstart clear
+    my $args = "clear --port $instance_port";
+    my $ret = cth_call_driver("doh-hotstart", $args);
+    if ($ret) {
+        print "ERROR: doh_hotstart_start: cth_call_driver doh-hotstart '$args' failed\n";
+        return -1;
+    }
+
+    return 0;
 }
 
 # -----------------------------------------------------------------------
