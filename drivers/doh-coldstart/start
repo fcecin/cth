@@ -187,6 +187,8 @@ if ($switches->{'target'} eq 'hgm' || $switches->{'target'} eq 'prod') {
     $target = 'hg2';
 } elsif ($switches->{'target'} eq 'hg3' || $switches->{'target'} eq 'test') {
     $target = 'hg3';
+} elsif ($switches->{'target'} eq 'hg4' || $switches->{'target'} eq 'debug') {
+    $target = 'hg4';
 } else {
     die "ERROR: doh-coldstart start: unknown target: '" . $switches->{'target'} . "'.";
 }
@@ -253,6 +255,8 @@ if ($target eq 'hgm') {
     $doh_contracts_dir .= "dev";
 } elsif ($target eq 'hg3') {
     $doh_contracts_dir .= "test";
+} elsif ($target eq 'hg4') {
+    $doh_contracts_dir .= "debug";
 } else {
     die "ERROR: doh-coldstart: does not know where to fetch doh-contracts for target: $target; expected hgm, hg1 or hg2 as configured target names in the driver.\n";
 }

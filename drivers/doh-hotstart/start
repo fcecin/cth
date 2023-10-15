@@ -203,6 +203,8 @@ if ($switches->{'target'} eq 'hgm' || $switches->{'target'} eq 'prod') {
     $target = 'hg2';
 } elsif ($switches->{'target'} eq 'hg3' || $switches->{'target'} eq 'test') {
     $target = 'hg3';
+} elsif ($switches->{'target'} eq 'hg4' || $switches->{'target'} eq 'debug') {
+    $target = 'hg4';
 } else {
     die "ERROR: doh-hotstart start: unknown target: '" . $switches->{'target'} . "'.";
 }

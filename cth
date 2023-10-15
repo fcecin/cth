@@ -239,10 +239,20 @@ if ($opt_help) {
 }
 
 # --------------------------------------------------------------------------------------------
-# Starting up
+# Starting up.
 # --------------------------------------------------------------------------------------------
 
 if ($opt_verbose) { print "Working directory (test root): $root_dir\n"; }
+
+# --------------------------------------------------------------------------------------------
+# Refuse to run if another instance of cth is already running in the system.
+# --------------------------------------------------------------------------------------------
+
+my @pgrep_output = `pgrep -x cth`; # Run pgrep to get a list of PIDs for the "cth" process
+die "ERROR: cth: Failed to run pgrep: $!" if $?;
+chomp(@pgrep_output);
+@pgrep_output = grep { $_ != $$ } @pgrep_output; # Remove our own PID from the list
+die "ERROR: cth: This instance ($$) will exit since there are other running cth instances (PIDs: " . join(", ", @pgrep_output) . ")" if (@pgrep_output);
 
 # --------------------------------------------------------------------------------------------
 # DIRTY CHEAT: If tools/reference-contracts/ is present, try to find at least one .wasm
@@ -388,7 +398,6 @@ if ($opt_install) {
     print "Original driver list: @drivers\n";
     print "Resolved driver list: @sorted_drivers\n";
     @drivers = @sorted_drivers;
-    exit 0;
 
     #
     # Install all drivers

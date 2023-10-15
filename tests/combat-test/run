@@ -19,9 +19,8 @@ use DoHGoodies;
 
 $| = 1;  # Turn on auto-flush for STDOUT (Perl doesn't do this by default)
 
-# hardcoded for test (hg3/tc3) DoH compilation target
-my $doh_target = "hg3";
-my $tcn_target = "tc3";
+# all tests should be hard-coded for the test (hg3/tc3) DoH compilation target.
+my ($doh_target, $tcn_target) = ("hg3", "tc3");
 
 # this test's DoH game master account
 my $doh_gm = "dohplayer1";
@@ -111,12 +110,34 @@ crashed() if cth_cleos(qq|push action hegemon.${doh_target} addtile '{"id":2,"ar
 crashed() if cth_cleos(qq|push action staking.${tcn_target} enable '{}' -p staking.${tcn_target}|);
 
 crashed() if cth_cleos(qq|push action hegemon.${doh_target} regplayer '{"player":"dohplayer1", "opt_out_of_politics":false}' --force-unique -p dohplayer1|);
+
+# ------------------------------------------------------------------------------------------------------------------------------------------------------------
+# Cheat by giving a bunch of cryopods to dohplayer1.
+# This is just an example that actually works. We don't need this outside of prod/hgm/tcn since all other targets have generous game constants like infinite
+#   cryopods for testing.
+# Using this is not enough to allow this test to run on prod/hgm/tcn because there are other blockers, such as the hardcoded clock/RNG prevention code
+#   in hegemon.cpp, for example '  if (BUILD.to_string().substr(3, 1) == "m") {  '
+# ------------------------------------------------------------------------------------------------------------------------------------------------------------
+my $o = cth_cleos_pipe(qq*get table hegemon.${doh_target} hegemon.${doh_target} players*);
+crashed() if (!defined $o);
+$o =~ s/"first":\s*10000/"first": 1000000/; # Give a gazillion cryopods to the player by replacing the first occurrence of "first": 10000 with "first": 1000000"
+$o =~ s/"character_slots":\s*1/"character_slots": 100/; # Give a gazillion character slots to the player
+$o =~ s/"rows": \[\{//;
+$o =~ s/    }\n  ],\n  "more": false,\n  "next_key": ""//; # Doctor it to the entire outer json context for the table query and leave only the player record
+$o =~ s/\n//g; # Remove all newlines so it fits into a single cleos shell call
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} setplayer '{"p":$o}' --force-unique -p hegemon.${doh_target}|); # Now we can setplayer it with a gazillion cryopods
+# ------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 crashed() if cth_cleos(qq|push action hegemon.${doh_target} regplayer '{"player":"dohplayer2", "opt_out_of_politics":false}' --force-unique -p dohplayer2|);
+
 crashed() if cth_cleos(qq|push action hegemon.${doh_target} createchar '{"player":"dohplayer1"}' --force-unique -p dohplayer1|);
 crashed() if cth_cleos(qq|push action hegemon.${doh_target} createchar '{"player":"dohplayer1"}' --force-unique -p dohplayer1|);
 crashed() if cth_cleos(qq|push action hegemon.${doh_target} createchar '{"player":"dohplayer2"}' --force-unique -p dohplayer2|);
 
+# Regen 8 hours of energy so docombat won't fail below with "not enough energy" (if you were to try and run this on hgm)
+#crashed() if cth_cleos(qq|push action clock.${doh_target} clockaddsec '{"seconds":28800}' --force-unique -p clock.${doh_target}|);
 crashed() if cth_cleos(qq|push action clock.${doh_target} clockaddsec '{"seconds":120}' --force-unique -p clock.${doh_target}|);
+
 crashed() if cth_cleos(qq|push action hegemon.${doh_target} docombat '{"player":"dohplayer1", "faction_id":4}' --force-unique -p dohplayer1|);
 crashed() if cth_cleos(qq|push action clock.${doh_target} clockaddsec '{"seconds":120}' --force-unique -p clock.${doh_target}|);
 crashed() if cth_cleos(qq|push action hegemon.${doh_target} updaterng '{}' --force-unique -p hegemon.${doh_target}|);

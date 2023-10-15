@@ -24,6 +24,7 @@ my $local_prod_dir     = "../../local/prod/doh-contracts";
 my $local_staging_dir  = "../../local/staging/doh-contracts";
 my $local_dev_dir      = "../../local/dev/doh-contracts";
 my $local_test_dir      = "../../local/test/doh-contracts";
+my $local_debug_dir      = "../../local/debug/doh-contracts";
 
 # ---------------------------------------------------------------------------
 # Utils
@@ -58,7 +59,13 @@ sub chdir_test_dir {
     print "Current working directory: " . getcwd() .  "\n";
 }
 
-# target is prod, staging, dev, test
+sub chdir_debug_dir {
+    chdir_driver_dir();    # absolute
+    chdir $local_debug_dir; # relative
+    print "Current working directory: " . getcwd() .  "\n";
+}
+
+# target is prod, staging, dev, test, debug
 sub copy_doh {
     my $target = shift;
     die "ERROR: doh-coldstart: copy target not defined" unless (defined $target);
@@ -86,32 +93,25 @@ system("../../tools/get-doh/get-doh.sh $source_dir") == 0 or die "ERROR: doh-col
 # ---------------------------------------------------------------------------
 # The doh-contracts assembled by get-doh.sh is a CODE TEMPLATE. It is not actual
 #   source code for the DoH contracts suite. It has to be preprocessed for
-#   ALL DoH targets, i.e. prod (hgm/tcn), staging (hg1/tc1), dev (hg2/tc2),
-#   test (hg3/tc3) to produce THREE different DoH contract suites that are
+#   ALL DoH targets to produce several different DoH contract suites that are
 #   specific to each target.
 #
-# This installer will recompile ALL targets, FULLY. The build system as a
-#   whole is not smart enough yet to save work. Run cth -i dummy and grab
-#   a mug of coffee.
-#
-# NEW (Oct 2023):
-#   Actually, we will only build one target, which is "test" (hg3/tc3).
-#   Ideally, we'd build and test only the production target: we'd like to
-#     test the version of the game that is actually deployed. The various
-#     targets were invented to facilitate humans and human-interactive
-#     shell scripts testing vs. a shared remote game deployment.
-#   On the other hand, automated testing is (mostly) run against a local
-#     blockchain node with the deployed game, with full control of setting
-#     objects (setplayer, etc.), the RNG and clock. The added convenience
-#     of having more forgiving game constants is more of a hindrance than
-#     a help for automated testing, though its great for people-testers
-#     and shared blockchain/contracts remote testing.
-#   It's still contentions whether we want to enable clock and RNG for
-#     the production constants/content, which would allow automated testing
-#     (I don't remember why exactly this was disabled and how right now),
-#     so as discussed we'll write automated tests for the test (hg3/tc3)
-#     target for now.
-#
+# This driver will only build one target, which is "test" (hg3/tc3).
+# Ideally, we'd build and test only the production target: we'd like to
+#   test the version of the game that is actually deployed. The various
+#   targets were invented to facilitate humans and human-interactive
+#   shell scripts testing vs. a shared remote game deployment.
+# On the other hand, automated testing is (mostly) run against a local
+#   blockchain node with the deployed game, with full control of setting
+#   objects (setplayer, etc.), the RNG and clock. The added convenience
+#   of having more forgiving game constants is more of a hindrance than
+#   a help for automated testing, though its great for people-testers
+#   and shared blockchain/contracts remote testing.
+# It's still contentions whether we want to enable clock and RNG for
+#   the production constants/content, which would allow automated testing
+#   (I don't remember why exactly this was disabled and how right now),
+#   so as discussed we'll write automated tests for the test (hg3/tc3)
+#   target for now.
 # ---------------------------------------------------------------------------
 
 chdir_driver_dir();
@@ -133,6 +133,7 @@ if (-e "$source_dir/$run_build_sh") {
 #   local/staging/doh-contracts/
 #   local/dev/doh-contracts/
 #   local/test/doh-contracts/
+#   local/debug/doh-contracts/
 # ---------------------------------------------------------------------------
 
 print "$driver: Copying contract templates to local/ for all DoH targets ...\n";
@@ -141,6 +142,7 @@ copy_doh("prod");
 copy_doh("staging");
 copy_doh("dev");
 copy_doh("test");
+copy_doh("debug");
 
 # ---------------------------------------------------------------------------
 # Customize contract source code for each compilation target
@@ -149,6 +151,7 @@ copy_doh("test");
 #   local/staging/doh-contracts/set-staging.sh
 #   local/dev/doh-contracts/set-dev.sh
 #   local/test/doh-contracts/set-test.sh
+#   local/test/doh-contracts/set-debug.sh
 # ---------------------------------------------------------------------------
 
 print "$driver: Instantiating contract templates on local/ for all DoH targets ...\n";
@@ -165,6 +168,9 @@ system("set-dev.sh") == 0 or die "ERROR: $driver: Failed to create dev contracts
 chdir_test_dir();
 system("set-test.sh") == 0 or die "ERROR: $driver: Failed to create test contracts: $!";
 
+chdir_debug_dir();
+system("set-debug.sh") == 0 or die "ERROR: $driver: Failed to create debug contracts: $!";
+
 # ---------------------------------------------------------------------------
 # Compile DoH
 #
@@ -176,8 +182,8 @@ system("set-test.sh") == 0 or die "ERROR: $driver: Failed to create test contrac
 my $ret;
 
 print "$driver: ************************************************************************************************\n";
-print "$driver: *** SKIPPING COMPILATION of prod (hgm/tcn), staging (hg1/tc1) and dev (hg2/tc2) targets!!!\n";
-print "$driver: *** Tests that try to run with any target other than the test target (hg3/tc3) will fail.\n";
+print "$driver: *** SKIPPING COMPILATION of all DoH targets that are not the test (hg3/tc3) target!!!\n";
+print "$driver: *** Tests that try to run with any target other than the test target will fail.\n";
 print "$driver: ************************************************************************************************\n";
 
 # *************************************************************************************************************
@@ -248,7 +254,7 @@ $cpus = 1;  # Getting some weird crashes, so disabling parallel compilation for 
 
 print "Detected $cpus processors available to build DoH contracts.\n";
 
-print "Building DoH for compilation target 'test' (hg3/tc3)...\n";
+print "Building DoH for compilation target 'test' (hg3/tc3) ONLY...\n";
 chdir_test_dir();
 
 use File::Temp qw(tempfile);
