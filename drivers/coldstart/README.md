@@ -1,3 +1,4 @@
+NOTE: Now that cth supports parallel test execution, the only way you can use this driver with cth to run tests is with `cth --j 1` to serialize all tests. In general, just don't write tests for this driver.
 
 The coldstart driver is a sample test driver that boots a local Leap blockchain.
 

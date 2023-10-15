@@ -1,3 +1,4 @@
+NOTE: Now that cth supports parallel test execution, this driver is only used to generate the chainbase for doh-hostart. The only way you can use this driver with cth to run tests is with `cth --j 1` to serialize all tests. In general, just don't write tests for this driver.
 
 doh-coldstart is a reference driver for the development of more advanced DoH test drivers, or for debugging.
 

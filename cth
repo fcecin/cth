@@ -79,10 +79,7 @@
 # --------------------------------------------------------------------------------------------
 #
 # (TODO) PARALLEL TESTING:
-# - serialize coldstart and doh-coldstart so cth parallel execution doesn't break it.
 # - investigate CTRL+C possibly screwing future runs (e.g. get rid of the doh-hotstart lock file with an END block)
-#
-# (TODO) more/better drivers in general
 #
 # (TODO) more/better DoH tests
 #
