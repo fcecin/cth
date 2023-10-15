@@ -78,24 +78,9 @@
 #
 # --------------------------------------------------------------------------------------------
 #
-# (TODO) SNAPSHOT (HOT) TESTING:
-#
-# This is very simple. The easiest driver just resumes a binary chainbase that
-#   we save (i.e. data dir) which we can zip and the driver install step (or the
-#   run step even) can unzip it. This template chainbase is then cp -r wherever
-#   we start a new nodeos to test with.
-#
 # (TODO) PARALLEL TESTING:
-#
-# The actual solution to parallel testing is to create parallelization (threading)
-#   in the harness, and then have serialization, if any, done at the driver level.
-#   That is, serial drivers will serialize tests coming simultaneously at them,
-#   while parallel drivers will serve the array of blockchain resources they have
-#   and only serialize incoming tests if they ever run out of these resources and
-#   need to wait for them to be freed by a previous test.
-#
-# However, this will probably not be a pressing need after we do HOT TESTING, as
-#   running all tests serially will be a very quick matter for a while.
+# - serialize coldstart and doh-coldstart so cth parallel execution doesn't break it.
+# - investigate CTRL+C possibly screwing future runs (e.g. get rid of the doh-hotstart lock file with an END block)
 #
 # (TODO) more/better drivers in general
 #
@@ -119,6 +104,10 @@ use Getopt::Long;
 use Cwd;
 
 $| = 1;  # Turn on auto-flush for STDOUT (Perl doesn't do this by default)
+
+my $RED = "\e[31m";
+my $GRN = "\e[32m";
+my $DEF = "\e[0m";
 
 # --------------------------------------------------------------------------------------------
 # Variables
@@ -151,6 +140,20 @@ my @sum_passed_tests;
 my @sum_failed_tests;
 my @sum_skipped_tests;
 
+# Run tests in parallel (child processes)
+my $active_jobs = 0;   # Number of active child processes that we still need to wait() for
+my %child_pids;        # To keep track of child PIDs and their corresponding test names
+
+# --------------------------------------------------------------------------------------------
+# Find out the default number of parallel jobs
+# --------------------------------------------------------------------------------------------
+
+my $cpus = `lscpu -b -p=Core,Socket | grep -v '^#' | sort -u | wc -l`;
+chomp($cpus);
+if (!defined $cpus || !($cpus =~ /^\d+$/)) {
+    $cpus = 1;
+}
+
 # --------------------------------------------------------------------------------------------
 # Command-line parser
 # --------------------------------------------------------------------------------------------
@@ -161,6 +164,7 @@ my @opt_switch;       #  2-element array that contains the key and value pair.
 my $opt_clear = 0;
 my $opt_help = 0;
 my $opt_install = 0;
+my $opt_jobs = $cpus;
 my $opt_reset = 0;
 my @opt_run;
 my $opt_verbose = 0;
@@ -169,6 +173,7 @@ GetOptions(
     "clear|c"      => \$opt_clear,
     "help|h"       => \$opt_help,
     "install|i"    => \$opt_install,
+    "jobs|j=s"     => \$opt_jobs,
     "option|o=s%"  => sub { push @opt_option, [$_[1], $_[2]] },
     "reset"        => \$opt_reset,
     "run=s{3}"     => sub { push @opt_run, $_[1]; },
@@ -190,6 +195,11 @@ foreach my $pair (@opt_option) {
     unless ($key =~ /^[a-zA-Z0-9_]+$/) {
         die "ERROR: Invalid characters in test option key (allowed: a-z, A-Z, 0-9, _): \"$key\"\n";
     }
+}
+
+# jobs must be a positive integer
+if (!($opt_jobs =~ /^\d+$/) || $opt_jobs < 1) {
+    die "ERROR: invalid --jobs: $opt_jobs\n";
 }
 
 @testspecs = @ARGV;
@@ -220,6 +230,7 @@ if ($opt_help) {
     print "  --clear, -c         Clear all tests and drivers\n";
     print "  --help, -h          Print this help\n";
     print "  --install, -i       Run 'install' on all drivers\n";
+    print "  --jobs, -j <n>      Start at most <n> simultaneous jobs; default: $cpus\n";
     print "  --option, -o <k=v>  Pass a '-o \"k=v\"' parameter to all tests\n";
     print "                      (note: switches are preferred over options)\n";
     print "  --reset             Run 'reset' on all drivers\n";
@@ -561,7 +572,7 @@ while (scalar(@opt_run) > 0) {
 }
 
 # --------------------------------------------------------------------------------------------
-# Run tests
+# Resolve switches and options to be passed to tests
 # --------------------------------------------------------------------------------------------
 
 sub get_switch_value {
@@ -575,10 +586,6 @@ sub get_switch_value {
     }
     return; # undef
 }
-
-print "Running tests ...\n";
-if ($opt_verbose) { print "The output of each test is saved to the 'run.log' file on each test directory.\n"; }
-print "\n";
 
 print "Global parameters given to all tests:\n\n";
 foreach my $pair (@opt_switch) {
@@ -600,6 +607,55 @@ if ($global_test_args eq '') {
     if ($opt_verbose) { print "Parameter string for all tests:\n  $global_test_args\n\n"; }
 }
 
+# --------------------------------------------------------------------------------------------
+# Run tests
+# --------------------------------------------------------------------------------------------
+
+sub print_test_name {
+    my $test_name = shift;
+    if (! defined $test_name) { die "FATAL ERROR: cth: print_test_name undefined test_name"; }
+    print "  " . $test_name . " " . ("." x (48 - length($test_name))) . " ";
+}
+
+sub test_result {
+    my $test_name = shift;
+    if (! defined $test_name) { die "FATAL ERROR: cth: test_result undefined test_name"; }
+    my $exit_status = shift;
+    if (! defined $exit_status) { die "FATAL ERROR: cth: test_result undefined exit_status"; }
+    if ($exit_status == 0) {
+        print "${GRN}Passed${DEF}.\n";
+        $sum_pass++;
+        push @sum_passed_tests, $test_name;
+    } elsif ($exit_status == $cth_exit_code_skipped_test) {
+        print "Skipped.\n";
+        $sum_skip++;
+        push @sum_skipped_tests, $test_name;
+    } else {
+        print "${RED}Failed${DEF} (exit code: $exit_status).\n";
+        $sum_fail++;
+        push @sum_failed_tests, $test_name;
+    }
+}
+
+sub wait_and_process_test_result {
+    print "Waiting (running $active_jobs/$opt_jobs)... ";
+    my $pid = waitpid(-1, 0);  # Wait for any child process to finish and get its PID
+    print "\n";
+    if ($pid > 0) {
+        $active_jobs--;
+        my $test_name = delete $child_pids{$pid};
+        my $exit_status = $? >> 8;  # Extract the exit status from the child process
+        print_test_name($test_name);
+        test_result($test_name, $exit_status);
+    } else {
+        print "ERROR: cth: waitpid() returned <= 0 (should never happen).\n";
+    }
+}
+
+print "Running tests ...\n";
+if ($opt_verbose) { print "The output of each test is saved to the 'run.log' file on each test directory.\n"; }
+print "\n";
+
 foreach my $test (@tests) {
 
     # check if we will skip this test.
@@ -620,7 +676,7 @@ foreach my $test (@tests) {
     my $script = "run";
     my $log_file = "run.log";
     unlink $log_file;
-    print "Test " . $test . " " . ("." x (48 - length($test))) . " ";
+    print_test_name($test);
 
     # pass test name through the auto switch filter
     my $auto_switch_filter_skip_test = 0;
@@ -644,44 +700,79 @@ foreach my $test (@tests) {
     if ($auto_switch_filter_skip_test) {
         $sum_skip++;
         push @sum_skipped_tests, $test;
-    } elsif (-e $script) {
-        my $ret = system("$script $global_test_args > $log_file 2>&1");
-        if ($ret) {
-            if ($ret < 0) {
-                print "ERROR: system() call failed (return value: $ret)\n";
-                $sum_fail++;
-                push @sum_failed_tests, $test;
-            } else {
-                my $sig = $ret & 127;
-                my $exit_code = $ret >> 8;
-                my $core = ($ret & 128) ? 1 : 0;
-                if ($exit_code == $cth_exit_code_skipped_test) {
-                    print "Skipped (raw: $ret, c: $core, s: $sig, exit: $exit_code)\n";
-                    $sum_skip++;
-                    push @sum_skipped_tests, $test;
-                } else {
-                    print "Failed (raw: $ret, c: $core, s: $sig, exit: $exit_code)\n";
-                    print "cat tests/$test/run.log\n";
-                    $sum_fail++;
-                    push @sum_failed_tests, $test;
-                }
-            }
-        } else {
-            print "Passed\n";
-            $sum_pass++;
-            push @sum_passed_tests, $test;
-        }
-    } else {
-        print "Failed (no 'run' file)\n";
+    } elsif (! -e $script) {
+        print "${RED}Failed${DEF} (no 'run' file)\n";
         $sum_fail++;
         push @sum_failed_tests, $test;
+    } else {
+        if ($active_jobs >= $opt_jobs) {
+            wait_and_process_test_result();
+            print_test_name($test);
+        }
+
+        my $pid = fork();
+
+        # Even if the fork failed, we can try executing the test in the cth parent process
+        if (!defined $pid) {
+            print "Fork failed... ";
+        }
+
+        if (!defined $pid || $pid == 0) {
+            if (!defined $pid) {
+                print "Started... ";
+            }
+            my $ret = system("$script $global_test_args > $log_file 2>&1");
+            if ($ret) {
+                if ($ret < 0) {
+                    if (!defined $pid) {
+                        print "${RED}Failed${DEF} (system call: $ret)\n";
+                        $sum_fail++;
+                        push @sum_failed_tests, $test;
+                    } else {
+                        exit(255);
+                    }
+                } else {
+                    my $exit_status = $ret >> 8;
+                    if (!defined $pid) {
+                        if ($exit_status == 0) { $exit_status = 254; } # never happens, but let's ensure
+                        test_result($test, $exit_status);
+                    } else {
+                        exit($exit_status);
+                    }
+                }
+            } else {
+                if (!defined $pid) {
+                    test_result($test, 0);
+                } else {
+                    exit(0);
+                }
+            }
+        }
+
+        # if pid is not defined, fork failed so we ran the test in the parent cth process
+        if (defined $pid) {
+            print "Running (PID $pid)...\n";
+            $active_jobs++;
+            $child_pids{$pid} = $test;
+        }
     }
+
     chdir $root_dir or die "ERROR: cth: Cannot change to root test directory: $!;"
+}
+
+# Wait for any remaining child processes to finish
+while ($active_jobs > 0) {
+    print_test_name('');
+    wait_and_process_test_result();
 }
 
 # --------------------------------------------------------------------------------------------
 # Print summary
 # --------------------------------------------------------------------------------------------
+
+@sum_passed_tests  = sort @sum_passed_tests;
+@sum_failed_tests  = sort @sum_failed_tests;
+@sum_skipped_tests = sort @sum_skipped_tests;
 
 $sum_total = $sum_pass + $sum_fail + $sum_skip;
 

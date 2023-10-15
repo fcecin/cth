@@ -23,6 +23,11 @@
 #   script in a well-known format that can be captured by the caller.
 #
 # The HTTP port number is the P2P port number + 10000 (example: p2p:10000, HTTP:20000).
+#
+# --------------------------------------------------------------------------------------------
+# FIXME/TODO: Since cth ended up having a max parallel jobs limit, the max_instances control
+#   here in the driver is redundant. It can just go ahead and blindly start an instance.
+#   max_instances control here can be entirely removed as it is redundant.
 # --------------------------------------------------------------------------------------------
 
 use strict;
@@ -129,9 +134,18 @@ if (!defined $abs_template_dir || !-d $abs_template_dir) {
 
 # Create the instances subdirectory if it's not there
 my $abs_instances_dir = abs_path("$abs_working_dir/$instances_dir");
-if (!defined $abs_instances_dir || (!-d $abs_instances_dir && !make_path($abs_instances_dir))) {
-    print "ERROR: Failed to create path for abs_instances_dir '$abs_instances_dir': $!\n";
-    exit 1;
+#if (!defined $abs_instances_dir || (!-d $abs_instances_dir && !make_path($abs_instances_dir))) {
+#    print "ERROR: Failed to create path for abs_instances_dir '$abs_instances_dir': $!\n";
+#    exit 1;
+#}
+# Unfortunately, the above can fail since multiple hotstart start scripts may be running (parallel tests)
+#   and so it fails between !-d and !make_path with a directory already exists error.
+if (!defined $abs_instances_dir) {
+    die "ERROR: Failed to calculate absolute path for abs_instances_dir: $!";
+}
+system("mkdir -p $abs_instances_dir");
+if ($? != 0 && $? != 17) {  # neither success nor error "already exists"
+    die "ERROR: Failed to create path for abs_instances_dir '$abs_instances_dir': $! ($?)";
 }
 
 # Change into the working dir
@@ -223,9 +237,9 @@ if (exists $switches->{'max_instances'}) {
 print "doh-hotstart start: Configured DoH contracts max_instances: $max_instances\n";
 
 # --------------------------------------------------------------------------------------------
-# Ensure cleos-driver is running
-# TODO: maybe it always works if cleos-driver start is invoked in parallel, but maybe
-#       it doesn't. Test it and confirm.
+# Ensure cleos-driver is running.
+# cleos-driver start should be able to handle being invoked in parallel by multiple
+#   processes (e.g. copies of doh-hostart start) gracefully.
 # --------------------------------------------------------------------------------------------
 
 print "Starting cleos-driver ...\n";
@@ -236,6 +250,8 @@ if ($? != 0) {
     print "ERROR: cleos-driver start returned an error code.\n";
     print "Output: $o\n";
     exit 1;
+} else {
+    print "cleos-driver output: $o\n";
 }
 
 # --------------------------------------------------------------------------------------------
@@ -253,13 +269,17 @@ my $p2p_port_number;
 my $http_port_number;
 my $abs_this_inst_dir;
 
-my $nblock_tries = 10;
+my $max_nblock_tries = 10;
+my $nblock_tries = $max_nblock_tries;
 
 while (1) {
 
     # Acquire global lock on instances dir
     open my $lockfile, ">", "$lock_file" or die "FATAL ERROR: Can't acquire lock file: $!";
     if (flock($lockfile, 2 | 4)) {
+
+        # reset the non-blocking lock max tries for next time
+        $nblock_tries = $max_nblock_tries;
 
         # scan instances dir
         opendir(my $dh, "$abs_instances_dir") or die "ERROR: Could not open instances directory: $!";
@@ -331,9 +351,9 @@ while (1) {
 print "doh-hotstart start: instance directory allocated for my p2p-port $p2p_port_number & my instance dir '$abs_this_inst_dir'\n";
 
 # --------------------------------------------------------------------------------------------
-# FIXME/TODO: From now on, any fatal errors will require us to clean up this instance.
-#             Can't just leave the directories up (or a half-baked nodeos for that matter).
-#             Tests calling drivers only clean up after themselves, not the drivers.
+# From here on, any fatal errors will require us to clean up this instance (via do_stop()).
+# Can't just leave the directories up (or a half-baked nodeos for that matter).
+# Tests calling drivers only clean up after themselves, not the drivers.
 # --------------------------------------------------------------------------------------------
 
 # Change into the instance's dir
@@ -354,7 +374,6 @@ if ($? != 0) {
     do_stop();
     exit 1;
 }
-
 
 # --------------------------------------------------------------------------------------------
 # Change the config.ini from the template to use the P2P port and HTTP port allocated for
@@ -449,6 +468,7 @@ while (1) {
 #   some dumb reason. Looks like nodeos is still warming up at this point.
 # --------------------------------------------------------------------------------------------
 
+print "doh-hotstart start: sleeping for 1s to avoid Expired Transaction errors...\n";
 sleep(1);
 
 # --------------------------------------------------------------------------------------------

@@ -9,3 +9,4 @@ fi
 # just go nuclear
 pkill -f nodeos
 rm -rf instances
+rm -rf lock_file

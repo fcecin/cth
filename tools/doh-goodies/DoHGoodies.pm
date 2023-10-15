@@ -114,8 +114,6 @@ sub doh_hotstart_start {
     ($out, $ret) = cth_call_driver("doh-hotstart", $args);
     if ($ret) {
         print "ERROR: doh_hotstart_start: cth_call_driver doh-hotstart '$args' failed\n";
-        print "out: $out\n";
-        print "ret: $ret\n";
         return -1;
     }
 
