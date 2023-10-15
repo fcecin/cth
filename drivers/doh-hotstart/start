@@ -23,11 +23,6 @@
 #   script in a well-known format that can be captured by the caller.
 #
 # The HTTP port number is the P2P port number + 10000 (example: p2p:10000, HTTP:20000).
-#
-# --------------------------------------------------------------------------------------------
-# FIXME/TODO: Since cth ended up having a max parallel jobs limit, the max_instances control
-#   here in the driver is redundant. It can just go ahead and blindly start an instance.
-#   max_instances control here can be entirely removed as it is redundant.
 # --------------------------------------------------------------------------------------------
 
 use strict;
@@ -60,7 +55,7 @@ my $target; # passed as command-line argument: --target xxx
 my $label; # passed as command-line argument: --label xxx
 
 # This default can be changed by command-line argument --max_instances xxx or by lscpu (see below)
-my $max_instances = 1;
+#my $max_instances = 1;
 
 my $nodeos_pid_file = "nodeos.pid";
 
@@ -177,7 +172,7 @@ if ($err) {
 # Parse command-line arguments.
 # --------------------------------------------------------------------------------------------
 
-my ($switches, $options) = cth_standard_args_parser("target label max_instances", "");
+my ($switches, $options) = cth_standard_args_parser("target label", ""); # max_instances switch removed
 
 # --------------------------------------------------------------------------------------------
 # Get the test label.
@@ -218,23 +213,23 @@ print "doh-hotstart start: Configured DoH contracts target: $target\n";
 # Determine max_instances configuration.
 # --------------------------------------------------------------------------------------------
 
-if (exists $switches->{'max_instances'}) {
-    $max_instances = $switches->{'max_instances'};
-    if (! $max_instances =~ /^\d+$/) {
-        die "ERROR: doh-hotstart start: bad --max_instances parameter: '" . $max_instances . "'.";
-    }
-} else {
-    my $cpus = `lscpu -b -p=Core,Socket | grep -v '^#' | sort -u | wc -l`;
-    chomp($cpus);
-    if (!defined $cpus || !($cpus =~ /^\d+$/)) {
-        print "doh-hotstart start: WARNING: Can't retrieve number of cpu cores; will assume only 1 core.\n";
-    } else {
-        print "doh-hotstart start: Detected $cpus cpu cores.\n";
-        $max_instances = $cpus;
-    }
-}
-
-print "doh-hotstart start: Configured DoH contracts max_instances: $max_instances\n";
+#if (exists $switches->{'max_instances'}) {
+#    $max_instances = $switches->{'max_instances'};
+#    if (! $max_instances =~ /^\d+$/) {
+#        die "ERROR: doh-hotstart start: bad --max_instances parameter: '" . $max_instances . "'.";
+#    }
+#} else {
+#    my $cpus = `lscpu -b -p=Core,Socket | grep -v '^#' | sort -u | wc -l`;
+#    chomp($cpus);
+#    if (!defined $cpus || !($cpus =~ /^\d+$/)) {
+#        print "doh-hotstart start: WARNING: Can't retrieve number of cpu cores; will assume only 1 core.\n";
+#    } else {
+#        print "doh-hotstart start: Detected $cpus cpu cores.\n";
+#        $max_instances = $cpus;
+#    }
+#}
+#
+#print "doh-hotstart start: Configured DoH contracts max_instances: $max_instances\n";
 
 # --------------------------------------------------------------------------------------------
 # Ensure cleos-driver is running.
@@ -258,9 +253,6 @@ if ($? != 0) {
 # Create a /local/doh-hotstart/instances/<p2p-port> directory for the new nodeos instance.
 # Lock the driver's directory, do these operations, and unlock it.
 # Do non-blocking locking and wait for at most e.g. 10 seconds before giving up.
-# nuke script destroys all nodeos instances that map to hotstart and erases the lock file.
-# Wait indefinitely while $max_instances limit is reached (i.e. the number of <p2p-port>
-#   directories is equal or over max_instances); sleep for e.g. 3 seconds between checks.
 # --------------------------------------------------------------------------------------------
 
 my @inst_dirs;
@@ -278,8 +270,9 @@ while (1) {
     open my $lockfile, ">", "$lock_file" or die "FATAL ERROR: Can't acquire lock file: $!";
     if (flock($lockfile, 2 | 4)) {
 
+        # only relevant when we're using $max_instances
         # reset the non-blocking lock max tries for next time
-        $nblock_tries = $max_nblock_tries;
+        #$nblock_tries = $max_nblock_tries;
 
         # scan instances dir
         opendir(my $dh, "$abs_instances_dir") or die "ERROR: Could not open instances directory: $!";
@@ -289,7 +282,7 @@ while (1) {
         print "Found $total_inst_dirs instances.\n";
 
         # if there's room, create our instance, which will use the next available port number
-        if ($total_inst_dirs < $max_instances) {
+        #if ($total_inst_dirs < $max_instances) {
 
             # find the largest p2p port number among created instances
             my $largest = 10000; # start from 10001 since coldstart actually uses 10000
@@ -320,19 +313,19 @@ while (1) {
                 close($lockfile); # unlock before dying
                 die "ERROR: Failed to create label file for our new instance: '$abs_this_inst_dir/label': $!\n";
             }
-        }
+        #}
 
         # unlock
         close($lockfile);
 
         # if there was room, we are done
-        if ($total_inst_dirs < $max_instances) {
+        #if ($total_inst_dirs < $max_instances) {
             last;
-        }
+        #}
 
         # otherwise,
-        print "doh-hotstart start: max_instances reached ($total_inst_dirs/$max_instances); waiting to try again...\n";
-        sleep(3);
+        #print "doh-hotstart start: max_instances reached ($total_inst_dirs/$max_instances); waiting to try again...\n";
+        #sleep(3);
 
     } else {
         # non-blocking lock failed

@@ -78,9 +78,6 @@
 #
 # --------------------------------------------------------------------------------------------
 #
-# (TODO) PARALLEL TESTING:
-# - investigate CTRL+C possibly screwing future runs (e.g. get rid of the doh-hotstart lock file with an END block)
-#
 # (TODO) more/better DoH tests
 #
 # (TODO) finish tools/cth-goodies test library
