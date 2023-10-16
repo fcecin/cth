@@ -17,7 +17,9 @@ use strict;
 use warnings;
 use Time::HiRes qw(sleep);
 use Scalar::Util qw(looks_like_number);
-use File::Path qw(make_path);
+#use File::Path qw(make_path);
+use FindBin '$RealBin';
+use File::Spec::Functions qw(rel2abs);
 
 $| = 1;  # Turn on auto-flush for STDOUT (Perl doesn't do this by default)
 
@@ -39,12 +41,12 @@ my $o;
 #   then change to it.
 # --------------------------------------------------------------------------------------------
 
-use Cwd 'abs_path';
-use FindBin '$RealBin';
-my $abs_wallet_dir = abs_path("$RealBin/$wallet_dir");
-if (!defined $abs_wallet_dir) {
-    die "ERROR: Malformed abs_wallet_dir from '$RealBin' + '$wallet_dir': $!";
-}
+#use Cwd 'abs_path';
+#my $abs_wallet_dir = abs_path("$RealBin/$wallet_dir");
+#if (!defined $abs_wallet_dir) {
+#    die "ERROR: Malformed abs_wallet_dir from '$RealBin' + '$wallet_dir': $!";
+#}
+my $abs_wallet_dir = rel2abs("$RealBin/$wallet_dir");
 
 # FIXME: This fails if you invoke it in parallel (e.g. doh-hotstart start + cth parallel test running)
 # Create the directory and its parent directories

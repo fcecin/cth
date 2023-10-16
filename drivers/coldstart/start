@@ -20,6 +20,8 @@ use warnings;
 use Time::HiRes qw(sleep);
 use Scalar::Util qw(looks_like_number);
 use File::Path qw(make_path);
+use FindBin '$RealBin';
+use File::Spec::Functions qw(rel2abs);
 
 $| = 1;  # Turn on auto-flush for STDOUT (Perl doesn't do this by default)
 
@@ -48,13 +50,13 @@ my $o;
 #   then change to it.
 # --------------------------------------------------------------------------------------------
 
-use Cwd 'abs_path';
-use FindBin '$RealBin';
-my $abs_working_dir = abs_path("$RealBin/$working_dir");
-if (!defined $abs_working_dir) {
-    print "ERROR: Malformed abs_working_dir from '$RealBin' + '$working_dir': $!\n";
-    exit 1;
-}
+#use Cwd 'abs_path';
+#my $abs_working_dir = abs_path("$RealBin/$working_dir");
+#if (!defined $abs_working_dir) {
+#    print "ERROR: Malformed abs_working_dir from '$RealBin' + '$working_dir': $!\n";
+#    exit 1;
+#}
+my $abs_working_dir = rel2abs("$RealBin/$working_dir");
 
 # Create the directory and its parent directories
 if (!-d $abs_working_dir && !make_path($abs_working_dir)) {

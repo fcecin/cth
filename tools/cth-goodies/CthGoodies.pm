@@ -18,6 +18,8 @@ use warnings;
 use Exporter qw(import);
 our @EXPORT = qw(cth_skip_test cth_set_cleos_provider cth_set_cleos_url cth_cleos cth_cleos_pipe cth_assert cth_standard_args_parser cth_call_driver cth_generate_account_names);
 
+use File::Spec::Functions qw(rel2abs);
+
 # -----------------------------------------------------------------------
 # Global state
 # -----------------------------------------------------------------------
@@ -65,19 +67,20 @@ sub cth_set_cleos_provider {
         return 1;
     }
     my $driver_working_dir = "../../local/$driver"; # a driver's default working directory is now under /local
-    if (! -d $driver_working_dir) {
-        print "ERROR: cth_set_cleos_provider: driver $driver working directory not found at '$driver_working_dir'\n";
-        return 1;
-    }
+    #if (! -d $driver_working_dir) {
+    #    print "ERROR: cth_set_cleos_provider: driver $driver working directory not found at '$driver_working_dir'\n";
+    #    return 1;
+    #}
 
     # Since we found via relative path, now transform in absolute path so that
     #   we don't run into errors if the working directory changes for whatever reason.
-    use Cwd 'abs_path';
-    my $abs_driver_working_dir = abs_path("$driver_working_dir");
-    if (!defined $abs_driver_working_dir) {
-        print "ERROR: cth_set_cleos_provider: cannot compute absolute path for driver $driver working directory '$driver_working_dir'\n";
-        exit 1;
-    }
+    #use Cwd 'abs_path';
+    #my $abs_driver_working_dir = abs_path("$driver_working_dir");
+    #if (!defined $abs_driver_working_dir) {
+    #    print "ERROR: cth_set_cleos_provider: cannot compute absolute path for driver $driver working directory '$driver_working_dir'\n";
+    #    exit 1;
+    #}
+    my $abs_driver_working_dir = rel2abs($driver_working_dir);
 
     $cleos_provider_driver      = $driver;
     $cleos_provider_working_dir = $abs_driver_working_dir;

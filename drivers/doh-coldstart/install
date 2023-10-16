@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use Cwd;
 use FindBin qw($RealBin);
-use Cwd 'abs_path';
+#use Cwd 'abs_path';
 
 $| = 1;  # Turn on auto-flush for STDOUT (Perl doesn't do this by default)
 
@@ -106,19 +106,21 @@ if (defined $switches->{'doh'}) {
         print "ERROR: doh-coldstart install: given --doh directory not found: '$doh_dir': $!\n";
     }
 
-    my $abs_doh_dir = abs_path("$doh_dir");
-    if (!defined $abs_doh_dir) {
-        die "ERROR: doh-coldstart install: Can't compute absolute path from given relative --doh directory: '$doh_dir': $!";
-    }
+    #my $abs_doh_dir = abs_path("$doh_dir");
+    #if (!defined $abs_doh_dir) {
+    #    die "ERROR: doh-coldstart install: Can't compute absolute path from given relative --doh directory: '$doh_dir': $!";
+    #}
+    my $abs_doh_dir = rel2abs($doh_dir);
 
     chdir_driver_dir();
     my $destination = "../../local/$target";
 
     # find the absolute path since we will be printing this and relative paths are confusing
-    my $abs_destination = abs_path("$destination");
-    if (!defined $abs_destination) {
-        die "ERROR: doh-coldstart install: Can't compute absolute path for DoH source code /local destination: '$destination': $!";
-    }
+    #my $abs_destination = abs_path("$destination");
+    #if (!defined $abs_destination) {
+    #    die "ERROR: doh-coldstart install: Can't compute absolute path for DoH source code /local destination: '$destination': $!";
+    #}
+    my $abs_destination = rel2abs($destination);
 
     # doh-contracts is part of it
     $abs_destination = $abs_destination . "/doh-contracts";

@@ -31,7 +31,8 @@ use Time::HiRes qw(sleep);
 use Scalar::Util qw(looks_like_number);
 use File::Path qw(make_path);
 use Socket;
-use Cwd 'abs_path';
+#use Cwd 'abs_path';
+use File::Spec::Functions qw(rel2abs);
 use FindBin '$RealBin';
 
 $| = 1;  # Turn on auto-flush for STDOUT (Perl doesn't do this by default)
@@ -115,29 +116,36 @@ sub do_stop {
 # --------------------------------------------------------------------------------------------
 
 # Compute absolute path to working directory in /local/doh-hotstart
-my $abs_working_dir = abs_path("$RealBin/$working_dir");
-if (!defined $abs_working_dir) {
-    print "ERROR: Malformed abs_working_dir from '$RealBin' + '$working_dir': $!\n";
-    exit 1;
-}
+#my $abs_working_dir = abs_path("$RealBin/$working_dir");
+#if (!defined $abs_working_dir) {
+#    print "ERROR: Malformed abs_working_dir from '$RealBin' + '$working_dir': $!\n";
+#    exit 1;
+#}
+my $abs_working_dir = rel2abs("$RealBin/$working_dir");
 
 # Check that the template dir is there (should have been created by the driver installer)
-my $abs_template_dir = abs_path("$abs_working_dir/$template_dir");
-if (!defined $abs_template_dir || !-d $abs_template_dir) {
+#my $abs_template_dir = abs_path("$abs_working_dir/$template_dir");
+#if (!defined $abs_template_dir) {
+#    die "ERROR: doh-hotstart start: cannot compute absolute path to nodeos template data dir '$abs_working_dir/$template_dir'";
+#}
+my $abs_template_dir = rel2abs("$abs_working_dir/$template_dir");
+if (!-d $abs_template_dir) {
     die "ERROR: doh-hotstart start: nodeos template data dir '$abs_template_dir' directory not found. (Was the doh-hotstart driver installed?)";
 }
 
 # Create the instances subdirectory if it's not there
-my $abs_instances_dir = abs_path("$abs_working_dir/$instances_dir");
-#if (!defined $abs_instances_dir || (!-d $abs_instances_dir && !make_path($abs_instances_dir))) {
-#    print "ERROR: Failed to create path for abs_instances_dir '$abs_instances_dir': $!\n";
-#    exit 1;
+#my $abs_instances_dir = abs_path("$abs_working_dir/$instances_dir");
+##if (!defined $abs_instances_dir || (!-d $abs_instances_dir && !make_path($abs_instances_dir))) {
+##    print "ERROR: Failed to create path for abs_instances_dir '$abs_instances_dir': $!\n";
+##    exit 1;
+##}
+## Unfortunately, the above can fail since multiple hotstart start scripts may be running (parallel tests)
+##   and so it fails between !-d and !make_path with a directory already exists error.
+#if (!defined $abs_instances_dir) {
+#    die "ERROR: Failed to calculate absolute path for abs_instances_dir: $!";
 #}
-# Unfortunately, the above can fail since multiple hotstart start scripts may be running (parallel tests)
-#   and so it fails between !-d and !make_path with a directory already exists error.
-if (!defined $abs_instances_dir) {
-    die "ERROR: Failed to calculate absolute path for abs_instances_dir: $!";
-}
+my $abs_instances_dir = rel2abs("$abs_working_dir/$instances_dir");
+
 system("mkdir -p $abs_instances_dir");
 if ($? != 0 && $? != 17) {  # neither success nor error "already exists"
     die "ERROR: Failed to create path for abs_instances_dir '$abs_instances_dir': $! ($?)";

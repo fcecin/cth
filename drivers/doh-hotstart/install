@@ -20,6 +20,8 @@ use warnings;
 use Time::HiRes qw(sleep);
 use Scalar::Util qw(looks_like_number);
 use File::Path qw(make_path);
+use File::Spec::Functions qw(rel2abs);
+use FindBin '$RealBin';
 
 $| = 1;  # Turn on auto-flush for STDOUT (Perl doesn't do this by default)
 
@@ -45,14 +47,6 @@ if (chdir($RealBin)) {
 } else {
     print "ERROR: Failed to change working directory: $!\n";
     exit 1;
-}
-
-# --------------------------------------------------------------------------------------------
-# Create the global lock file (used for instance-dir creation synchronization)
-# --------------------------------------------------------------------------------------------
-
-if (system("touch $working_dir/lock_file") != 0) {
-    die "ERROR: failed to create global lock file '$working_dir/lock_file'\n";
 }
 
 # --------------------------------------------------------------------------------------------
@@ -116,13 +110,13 @@ sleep(3);
 #
 # Create entire local/doh-hotstart/nodeos-template/ path
 #
-use Cwd 'abs_path';
-use FindBin '$RealBin';
-my $abs_template_dir = abs_path("$template_dir");
-if (!defined $abs_template_dir) {
-    print "ERROR: Malformed abs_template_dir from '$template_dir': $!\n";
-    exit 1;
-}
+#use Cwd 'abs_path';
+#my $abs_template_dir = abs_path("$template_dir");
+my $abs_template_dir = rel2abs("$template_dir");
+#if (!defined $abs_template_dir) {
+#    print "ERROR: Malformed abs_template_dir from '$template_dir': $!\n";
+#    exit 1;
+#}
 if (!-d $abs_template_dir && !make_path($abs_template_dir)) {
     print "ERROR: Failed to create path for abs_working_dir '$abs_template_dir': $!\n";
     exit 1;
@@ -152,6 +146,15 @@ print `ls -lR $abs_template_dir`;
 print "-----------------------------------------------------------------------------------\n";
 
 print "doh-hotstart install: DoH quick-start chainbase generated and installed successfully.\n";
+
+# --------------------------------------------------------------------------------------------
+# Create the global lock file (used for instance-dir creation synchronization).
+# Can't create this before the local/doh_hostart directory is created, so do it here.
+# --------------------------------------------------------------------------------------------
+
+if (system("touch $working_dir/lock_file") != 0) {
+    die "ERROR: failed to create global lock file '$working_dir/lock_file'\n";
+}
 
 # --------------------------------------------------------------------------------------------
 # Clear doh-coldstart
