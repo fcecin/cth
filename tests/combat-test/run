@@ -118,14 +118,14 @@ crashed() if cth_cleos(qq|push action hegemon.${doh_target} regplayer '{"player"
 # Using this is not enough to allow this test to run on prod/hgm/tcn because there are other blockers, such as the hardcoded clock/RNG prevention code
 #   in hegemon.cpp, for example '  if (BUILD.to_string().substr(3, 1) == "m") {  '
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------
-my $o = cth_cleos_pipe(qq*get table hegemon.${doh_target} hegemon.${doh_target} players*);
-crashed() if (!defined $o);
-$o =~ s/"first":\s*10000/"first": 1000000/; # Give a gazillion cryopods to the player by replacing the first occurrence of "first": 10000 with "first": 1000000"
-$o =~ s/"character_slots":\s*1/"character_slots": 100/; # Give a gazillion character slots to the player
-$o =~ s/"rows": \[\{//;
-$o =~ s/    }\n  ],\n  "more": false,\n  "next_key": ""//; # Doctor it to the entire outer json context for the table query and leave only the player record
-$o =~ s/\n//g; # Remove all newlines so it fits into a single cleos shell call
-crashed() if cth_cleos(qq|push action hegemon.${doh_target} setplayer '{"p":$o}' --force-unique -p hegemon.${doh_target}|); # Now we can setplayer it with a gazillion cryopods
+#my $o = cth_cleos_pipe(qq*get table hegemon.${doh_target} hegemon.${doh_target} players*);
+#crashed() if (!defined $o);
+#$o =~ s/"first":\s*10000/"first": 1000000/; # Give a gazillion cryopods to the player by replacing the first occurrence of "first": 10000 with "first": 1000000"
+#$o =~ s/"character_slots":\s*1/"character_slots": 100/; # Give a gazillion character slots to the player
+#$o =~ s/"rows": \[\{//;
+#$o =~ s/    }\n  ],\n  "more": false,\n  "next_key": ""//; # Doctor it to the entire outer json context for the table query and leave only the player record
+#$o =~ s/\n//g; # Remove all newlines so it fits into a single cleos shell call
+#crashed() if cth_cleos(qq|push action hegemon.${doh_target} setplayer '{"p":$o}' --force-unique -p hegemon.${doh_target}|); # Now we can setplayer it with a gazillion cryopods
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 crashed() if cth_cleos(qq|push action hegemon.${doh_target} regplayer '{"player":"dohplayer2", "opt_out_of_politics":false}' --force-unique -p dohplayer2|);
