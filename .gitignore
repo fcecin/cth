@@ -1,5 +1,5 @@
 *.log
 *.pid
 /local/*
-!/local/README.md
+!/local/.gitkeep
 /extras/*
