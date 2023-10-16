@@ -17,7 +17,7 @@ sudo ./install_dependencies.sh
 cth -i
 ```
 
-`cth -i` will compile all of the contracts: Antelope system contracts once, and DoH three times, one for each target: hgm, hg1, hg2. This takes a while, so just leave it running. After all drivers are installed, it will run all tests.
+`cth -i` will compile all of the contracts: Antelope system contracts once, and DoH once for the 'test' (hg3/tc3) target. This takes a while, so just leave it running. After all drivers are installed, it will run all tests.
 
 Later, you can invoke it without `-i` and it will not recompile the contracts; just run tests.
 
