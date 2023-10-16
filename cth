@@ -138,6 +138,13 @@ my @sum_skipped_tests;
 my $active_jobs = 0;   # Number of active child processes that we still need to wait() for
 my %child_pids;        # To keep track of child PIDs and their corresponding test names
 
+# flag to signal that tests will not run.
+# tests only run if no set up tasks have been performed.
+my $DO_NOT_RUN_TESTS = 0;
+
+# if any setup/instalation task fails, set this so that tests will refuse to run
+my @FAILED_SETUP_TASKS;
+
 # --------------------------------------------------------------------------------------------
 # Find out the default number of parallel jobs
 # --------------------------------------------------------------------------------------------
@@ -156,6 +163,7 @@ if (!defined $cpus || !($cpus =~ /^\d+$/)) {
 my @opt_option;       # each element of these two outer arrays is a
 my @opt_switch;       #  2-element array that contains the key and value pair.
 my $opt_clear = 0;
+my $opt_force = 0;
 my $opt_help = 0;
 my $opt_install = 0;
 my $opt_jobs = $cpus;
@@ -165,6 +173,7 @@ my $opt_verbose = 0;
 
 GetOptions(
     "clear|c"      => \$opt_clear,
+    "force|f"      => \$opt_force,
     "help|h"       => \$opt_help,
     "install|i"    => \$opt_install,
     "jobs|j=s"     => \$opt_jobs,
@@ -210,8 +219,12 @@ if ($opt_help) {
     print "    cth\n";
     print "  Run only specific tests (name filters):\n";
     print "    cth testname1 test2 othertestname\n";
-    print "  Install drivers and run no tests:\n";
-    print "    cth -i bogustest\n";
+    print "  Install drivers, then run tests afterwards if installation successful:\n";
+    print "    cth -i -f\n";
+    print "\n";
+    print "Running tests vs. installing test drivers:\n";
+    print "  Installation/set-up operations like --install, --run, --clear and --reset\n";
+    print "  prevent cth from running tests afterwards, unless --force is specified.\n";
     print "\n";
     print "Auto Switch Filter:\n";
     print "  Test directories with the SWITCHNAME:VALUE pattern in their name will be\n";
@@ -221,13 +234,14 @@ if ($opt_help) {
     print "\n";
     print "Options:\n";
     print "\n";
-    print "  --clear, -c         Clear all tests and drivers\n";
+    print "  --clear, -c         Clear all tests and drivers (doesn't run tests)\n";
+    print "  --force, -f         Force tests to run after all installation/set-up tasks\n";
     print "  --help, -h          Print this help\n";
     print "  --install, -i       Run 'install' on all drivers\n";
     print "  --jobs, -j <n>      Start at most <n> simultaneous jobs; default: $cpus\n";
     print "  --option, -o <k=v>  Pass a '-o \"k=v\"' parameter to all tests\n";
     print "                      (note: switches are preferred over options)\n";
-    print "  --reset             Run 'reset' on all drivers\n";
+    print "  --reset             Run 'reset' on all drivers (doesn't run tests)\n";
     print "  --run <c> <e> <p>   Call component <c>'s executable <s> with parameters <p>\n";
     print "                      <c> is a driver dir (1st try) or test dir (2nd try)\n";
     print "                      All --run commands are processed after -c and -i\n";
@@ -244,7 +258,18 @@ if ($opt_help) {
 
 if ($opt_verbose) { print "Working directory (test root): $root_dir\n"; }
 
-# --------------------------------------------------------------------------------------------
+if (@opt_run || $opt_install || $opt_reset || $opt_clear) {
+    if ($opt_force) {
+        print "Installation/set-up tasks detected but --force was specified. Will run tests if all installation/set-up tasks are succesful.\n";
+    } else {
+        print "Installation/set-up tasks detected. Will NOT run any tests.\n";
+        $DO_NOT_RUN_TESTS = 1;
+    }
+} else {
+    if ($opt_verbose) { print "Will run tests (no installation/set-up tasks detected).\n"; }
+}
+
+#--------------------------------------------------------------------------------------------
 # Refuse to run if another instance of cth is already running in the system.
 # --------------------------------------------------------------------------------------------
 
@@ -254,30 +279,33 @@ chomp(@pgrep_output);
 @pgrep_output = grep { $_ != $$ } @pgrep_output; # Remove our own PID from the list
 die "ERROR: cth: This instance ($$) will exit since there are other running cth instances (PIDs: " . join(", ", @pgrep_output) . ")" if (@pgrep_output);
 
+# Removed: this never worked at all, worked even less when we moved to /local/reference-contracts, and is a bad idea in general.
+# If you don't install the drivers then it's obviously not going to work.
+#
 # --------------------------------------------------------------------------------------------
 # DIRTY CHEAT: If tools/reference-contracts/ is present, try to find at least one .wasm
 #   file in it. If there is none (i.e. it is pristine) then "cth -i" was probably never
 #   run. In that case, refuse to continue and tell the user they should run "cth -i" once.
 # --------------------------------------------------------------------------------------------
-
-use File::Find;
-use File::Spec;
-
-my $tools_reference_contracts = 'tools/reference-contracts';
-
-if (-d $tools_reference_contracts && !$opt_install) { # if we are going to install now, then no problem
-    my $wasm_found = 0;
-    sub search_wasm {
-        if (-f $_ && $_ =~ /\.wasm$/) {
-            $wasm_found = 1;
-            return;
-        }
-    }
-    find(\&search_wasm, $tools_reference_contracts);
-    if (!$wasm_found) {
-        die "ERROR: No .wasm files found under '$tools_reference_contracts'. This means you probably have not run 'cth --install bogustest' at least once! You should do that before running any tests, since that will call 'install' on all drivers, which will compile contracts that are required by the drivers, for example. Exiting.\n";
-    }
-}
+#
+#use File::Find;
+#use File::Spec;
+#
+#my $tools_reference_contracts = 'tools/reference-contracts';
+#
+#if (-d $tools_reference_contracts && !$opt_install) { # if we are going to install now, then no problem
+#    my $wasm_found = 0;
+#    sub search_wasm {
+#        if (-f $_ && $_ =~ /\.wasm$/) {
+#            $wasm_found = 1;
+#            return;
+#        }
+#    }
+#    find(\&search_wasm, $tools_reference_contracts);
+#    if (!$wasm_found) {
+#        die "ERROR: No .wasm files found under '$tools_reference_contracts'. This means you probably have not run 'cth --install' at least once! You should do that before running any tests, since that will call 'install' on all drivers, which will compile contracts that are required by the drivers, for example. Exiting.\n";
+#    }
+#}
 
 # --------------------------------------------------------------------------------------------
 # Get a list of all drivers
@@ -325,6 +353,7 @@ if ($opt_reset) {
             my $ret = system($script . " > $log_file 2>&1");
             if ($ret) {
                 print "Driver $driver reset failed with code: $ret\n";
+                push @FAILED_SETUP_TASKS, "$work_dir/$script";
             } else {
                 print "Driver $driver reset successfully.\n";
             }
@@ -433,6 +462,7 @@ if ($opt_install) {
                 print "WARNING: cth: Driver $driver installation failed with code: $ret\n";
                 print "              This will probably cause any tests that use this driver to fail.\n";
                 print "*******************************************************************************\n";
+                push @FAILED_SETUP_TASKS, "$work_dir/$script";
             } else {
                 print "Driver $driver installed successfully.\n";
             }
@@ -491,6 +521,7 @@ if ($opt_clear) {
             my $ret = system($script);
             if ($ret) {
                 print "ERROR: 'clear' failed for driver $driver with code: $ret\n";
+                push @FAILED_SETUP_TASKS, "$work_dir/$script";
             } else {
                 print "\n";
             }
@@ -512,6 +543,7 @@ if ($opt_clear) {
             my $ret = system($script);
             if ($ret) {
                 print "ERROR: 'clear' failed for test $test with code: $ret\n";
+                push @FAILED_SETUP_TASKS, "$work_dir/$script";
             } else {
                 print "\n";
             }
@@ -569,9 +601,38 @@ while (scalar(@opt_run) > 0) {
     my $ret = system("$cmd 2>&1");
     if ($ret) {
         die "ERROR: cth: system('$cmd') returned error: $ret\n";
+
+        # We are dying on any failed --run, so this is pointless.
+        # --run is really the user doing manual installations, so in that case we want to fail-fast for sure.
+        #push @FAILED_SETUP_TASKS, $cmd;
     }
 
     print "cth: --run '$cmd' finished successfully.\n\n";
+}
+
+# --------------------------------------------------------------------------------------------
+# Decide whether we are going to run tests or not
+# --------------------------------------------------------------------------------------------
+
+if (@FAILED_SETUP_TASKS) {
+    print "ERROR: Some installation/set-up tasks have failed.\n";
+    foreach my $failed_setup_task (@FAILED_SETUP_TASKS) {
+        print "  Failed: $failed_setup_task\n";
+    }
+    print "\n";
+    if (! $DO_NOT_RUN_TESTS) {
+        print "ERROR: Tests were scheduled to run (due to --force), but will be ignored due to installation/set-up tasks having failed.\n";
+        print "\n";
+    }
+    exit 1;
+}
+
+if ($DO_NOT_RUN_TESTS) {
+    print "\n";
+    print "Test running is disabled because installation/set-up tasks were performed.\n";
+    print "  (to force test running after installation/set-up tasks, use --force)\n";
+    print "\n";
+    exit;
 }
 
 # --------------------------------------------------------------------------------------------

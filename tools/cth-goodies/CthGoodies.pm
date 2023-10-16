@@ -16,7 +16,17 @@ use strict;
 use warnings;
 
 use Exporter qw(import);
-our @EXPORT = qw(cth_skip_test cth_set_cleos_provider cth_set_cleos_url cth_cleos cth_cleos_pipe cth_assert cth_standard_args_parser cth_call_driver cth_generate_account_names);
+our @EXPORT = qw(
+    cth_skip_test
+    cth_set_cleos_provider
+    cth_set_cleos_url
+    cth_cleos
+    cth_cleos_pipe
+    cth_assert
+    cth_standard_args_parser
+    cth_call_driver
+    cth_generate_account_names
+);
 
 use File::Spec::Functions qw(rel2abs);
 

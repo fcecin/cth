@@ -4,7 +4,7 @@ cth is a collection of command-line tools that can be customized to build an aut
 
 # Requirements
 
-- Perl 5.34 + core Perl libraries (already installed by default in Ubuntu) 
+- Perl 5.34 + core Perl libraries (already installed by default in Ubuntu)
 - Antelope (cleos, keosd, nodeos) (https://github.com/antelopeio/leap/releases)
 - All programs and data required by your Antelope contracts at compile time and runtime
 
@@ -14,14 +14,14 @@ cth is a collection of command-line tools that can be customized to build an aut
 git clone --recursive https://github.com/fcecin/cth
 cd cth
 sudo ./install_dependencies.sh
-cth -i
+cth -i -f
 ```
 
-`cth -i` will compile all of the contracts: Antelope system contracts once, and DoH once for the 'test' (hg3/tc3) target. This takes a while, so just leave it running. After all drivers are installed, it will run all tests.
+`cth -i -f` will compile all of the contracts: Antelope system contracts once, and DoH once for the 'test' (hg3/tc3) target. This takes a while, so just leave it running. After all drivers are installed, it will run all tests.
 
-Later, you can invoke it without `-i` and it will not recompile the contracts; just run tests.
+Later, you can invoke it without `-i -f` and it will not recompile the contracts; just run tests.
 
-To do maintanance tasks and not run any tests, give it a dummy test name, e.g. `cth -i dummy` to install all drivers or `cth -c dummy` to clear all drivers and tests.
+To do maintanance tasks and not run any tests just omit '-f': call `cth -i` to install all drivers or `cth -c` to clear all drivers and tests.
 
 `cth --help` prints the manual.
 
@@ -30,7 +30,7 @@ To do maintanance tasks and not run any tests, give it a dummy test name, e.g. `
 If you run `cth -i`, `cth` will download the entire DoH source code from github. If, instead, you want to test a local DoH tree that you are using locally to develop, the current recommended way is:
 
 ```
-cth --run coldstart install '' --run doh-coldstart install '--doh YOUR_DOH_DIR --target test' --run doh-hotstart install ''
+cth -f --run coldstart install '' --run doh-coldstart install '--doh YOUR_DOH_DIR --target test' --run doh-hotstart install ''
 ```
 
 Replace `YOUR_DOH_DIR` with the path to the directory where you have your DoH installation with the entire DoH source code already fully compiled that you want to test (e.g. `~/doh-contracts`).
@@ -54,4 +54,3 @@ You can also create a more specialized template from the cth template, which is 
 cth is currently under development.
 
 This repository is being used to create a concrete test suite for a specific set of smart contracts. The actual reusable components will be extracted later.
-
