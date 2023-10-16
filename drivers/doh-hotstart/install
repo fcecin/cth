@@ -69,7 +69,7 @@ if ($? != 0) {
     exit 1;
 }
 
-print "doh-hotstart install: Starting doh-coldstart ...\n";
+print "doh-hotstart install: Starting doh-coldstart for the DoH 'test' target...\n";
 
 # NOTE: hardcoded target 'test' (same as 'hg3', which also works)
 $cmd = "$doh_coldstart_dir/start --target test";

@@ -3,14 +3,14 @@
 use strict;
 use warnings;
 use Cwd;
+use FindBin qw($RealBin);
+use Cwd 'abs_path';
 
 $| = 1;  # Turn on auto-flush for STDOUT (Perl doesn't do this by default)
 
 # ---------------------------------------------------------------------------
 # Global vars
 # ---------------------------------------------------------------------------
-
-use FindBin qw($RealBin);
 
 my $current_dir = getcwd();
 
@@ -20,11 +20,12 @@ my $source_dir = "../../local/doh-contracts"; # source dir with the template
 
 my $run_build_sh = "run-build.sh";
 
-my $local_prod_dir     = "../../local/prod/doh-contracts";
-my $local_staging_dir  = "../../local/staging/doh-contracts";
-my $local_dev_dir      = "../../local/dev/doh-contracts";
-my $local_test_dir      = "../../local/test/doh-contracts";
-my $local_debug_dir      = "../../local/debug/doh-contracts";
+# build list of local directories for all supported targets
+my @targets = ("prod", "staging", "dev", "test", "debug");
+my %local_dir;
+foreach my $tg (@targets) { $local_dir{$tg} = "../../local/$tg/doh-contracts"; }
+
+my $target = "test"; # default target is the test target (hg3/tc3)
 
 # ---------------------------------------------------------------------------
 # Utils
@@ -35,33 +36,11 @@ sub chdir_driver_dir {
     chdir($RealBin) or die "ERROR: $driver: Failed to change working directory: $!";
 }
 
-sub chdir_prod_dir {
-    chdir_driver_dir();     # absolute
-    chdir $local_prod_dir;  # relative
-    print "Current working directory: " . getcwd() .  "\n";
-}
-
-sub chdir_staging_dir {
-    chdir_driver_dir();        # absolute
-    chdir $local_staging_dir;  # relative
-    print "Current working directory: " . getcwd() .  "\n";
-}
-
-sub chdir_dev_dir {
+sub chdir_target_dir {
+    my $tg = shift;
+    die "ERROR: doh-coldstart: chdir_target_dir target not defined" unless (defined $tg);
     chdir_driver_dir();    # absolute
-    chdir $local_dev_dir;  # relative
-    print "Current working directory: " . getcwd() .  "\n";
-}
-
-sub chdir_test_dir {
-    chdir_driver_dir();    # absolute
-    chdir $local_test_dir; # relative
-    print "Current working directory: " . getcwd() .  "\n";
-}
-
-sub chdir_debug_dir {
-    chdir_driver_dir();    # absolute
-    chdir $local_debug_dir; # relative
+    chdir $local_dir{$tg};
     print "Current working directory: " . getcwd() .  "\n";
 }
 
@@ -82,7 +61,96 @@ sub copy_doh {
 }
 
 # ---------------------------------------------------------------------------
-# First, we need to download the DoH source code, since it is no longer
+# First, we need to parse arguments passed to this install script.
+# ---------------------------------------------------------------------------
+
+use lib "$RealBin/../../tools/cth-goodies";
+use CthGoodies;
+
+my ($switches, $options) = cth_standard_args_parser("target doh", "");
+
+# ---------------------------------------------------------------------------
+# Take a --target switch that will tell which one we want to compile (or to
+#   install --doh <dir> into).
+# ---------------------------------------------------------------------------
+
+if (defined $switches->{'target'}) {
+    if ($switches->{'target'} eq 'hgm' || $switches->{'target'} eq 'prod') {
+        $target = 'prod';
+    } elsif ($switches->{'target'} eq 'hg1' || $switches->{'target'} eq 'staging') {
+        $target = 'staging';
+    } elsif ($switches->{'target'} eq 'hg2' || $switches->{'target'} eq 'dev') {
+        $target = 'dev';
+    } elsif ($switches->{'target'} eq 'hg3' || $switches->{'target'} eq 'test') {
+        $target = 'test';
+    } elsif ($switches->{'target'} eq 'hg4' || $switches->{'target'} eq 'debug') {
+        $target = 'debug';
+    } else {
+        die "ERROR: doh-hotstart start: unknown target: '" . $switches->{'target'} . "'.";
+    }
+}
+
+# ---------------------------------------------------------------------------
+# The switch --doh <directory> allows the user (e.g. via cth --run) to
+#   instead instruct the doh-coldstart driver to take the given directory,
+#   which should be a fully set-up version of the DoH source code that's
+#   already fully compiled to wasm/abi files, and then copy its contents
+#   to the correct local/doh-coldstart/... directory where this driver
+#   would be instead download the DoH source code and compiling it.
+# ---------------------------------------------------------------------------
+
+if (defined $switches->{'doh'}) {
+
+    my $doh_dir = $switches->{'doh'};
+    if (!-d $doh_dir) {
+        print "ERROR: doh-coldstart install: given --doh directory not found: '$doh_dir': $!\n";
+    }
+
+    my $abs_doh_dir = abs_path("$doh_dir");
+    if (!defined $abs_doh_dir) {
+        die "ERROR: doh-coldstart install: Can't compute absolute path from given relative --doh directory: '$doh_dir': $!";
+    }
+
+    chdir_driver_dir();
+    my $destination = "../../local/$target";
+
+    # find the absolute path since we will be printing this and relative paths are confusing
+    my $abs_destination = abs_path("$destination");
+    if (!defined $abs_destination) {
+        die "ERROR: doh-coldstart install: Can't compute absolute path for DoH source code /local destination: '$destination': $!";
+    }
+
+    # doh-contracts is part of it
+    $abs_destination = $abs_destination . "/doh-contracts";
+
+    # clear the target dir if needed
+    if (-d $abs_destination) {
+        print "doh-coldstart install: deleting /local destination directory: '$abs_destination' ...\n";
+        system("rm -rf $abs_destination") == 0 or die "ERROR: doh-coldstart: Error while trying to clear old local copy of doh_contracts for target $target ('rm -rf $abs_destination'): $!";
+    }
+
+    # recreate the destination with an empty doh-contracts (which is expected)
+    print "doh-coldstart install: creating /local destination directory: '$abs_destination' ...\n";
+    system("mkdir -p $abs_destination/doh-contracts") == 0 or die "ERROR: doh-coldstart: Failed to create target directory '$abs_destination': $!";
+
+    # copy the *files* within the given abs_doh_dir into a "doh-contracts" directory
+    print "doh-coldstart install: copying all files inside given --doh directory '$abs_doh_dir'(/*) into '$abs_destination' ...\n";
+    system("cp -r $abs_doh_dir/* $abs_destination") == 0 or die "ERROR: doh-coldstart: Failed to copy everything inside '$abs_doh_dir' to '$abs_destination': $!";
+
+    print "doh-coldstart install: given DoH source/binaries installed successfully.\n";
+
+    # success
+    exit 0;
+}
+
+# ---------------------------------------------------------------------------
+# Go to the driver dir
+# ---------------------------------------------------------------------------
+
+chdir_driver_dir();
+
+# ---------------------------------------------------------------------------
+# We need to download the DoH source code, since it is no longer
 #   a submodule. This is done by tools/get-doh/get-doh.sh.
 # ---------------------------------------------------------------------------
 
@@ -114,8 +182,6 @@ system("../../tools/get-doh/get-doh.sh $source_dir") == 0 or die "ERROR: doh-col
 #   target for now.
 # ---------------------------------------------------------------------------
 
-chdir_driver_dir();
-
 print "$driver: Checking for doh-contracts at $source_dir\n";
 
 if (-e "$source_dir/$run_build_sh") {
@@ -138,11 +204,9 @@ if (-e "$source_dir/$run_build_sh") {
 
 print "$driver: Copying contract templates to local/ for all DoH targets ...\n";
 
-copy_doh("prod");
-copy_doh("staging");
-copy_doh("dev");
-copy_doh("test");
-copy_doh("debug");
+foreach my $tg (@targets) {
+    copy_doh($tg);
+}
 
 # ---------------------------------------------------------------------------
 # Customize contract source code for each compilation target
@@ -156,20 +220,10 @@ copy_doh("debug");
 
 print "$driver: Instantiating contract templates on local/ for all DoH targets ...\n";
 
-chdir_prod_dir();
-system("set-prod.sh") == 0 or die "ERROR: $driver: Failed to create prod contracts: $!";
-
-chdir_staging_dir();
-system("set-staging.sh") == 0 or die "ERROR: $driver: Failed to create staging contracts: $!";
-
-chdir_dev_dir();
-system("set-dev.sh") == 0 or die "ERROR: $driver: Failed to create dev contracts: $!";
-
-chdir_test_dir();
-system("set-test.sh") == 0 or die "ERROR: $driver: Failed to create test contracts: $!";
-
-chdir_debug_dir();
-system("set-debug.sh") == 0 or die "ERROR: $driver: Failed to create debug contracts: $!";
+foreach my $tg (@targets) {
+    chdir_target_dir($tg);
+    system("set-$tg.sh") == 0 or die "ERROR: $driver: Failed to create '$tg' contracts: $!";
+}
 
 # ---------------------------------------------------------------------------
 # Compile DoH
@@ -187,57 +241,8 @@ print "$driver: *** Tests that try to run with any target other than the test ta
 print "$driver: ************************************************************************************************\n";
 
 # *************************************************************************************************************
-# Disabled compilation of all targets that aren't the test target
-# *************************************************************************************************************
-#
-#print "$driver: Running DoH contracts build script for prod...\n";
-#chdir_prod_dir();
-#$ret = system($run_build_sh);
-#if ($ret == 0) {
-#    print "$driver: DoH contracts built successfully at $local_prod_dir\n";
-#} else {
-#    my $exit_code = $ret >> 8;
-#    print "$driver: ERROR: DoH contracts build failed. system() returned: $ret, exit code: $exit_code.\n";
-#    exit 1;
-#}
-#print "$driver: Running DoH contracts build script for staging...\n";
-#chdir_staging_dir();
-#$ret = system($run_build_sh);
-#if ($ret == 0) {
-#    print "$driver: DoH contracts built successfully at $local_staging_dir\n";
-#} else {
-#    my $exit_code = $ret >> 8;
-#    print "$driver: ERROR: DoH contracts build failed. system() returned: $ret, exit code: $exit_code.\n";
-#    exit 1;
-#}
-#print "$driver: Running DoH contracts build script for dev...\n";
-#chdir_dev_dir();
-#$ret = system($run_build_sh);
-#if ($ret == 0) {
-#    print "$driver: DoH contracts built successfully at $local_dev_dir\n";
-#} else {
-#    my $exit_code = $ret >> 8;
-#    print "$driver: ERROR: DoH contracts build failed. system() returned: $ret, exit code: $exit_code.\n";
-#    exit 1;
-#}
-
-# *************************************************************************************************************
-# run-build.sh doesn't compile contracts in parallel and it eats the build errors instead of propagating them.
-# *************************************************************************************************************
-#
-#print "$driver: Running DoH contracts build script for test...\n";
-#chdir_test_dir();
-#$ret = system($run_build_sh);
-#if ($ret == 0) {
-#    print "$driver: DoH contracts built successfully at $local_test_dir\n";
-#} else {
-#    my $exit_code = $ret >> 8;
-#    print "$driver: ERROR: DoH contracts build failed. system() returned: $ret, exit code: $exit_code.\n";
-#    exit 1;
-#}
-
-# *************************************************************************************************************
 # Compile DoH contracts
+# FIXME/TODO: Redo with fork/wait (see cth parallel test execution code)
 # *************************************************************************************************************
 
 my $cpus = `lscpu -b -p=Core,Socket | grep -v '^#' | sort -u | wc -l`;
@@ -254,8 +259,11 @@ $cpus = 1;  # Getting some weird crashes, so disabling parallel compilation for 
 
 print "Detected $cpus processors available to build DoH contracts.\n";
 
+if ($target ne 'test') {
+    print "WARNING: doh-colstart install: caller specified '--target $target' but this will be unused/ignored since --doh <dir> was not also used. When doh-coldstart compiles contracts, it always compiles the 'test' target.\n";
+}
 print "Building DoH for compilation target 'test' (hg3/tc3) ONLY...\n";
-chdir_test_dir();
+chdir_target_dir('test');
 
 use File::Temp qw(tempfile);
 use File::Path qw(make_path);
