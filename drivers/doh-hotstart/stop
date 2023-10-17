@@ -124,7 +124,7 @@ else
   # If --label was provided, call "findinstance" and translate the label into the port
   if [ -n "$label" ]; then
     echo "doh-hotstart stop: instance label: $label"
-    result=$(findinstance "$label")
+    result=$(./findinstance "$label")
     if [ "$?" -ne 0 ]; then
       echo "ERROR: doh-hotstart stop: findinstance failed, result: $result."
       exit 1

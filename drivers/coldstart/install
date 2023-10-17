@@ -9,7 +9,7 @@ print "$driver: Checking for reference-contracts at $dir\n";
 if (-e "$dir$file") {
     print "$driver: Directory found. Running reference contracts build script...\n";
     chdir $dir;
-    system("$file");
+    system("./" . "$file");
 } else {
     print "$driver: ERROR: Antelope.io reference-contracts not found in the expected tools directory path.\n";
     exit 1;

@@ -293,31 +293,16 @@ foreach my $player (@players) {
 }
 
 # **********************
-# Benchmark the energy uses of the activities weso it will be using
-# which tells us the numerator (spent energy --> TCN inflation) increases per player
+# Legacy work cycle that we have to keep to avoid having to fix the test math
 # **********************
 
-#print "Will calculate the energy expenditure of in-game actions.\n";
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} dowork '[$char1, $FARM]' --force-unique -p $player1|);
+$total_work++;
 
-# For now, work will be sufficient for this test.
-# Let's not write complicated tests before we have decent test libraries.
-
-#print "Calculating cost of work action...\n";
-
-#my $e1 = doh_get_char_energy($char1);
-#crashed() if ($e1 < 0);
-
-#print "Char $char1 energy before work: $e1\n";
-
-#crashed() if cth_cleos(qq|push action hegemon.${doh_target} dowork '[$char1, $FARM]' --force-unique -p $player1|);
-#$total_work++;
-
-#my $e2 = doh_get_char_energy($char1);
-#crashed() if ($e2 < 0);
-
-#print "Char $char1 energy after work: $e2\n";
-
-#$energy_cost_work = $e1 - $e2;
+# **********************
+# Get the cost of a work action from the readonly contract (instead of benchmarking it from a "calcenergy" delta
+#   of one work action like we were doing previously... which was an ugly hack)
+# **********************
 
 print "Fetching cost of gameplay action (e.g. work action)...\n";
 

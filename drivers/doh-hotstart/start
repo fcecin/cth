@@ -394,7 +394,7 @@ if ($? != 0) {
 # Start nodeos from the chainbase
 # --------------------------------------------------------------------------------------------
 
-$cmd = 'start_nodeos.sh';
+$cmd = './start_nodeos.sh';
 
 print "Starting nodeos...\n";
 print "Command: $cmd\n";
@@ -403,7 +403,7 @@ $o = `$cmd 2>&1`;
 
 if ($? != 0) {
     print "Result: $o\n";
-    print "ERROR: doh-hotstart start: failed to start nodeos (`start_nodeos.sh` failed).\n";
+    print "ERROR: doh-hotstart start: failed to start nodeos (`$cmd` failed).\n";
     do_stop();
     exit 1;
 }

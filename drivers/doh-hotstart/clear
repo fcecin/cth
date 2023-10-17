@@ -12,5 +12,5 @@ cd "$(dirname "$0")"
 args=("$@" "--clear")
 
 # Execute the 'stop' script with the modified arguments
-stop "${args[@]}"
+./stop "${args[@]}"
 
