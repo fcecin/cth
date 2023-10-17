@@ -82,7 +82,7 @@ sub command {
 # Load the DoH target (hgm, hg1, hg2, ...) from driver.ini
 # -------------------------------------------------------------------------
 
-my $target = `configure --get=target`;
+my $target = `./configure --get=target`;
 chomp($target);
 
 if ($target eq '') {
@@ -110,7 +110,7 @@ print "doh-perma: inferred TCN target: '$tcn_target'.\n";
 # Load the cleos URL from driver.ini, if any (if absent, will use default)
 # -------------------------------------------------------------------------
 
-my $cleos_url = `configure --get=cleos_url`;
+my $cleos_url = `./configure --get=cleos_url`;
 chomp($cleos_url);
 
 if ($cleos_url ne '') {

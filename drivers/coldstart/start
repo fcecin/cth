@@ -254,7 +254,7 @@ http-max-response-time-ms = 5000
 `echo 'nodeos --config-dir ./ --data-dir ./data --genesis-json ./genesis.json  >> "./chain.log" 2>&1 & echo \$! > "./nodeos.pid"' > start_nodeos.sh`;
 `chmod +x start_nodeos.sh`;
 
-$cmd = 'start_nodeos.sh';
+$cmd = './start_nodeos.sh';
 
 print "Starting nodeos...\n";
 print "Command: $cmd\n";
@@ -263,7 +263,7 @@ $o = `$cmd 2>&1`;
 
 if ($? != 0) {
     print "Result: $o\n";
-    die "ERROR: failed to start nodeos (`start_nodeos.sh` failed).\n";
+    die "ERROR: failed to start nodeos (`$cmd` failed).\n";
 }
 
 print "Trying to read nodeos PID from $nodeos_pid_file ...\n";
