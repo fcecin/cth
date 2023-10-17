@@ -4,7 +4,7 @@
 cd "$(dirname "$0")"
 
 # stop the node if it isn't already stopped
-stop
+./stop
 
 # now make sure the current working dir is the driver's working dir
 # at ../../local/coldstart/

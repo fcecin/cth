@@ -224,7 +224,7 @@ print "$driver: Instantiating contract templates on local/ for all DoH targets .
 
 foreach my $tg (@targets) {
     chdir_target_dir($tg);
-    system("set-$tg.sh") == 0 or die "ERROR: $driver: Failed to create '$tg' contracts: $!";
+    system("./set-$tg.sh") == 0 or die "ERROR: $driver: Failed to create '$tg' contracts: $!";
 }
 
 # ---------------------------------------------------------------------------
