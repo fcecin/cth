@@ -159,10 +159,6 @@ sub doh_hotstart_start {
                 print "doh_hotstart_start: successfully loaded and parsed the following DoH constants from readonly contract: ";
                 my @constant_names = sort keys %doh_constants;
                 foreach my $key (@constant_names) { print "$key " };
-
-                my $size = scalar(keys %doh_constants);
-                print "DOH INIT Size of the hash: $size\n";
-
                 print "\n";
             } else {
                 print "WARNING: doh_hotstart_start: No constants found in the JSON data. '\%doh_constants' hash will be empty.\n";
@@ -275,10 +271,6 @@ sub doh_get_tcn_target {
 # -----------------------------------------------------------------------
 
 sub doh_get_constants {
-
-    my $size = scalar(keys %doh_constants);
-    print "DOH gE TCONSTANTS Size of the hash: $size\n";
-
     return %doh_constants;
 }
 
