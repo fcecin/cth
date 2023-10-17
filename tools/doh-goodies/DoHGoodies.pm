@@ -22,16 +22,24 @@ our @EXPORT = qw(
     doh_hotstart_stop
     doh_hotstart_clear
     doh_get_tcn_target
-    doh_get_char_energy
+    doh_get_constants
     doh_extract_tcn_amount
-);
+    );
+
+my %doh_constants = (); # doh_hotstart_start() fills it with all DoH readonly constants
 
 # -----------------------------------------------------------------------
-# Uses CthGoodies
+# Load my perl module dependencies from cth/tools following the
+#   cth directory tree convention.
 # -----------------------------------------------------------------------
 
-use lib '../doh-goodies';
+use File::Basename;
+
+use lib dirname(dirname(__FILE__)) . "/cth-goodies";
 use CthGoodies;
+
+use lib dirname(dirname(__FILE__)) . "/JSON-Tiny/lib";
+use JSON::Tiny;
 
 # -----------------------------------------------------------------------
 # Global state
@@ -68,7 +76,12 @@ sub doh_init {
         print "ERROR: doh_init: default_signer is undefined\n";
         return 1;
     }
-    return cth_set_cleos_provider("cleos-driver");
+    my $ret = cth_set_cleos_provider("cleos-driver");
+    if ($ret) {
+        print "ERROR: doh_init: cth_set_cleos_provider failed\n";
+        return 1;
+    }
+    return 0;
 }
 
 # -----------------------------------------------------------------------
@@ -89,11 +102,15 @@ sub doh_hotstart_start {
 
     my ($ret, $out, $args);
 
-    $ret = cth_set_cleos_provider("cleos-driver");
-    if ($ret) {
-        print "ERROR: doh_hotstart_start: cth_set_cleos_provider failed\n";
-        return -1;
-    }
+    # yeah, this is redundant. the $doh_target check above would blow up if doh_init wasn't called.
+    #
+    # TODO/REVIEW: doh_init is already doing this... shouldn't we demand doh_init
+    #              is called before we will allow doh_hotstart_start to be called?
+    #$ret = cth_set_cleos_provider("cleos-driver");
+    #if ($ret) {
+    #    print "ERROR: doh_hotstart_start: cth_set_cleos_provider failed\n";
+    #    return -1;
+    #}
 
     # Assemble a label for the new instance
     use FindBin qw($RealBin);
@@ -126,7 +143,36 @@ sub doh_hotstart_start {
         return -1;
     }
 
-    print "doh_hotstart start: successfully started at P2P port $instance_port (HTTP port: $instance_port_http)\n";
+    # attempt to read the readonly contract to fill in %doh_constants
+    #cleos -u http://148.251.126.54:8888 push action readonly.hg2 getconstants '{}' --read --json
+    my $json_constants = cth_cleos_pipe(qq|--verbose push action readonly.${doh_target} getconstants '{}' --read --json|);   # --force-unique -p $default_signer|);
+    if (!defined $json_constants) {
+        print "WARNING: doh_hotstart_start : error trying to fetch constants from readonly.${doh_target} (cleos readonly query error). '\%doh_constants' hash will be empty.\n";
+    } else {
+        my $data = JSON::Tiny::decode_json($json_constants);
+        if (ref($data) eq 'HASH' && defined $data->{processed}{action_traces}[0]{return_value_data}) {
+            my $return_value_data = $data->{processed}{action_traces}[0]{return_value_data};
+            for my $constant_key (keys %$return_value_data) {
+                %doh_constants = (%doh_constants, %{$return_value_data->{$constant_key}});
+            }
+            if (%doh_constants) {
+                print "doh_hotstart_start: successfully loaded and parsed the following DoH constants from readonly contract: ";
+                my @constant_names = sort keys %doh_constants;
+                foreach my $key (@constant_names) { print "$key " };
+
+                my $size = scalar(keys %doh_constants);
+                print "DOH INIT Size of the hash: $size\n";
+
+                print "\n";
+            } else {
+                print "WARNING: doh_hotstart_start: No constants found in the JSON data. '\%doh_constants' hash will be empty.\n";
+            }
+        } else {
+            print "WARNING: doh_hotstart_start: error trying to fetch constants from readonly.${doh_target} (parse error). '\%doh_constants' hash will be empty.\n";
+        }
+    }
+
+    print "doh_hotstart_start: successfully started at P2P port $instance_port (HTTP port: $instance_port_http)\n";
     return $instance_port;
 }
 
@@ -217,60 +263,23 @@ sub doh_get_tcn_target {
 }
 
 # -----------------------------------------------------------------------
-# doh_get_char_energy
+# doh_get_constants
 #
-# Returns the current energy level for a given character id.
+# Returns a copy of the %doh_constants hash, which is empty by default,
+#   but is initialized during the doh_hotstart_start() with all the DoH
+#   constants from the DoH readonly contract.
 #
-# inputs:
-#   $charid : character ID
-#
-# output:
-#   $energy : energy amount ("xxx.yyy" real/float number) or -1
-#     on any error.
+# Example:
+#   my %doh = doh_get_constants();
+#   print "Mining costs " . $doh{GAMEPLAY_ENERGY_COST} . " energy.\n";
 # -----------------------------------------------------------------------
 
-sub doh_get_char_energy {
-    my ($charid) = @_;
-    if (! defined $charid) {
-        print "ERROR: doh_get_char_energy: charid argument is undefined\n";
-        return -1;
-    }
+sub doh_get_constants {
 
-    if (! defined $doh_target) {
-        print "ERROR: doh_get_char_energy: doh_target is undefined\n";
-        return -1;
-    }
+    my $size = scalar(keys %doh_constants);
+    print "DOH gE TCONSTANTS Size of the hash: $size\n";
 
-    # TODO/REVIEW:
-    # --verbose should force the blockchain stack to return ALL of the print()s made by the action's contract code.
-    # If the blockchain we are using is configured to discard print()s, this will not work, and we will have to implement
-    #    this action in some other way.
-    # The good news is that when that DOES happen (i.e. blockchain configured to kill print()s) the test will cleanly fail
-    #    and you will quickly know that that's what's going on.
-    # At least for immediate-term development (ie. with doh-coldstart), this will do. And perhaps it will work for every
-    #    realistic test setup as well (i.e. why would you spin up a non-print() blockchain for running tests?).
-    # This also cleanly breaks if the existing prints are messed with.
-    #
-    # ANOTHER way to do it would be to create a function that has a side-effect. That is, it does not JUST get the char
-    #  energy. Instead, it performs an action, which calls check_action, which will THEN update the energy field of
-    #  the character. In deterministic clock mode (what we use for all, or at least most, testing) then it is just a
-    #  matter of reading the "energy" field of the character. This would be best with a dummy game action that spends
-    #  zero energy, i.e. you just apply the energy regeneration to the energy field, set last action time to now, and
-    #  that's it. But this requires support from the hegemon contract.
-    #
-    my $energy_str = cth_cleos_pipe(qq|--verbose push action hegemon.${doh_target} calcenergy '[$charid]' --force-unique -p $default_signer|);
-
-    if (!defined $energy_str) {
-        print "ERROR: doh_get_char_energy: energy_str undefined.\n";
-        return -1;
-    }
-
-    if ($energy_str =~ /resulting_energy\s+([\d\.e+-]+)/) {
-        return $1;
-    } else {
-        print "ERROR: doh_get_char_energy: cannot calculate the character energy from the output of calcenergy($charid): $energy_str\n";
-        return -1;
-    }
+    return %doh_constants;
 }
 
 # -----------------------------------------------------------------------

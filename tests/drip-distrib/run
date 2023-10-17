@@ -10,11 +10,9 @@
 use strict;
 use warnings;
 
-# include the tools/cth-goodies library
+# include paths assume this script is in the following directory depth: cth/<testdir>/<testscript>
 use lib '../../tools/cth-goodies';
 use CthGoodies;
-
-# include the tools/doh-goodies library
 use lib '../../tools/doh-goodies';
 use DoHGoodies;
 

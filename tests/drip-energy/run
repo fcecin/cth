@@ -11,11 +11,9 @@
 use strict;
 use warnings;
 
-# include the tools/cth-goodies library
+# include paths assume this script is in the following directory depth: cth/<testdir>/<testscript>
 use lib '../../tools/cth-goodies';
 use CthGoodies;
-
-# include the tools/doh-goodies library
 use lib '../../tools/doh-goodies';
 use DoHGoodies;
 
@@ -25,7 +23,6 @@ $| = 1;  # Turn on auto-flush for STDOUT (Perl doesn't do this by default)
 my ($doh_target, $tcn_target) = ("hg3", "tc3");
 
 my $doh_gm = 'dohplayer.aa';   # game master & default tx/action signer for cleos calls
-
 
 # FIXME/TODO: This has to be obtained either from the source code of the target or
 #             the running contract (e.g. consulting the readonly contract)
@@ -39,7 +36,6 @@ my $DAYS_PER_PAYMENT    = $DAYS_PER_CYCLE * $CYCLES_PER_PERIOD;
 my $doh_max_players      = 30;
 
 my $o;
-my $ret;
 
 # --------------------------------------------------------------------------------------------
 # Set up the test
@@ -52,6 +48,8 @@ if ($ret) { die "ERROR: TEST: doh_init failed\n"; }
 
 my $instance_port = doh_hotstart_start($doh_target);
 if ($instance_port < 0) { die "ERROR: TEST: doh_hotstart_start failed code: $instance_port\n"; }
+
+my %doh = doh_get_constants();
 
 print "TEST: setup OK.\n";
 
@@ -78,7 +76,7 @@ my $expected;
 my $actual;
 my $dist;
 my $total_work = 0;
-my $energy_cost_work;   # cost of 1 work action (e.g. a char mines its tile); calculated later
+my $energy_cost_work;   # cost of 1 work action (e.g. a char mines its tile)
 my $FARM = 3;           # work code
 my @players;            # used by do_player_work sub so declare here
 
@@ -299,27 +297,33 @@ foreach my $player (@players) {
 # which tells us the numerator (spent energy --> TCN inflation) increases per player
 # **********************
 
-print "Will calculate the energy expenditure of in-game actions.\n";
+#print "Will calculate the energy expenditure of in-game actions.\n";
 
 # For now, work will be sufficient for this test.
 # Let's not write complicated tests before we have decent test libraries.
 
-print "Calculating cost of work action...\n";
+#print "Calculating cost of work action...\n";
 
-my $e1 = doh_get_char_energy($char1);
-crashed() if ($e1 < 0);
+#my $e1 = doh_get_char_energy($char1);
+#crashed() if ($e1 < 0);
 
-print "Char $char1 energy before work: $e1\n";
+#print "Char $char1 energy before work: $e1\n";
 
-crashed() if cth_cleos(qq|push action hegemon.${doh_target} dowork '[$char1, $FARM]' --force-unique -p $player1|);
-$total_work++;
+#crashed() if cth_cleos(qq|push action hegemon.${doh_target} dowork '[$char1, $FARM]' --force-unique -p $player1|);
+#$total_work++;
 
-my $e2 = doh_get_char_energy($char1);
-crashed() if ($e2 < 0);
+#my $e2 = doh_get_char_energy($char1);
+#crashed() if ($e2 < 0);
 
-print "Char $char1 energy after work: $e2\n";
+#print "Char $char1 energy after work: $e2\n";
 
-$energy_cost_work = $e1 - $e2;
+#$energy_cost_work = $e1 - $e2;
+
+print "Fetching cost of gameplay action (e.g. work action)...\n";
+
+crashed() if (! defined $doh{GAMEPLAY_ENERGY_COST});
+
+$energy_cost_work = $doh{GAMEPLAY_ENERGY_COST};
 
 print "Energy cost of work is: $energy_cost_work\n";
 

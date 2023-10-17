@@ -350,7 +350,7 @@ if ($opt_reset) {
             my $log_file = "reset.log";
             unlink $log_file;
             print "Running reset script for driver $driver (output: $work_dir/$log_file) ...\n";
-            my $ret = system($script . " > $log_file 2>&1");
+            my $ret = system("./" . $script . " > $log_file 2>&1");
             if ($ret) {
                 print "Driver $driver reset failed with code: $ret\n";
                 push @FAILED_SETUP_TASKS, "$work_dir/$script";
@@ -456,7 +456,7 @@ if ($opt_install) {
             my $log_file = "install.log";
             unlink $log_file;
             print "Running install script for driver $driver (output: $work_dir/$log_file) ...\n";
-            my $ret = system($script . " > $log_file 2>&1");
+            my $ret = system("./" . $script . " > $log_file 2>&1");
             if ($ret) {
                 print "*******************************************************************************\n";
                 print "WARNING: cth: Driver $driver installation failed with code: $ret\n";
@@ -518,7 +518,7 @@ if ($opt_clear) {
         print "Clearing driver $driver ... ";
         unlink "install.log"; # remove install.log file
         if (-e $script) {
-            my $ret = system($script);
+            my $ret = system("./" . $script);
             if ($ret) {
                 print "ERROR: 'clear' failed for driver $driver with code: $ret\n";
                 push @FAILED_SETUP_TASKS, "$work_dir/$script";
@@ -540,7 +540,7 @@ if ($opt_clear) {
         print "Clearing test $test ... ";
         unlink "run.log"; # remove run.log file
         if (-e $script) {
-            my $ret = system($script);
+            my $ret = system("./" . $script);
             if ($ret) {
                 print "ERROR: 'clear' failed for test $test with code: $ret\n";
                 push @FAILED_SETUP_TASKS, "$work_dir/$script";
@@ -598,7 +598,7 @@ while (scalar(@opt_run) > 0) {
     my $cmd = "$exe $parameters";
     $cmd =~ s/\s+$//; # remove whitespace
 
-    my $ret = system("$cmd 2>&1");
+    my $ret = system("./" . "$cmd 2>&1");
     if ($ret) {
         die "ERROR: cth: system('$cmd') returned error: $ret\n";
 
@@ -785,7 +785,7 @@ foreach my $test (@tests) {
             if (!defined $pid) {
                 print "Started... ";
             }
-            my $ret = system("$script $global_test_args > $log_file 2>&1");
+            my $ret = system("./" . "$script $global_test_args > $log_file 2>&1");
             if ($ret) {
                 if ($ret < 0) {
                     if (!defined $pid) {
