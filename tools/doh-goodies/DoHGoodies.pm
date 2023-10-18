@@ -176,7 +176,7 @@ sub doh_hotstart_stop {
     }
 
     # run doh-hotstart stop
-    my $args = "stop --port $instance_port";
+    my $args = "stopinstance --port $instance_port";
     my $ret = cth_call_driver("doh-hotstart", $args);
     if ($ret) {
         print "ERROR: doh_hotstart_start: cth_call_driver doh-hotstart '$args' failed\n";
@@ -206,7 +206,7 @@ sub doh_hotstart_clear {
     }
 
     # run doh-hotstart clear
-    my $args = "clear --port $instance_port";
+    my $args = "clearinstance --port $instance_port";
     my $ret = cth_call_driver("doh-hotstart", $args);
     if ($ret) {
         print "ERROR: doh_hotstart_start: cth_call_driver doh-hotstart '$args' failed\n";
