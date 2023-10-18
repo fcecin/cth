@@ -624,6 +624,48 @@ if ($global_test_args eq '') {
 }
 
 # --------------------------------------------------------------------------------------------
+# Configure environment variables so the tests can find the test libraries under tools/
+# --------------------------------------------------------------------------------------------
+
+# Javascript test support settings.
+#
+# FIXME/TODO: When we add support for javascript tests, this is where we'd doctor
+#   the environment to help the test script find the tools/ javascript libraries
+#   that help you with cth testing.
+
+# Perl test support settings.
+#
+# Add every tool subdirectory to @INC that has a .pm file in it (add the previous
+#   one as well so we can do e.g. "use JSON::Tiny;" instead of "use Tiny;")
+# This is needed because we don't know how deep under tools/ the .pm files are.
+my @pm_directories;
+my @dirs_to_process = ("$root_dir/tools");
+while (my $dir = shift @dirs_to_process) {
+    opendir my $dh, $dir or die "Unable to open directory $dir: $!";
+    my @files = readdir $dh;
+    closedir $dh;
+    foreach my $file (@files) {
+        next if $file eq '.' or $file eq '..';
+        my $path = "$dir/$file";
+        if (-d $path) {
+            push @dirs_to_process, $path;
+        } elsif (-f $path && $file =~ /\.pm$/) {
+            my $pm_directory = $dir;
+            push @pm_directories, $pm_directory;
+            push @pm_directories, dirname($pm_directory);
+        }
+    }
+}
+my %seen;
+@pm_directories = grep { !$seen{$_}++ } @pm_directories; # Remove duplicate directories
+if (defined $ENV{PERL5LIB} && $ENV{PERL5LIB} ne '') {
+    $ENV{PERL5LIB} .= ':' . join(':', @pm_directories);
+} else {
+    $ENV{PERL5LIB} = join(':', @pm_directories);
+}
+if ($opt_verbose) { print "Perl tests will receive environment variable PERL5LIB: $ENV{PERL5LIB}\n"; }
+
+# --------------------------------------------------------------------------------------------
 # Run tests
 # --------------------------------------------------------------------------------------------
 
@@ -734,45 +776,9 @@ foreach my $test (@tests) {
         }
 
         if (!defined $pid || $pid == 0) {
-
-            # Javascript test support settings.
-            #
-            # FIXME/TODO: When we add support for javascript tests, this is where we'd doctor
-            #   the environment to help the test script find the tools/ javascript libraries
-            #   that help you with cth testing.
-
-            # Perl test support settings.
-            #
-            # Add every tool subdirectory to @INC that has a .pm file in it (add the previous
-            #   one as well so we can do e.g. "use JSON::Tiny;" instead of "use Tiny;")
-            # This is needed because we don't know how deep under tools/ the .pm files are.
-            my @pm_directories;
-            my @dirs_to_process = ("$root_dir/tools");
-            while (my $dir = shift @dirs_to_process) {
-                opendir my $dh, $dir or die "Unable to open directory $dir: $!";
-                my @files = readdir $dh;
-                closedir $dh;
-                foreach my $file (@files) {
-                    next if $file eq '.' or $file eq '..';
-                    my $path = "$dir/$file";
-                    if (-d $path) {
-                        push @dirs_to_process, $path;
-                    } elsif (-f $path && $file =~ /\.pm$/) {
-                        my $pm_directory = $dir;
-                        push @pm_directories, $pm_directory;
-                        push @pm_directories, dirname($pm_directory);
-                    }
-                }
-            }
-            my %seen;
-            @pm_directories = grep { !$seen{$_}++ } @pm_directories; # Remove duplicate directories
-            $ENV{PERL5LIB} = join(':', @pm_directories);
-            #if ($verbose) { print "Updated PERL5LIB: $ENV{PERL5LIB}\n"; }
-
             if (!defined $pid) {
                 print "Started... ";
             }
-
             my $ret = system("./" . "$script $global_test_args > $log_file 2>&1");
             if ($ret) {
                 if ($ret < 0) {
