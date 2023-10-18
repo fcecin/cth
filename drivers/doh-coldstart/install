@@ -89,6 +89,15 @@ if (defined $options->{'target'}) {
 }
 
 # ---------------------------------------------------------------------------
+# Go to the driver dir
+# ---------------------------------------------------------------------------
+
+chdir_driver_dir();
+
+# ---------------------------------------------------------------------------
+# Check if we are going to skip download and compilation, and instead fetch
+#   a local DoH tree that's already compiled.
+#
 # The option -o doh=<directory> allows the user (e.g. via cth --run or
 #   cth -i) instruct the doh-coldstart driver to take the given directory,
 #   which should be a fully set-up version of the DoH source code that's
@@ -100,8 +109,6 @@ if (defined $options->{'target'}) {
 # ---------------------------------------------------------------------------
 
 if (defined $options->{'doh'}) {
-
-    chdir_driver_dir();
 
     my $doh_dir = $options->{'doh'};
     if (!-d $doh_dir) {
@@ -136,12 +143,6 @@ if (defined $options->{'doh'}) {
     # success
     exit 0;
 }
-
-# ---------------------------------------------------------------------------
-# Go to the driver dir
-# ---------------------------------------------------------------------------
-
-chdir_driver_dir();
 
 # ---------------------------------------------------------------------------
 # We need to download the DoH source code, since it is no longer

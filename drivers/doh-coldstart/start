@@ -196,13 +196,47 @@ if ($switches->{'target'} eq 'hgm' || $switches->{'target'} eq 'prod') {
 print "doh-coldstart start: Configured DoH contracts target: $target\n";
 
 # -------------------------------------------------------------------------
+# Figure out where the DoH scripts (deployment scripts, contracts map, ...)
+#   and binaries (wasm, abi) to use are, depending on the selected target.
+# We expect the compiled contracts to be under local/ as per this driver's
+#   install script.
+#
+# Note that the last path component is ALWAYS "/doh-contracts", even when
+#   the DoH tree comes from somewhere else (i.e. install --doh <dir>).
+#
+# Here we translate the OLD target names (which is what we are using for
+#   contract account suffixes) to the prod, staging, dev target names of
+#   the local/ subdirectories where the specific doh-contracts/ is found.
+# -------------------------------------------------------------------------
+
+my $doh_contracts_dir = "../../local/";
+if ($target eq 'hgm') {
+    $doh_contracts_dir .= "prod";
+} elsif ($target eq 'hg1') {
+    $doh_contracts_dir .= "staging";
+} elsif ($target eq 'hg2') {
+    $doh_contracts_dir .= "dev";
+} elsif ($target eq 'hg3') {
+    $doh_contracts_dir .= "test";
+} elsif ($target eq 'hg4') {
+    $doh_contracts_dir .= "debug";
+} else {
+    die "ERROR: doh-coldstart: does not know where to fetch doh-contracts for target: $target; expected hgm, hg1 or hg2 as configured target names in the driver.\n";
+}
+$doh_contracts_dir .= "/doh-contracts";
+
+print "Prepared & compiled DoH code and contracts for deployment will be taken from '$doh_contracts_dir'.\n";
+
+# end result is something like:  "../../local/test/doh-contracts"
+
+# -------------------------------------------------------------------------
 # Load and parse the corresponding contracts map from local doh-contracts/
 #   (fetched by get-doh.sh) in repository doh-deployment-script.
 # -------------------------------------------------------------------------
 
-print "Loading contracts map file for given driver target ...\n";
+print "Loading contracts map file for given driver target '$target'...\n";
 
-my $contracts_map = "../../local/doh-contracts/doh-deployment-script/contracts_map.$target.json";
+my $contracts_map = "$doh_contracts_dir/doh-deployment-script/contracts_map.$target.json";
 
 if (! -e $contracts_map) {
     die "ERROR: Contracts map file cannot be found: $contracts_map\n";
@@ -236,35 +270,6 @@ if ($? != 0) {
     print "Output: $o\n";
     exit 1;
 }
-
-# -------------------------------------------------------------------------
-# Figure out where the .wasm and .abi files are depending on the target.
-# We expect the compiled contracts to be under local/ as per this driver's
-#    install script.
-#
-# Here we translate the OLD target names (which is what we are using)
-#   to the prod, staging, dev target names of the doh-contracts scripts.
-# -------------------------------------------------------------------------
-
-my $doh_contracts_dir = "../../local/";
-if ($target eq 'hgm') {
-    $doh_contracts_dir .= "prod";
-} elsif ($target eq 'hg1') {
-    $doh_contracts_dir .= "staging";
-} elsif ($target eq 'hg2') {
-    $doh_contracts_dir .= "dev";
-} elsif ($target eq 'hg3') {
-    $doh_contracts_dir .= "test";
-} elsif ($target eq 'hg4') {
-    $doh_contracts_dir .= "debug";
-} else {
-    die "ERROR: doh-coldstart: does not know where to fetch doh-contracts for target: $target; expected hgm, hg1 or hg2 as configured target names in the driver.\n";
-}
-$doh_contracts_dir .= "/doh-contracts";
-
-print "Compiled DoH contracts for deployment will be taken from '$doh_contracts_dir'.\n";
-
-# end result is something like:  "../../local/prod/doh-contracts"
 
 # -------------------------------------------------------------------------
 # Scan the entire contracts map for actor references that aren't created by
