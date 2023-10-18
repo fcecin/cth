@@ -743,11 +743,10 @@ foreach my $test (@tests) {
 
             # Perl test support settings.
             #
-            # Add every tool subdirectory to @INC that has a .pm file in it.
-            # This is needed because we don't know where in each tool dir the .pm files are.
-            # If the test is written in Perl 5+, this will ensure it can find Perl modules
-            #   located directly under cth/tools/, as this gets added to the test's @INC.
-            my @pm_directories;  # Initialize an array to store directories with ".pm" files
+            # Add every tool subdirectory to @INC that has a .pm file in it (add the previous
+            #   one as well so we can do e.g. "use JSON::Tiny;" instead of "use Tiny;")
+            # This is needed because we don't know how deep under tools/ the .pm files are.
+            my @pm_directories;
             my @dirs_to_process = ("$root_dir/tools");
             while (my $dir = shift @dirs_to_process) {
                 opendir my $dh, $dir or die "Unable to open directory $dir: $!";
@@ -761,7 +760,6 @@ foreach my $test (@tests) {
                     } elsif (-f $path && $file =~ /\.pm$/) {
                         my $pm_directory = $dir;
                         push @pm_directories, $pm_directory;
-                        # add previous one as well so we can do "use JSON::Tiny;" instead of "use Tiny;"
                         push @pm_directories, dirname($pm_directory);
                     }
                 }
