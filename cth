@@ -70,14 +70,14 @@
 #
 # --------------------------------------------------------------------------------------------
 
+$| = 1;
+
 use strict;
 use warnings;
 use Digest::SHA qw(sha256_hex);
 use Getopt::Long;
 use Cwd;
 use File::Basename;
-
-$| = 1;  # Turn on auto-flush for STDOUT (Perl doesn't do this by default)
 
 my $RED = "\e[31m";
 my $GRN = "\e[32m";
@@ -91,7 +91,7 @@ my $cth_exit_code_skipped_test = 32;
 
 my $root_dir = getcwd();
 
-my $tests_dir = "tests";
+my $default_tests_dir = "tests";
 
 my $drivers_dir = "drivers";
 
@@ -99,7 +99,15 @@ my $drivers_dir = "drivers";
 # -s and -o also allow cth to parameterize all driver installs via -i.
 my $global_test_or_installer_args = '';
 
-my @tests;           # All subdirectories under tests/
+# This is a list of all tests directories. It's the same as @opt_testsdirs, but in absolute path form.
+my @tests_dirs;
+
+# This is a list of all tests that will be run, with the full path to them.
+# The test directory can be obtained via use basename($test), and the path via dirname($test).
+my @tests;
+
+# Size of the common path prefix among all entries in @tests (to help reduce on-screen clutter)
+my $tests_prefix = 0;
 
 my @drivers;         # All subdirectories under drivers/
 
@@ -151,6 +159,7 @@ my $opt_install = 0;
 my $opt_jobs = $cpus;
 my $opt_reset = 0;
 my @opt_run;
+my @opt_testsdir;
 my $opt_verbose = 0;
 
 GetOptions(
@@ -163,8 +172,8 @@ GetOptions(
     "reset"        => \$opt_reset,
     "run=s{3}"     => sub { push @opt_run, $_[1]; },
     "switch|s=s%"  => sub { push @opt_switch, [$_[1], $_[2]] },
-    "verbose|v"    => \$opt_verbose,
-    "testdir=s"    => \$tests_dir,
+    "testsdir|t=s" => sub { push @opt_testsdir, $_[1]; },
+    "verbose|v"    => \$opt_verbose
 
 ) or die "ERROR: cth: Error in command line arguments.\n";
 
@@ -219,17 +228,17 @@ if ($opt_help) {
     print "  --clear, -c         Clear all tests and drivers (doesn't run tests)\n";
     print "  --force, -f         Force tests to run after all installation/set-up tasks\n";
     print "  --help, -h          Print this help\n";
-    print "  --install, -i       Run 'install' on all drivers.\n";
+    print "  --install, -i       Run 'install' on all drivers\n";
     print "                      Forwards specified switches/options to each installer\n";
     print "  --jobs, -j <n>      Start at most <n> simultaneous jobs; default: $cpus\n";
     print "  --option, -o <k=v>  Pass a '-o \"k=v\"' parameter to all tests/installers\n";
     print "                      (note: switches are preferred over options)\n";
     print "  --reset             Run 'reset' on all drivers (doesn't run tests)\n";
-    print "  --run <c> <e> <p>   Call component <c>'s executable <s> with parameters <p>\n";
-    print "                      <c> is a driver dir (1st try) or test dir (2nd try)\n";
+    print "  --run <d> <e> <p>   Call driver <d>'s executable <s> with parameters <p>\n";
     print "                      All --run commands are processed after -c and -i\n";
     print "  --switch, -s <k=v>  Pass a '--k \"v\"' parameter to all tests/installers\n";
-    print "  --testdir <dir>     Set directory with all tests to run (default: 'tests')\n";
+    print "  --testsdir, -t <d>  Add <d> as a tests-to-run directory (default: 'tests')\n";
+    print "                      If used multiple times, runs tests on multiple dirs\n";
     print "  --verbose, -v       Print more messages\n";
     print "\n";
     exit;
@@ -250,6 +259,27 @@ if (@opt_run || $opt_install || $opt_reset || $opt_clear) {
     }
 } else {
     if ($opt_verbose) { print "Will run tests (no installation/set-up tasks detected).\n"; }
+}
+
+if (! @opt_testsdir) {
+    push @opt_testsdir, $default_tests_dir;
+    if ($opt_verbose) { print "No --testsdir, -t options detected; will run tests in default tests subdirectory '$default_tests_dir'\n"; }
+}
+
+foreach my $opt_td (@opt_testsdir) {
+    my $abs_td = Cwd::abs_path($opt_td);
+    if (!defined $abs_td || !-d $abs_td) {
+        print "ERROR: Tests directory not found: $opt_td (current: $root_dir)\n";
+        exit 1;
+    }
+    push @tests_dirs, $abs_td;
+}
+
+my $tests_dir_i = 1;
+my $tests_dir_max = scalar(@tests_dirs);
+foreach my $td (@tests_dirs) {
+    print "Tests directory ($tests_dir_i/$tests_dir_max): $td\n";
+    $tests_dir_i++;
 }
 
 #--------------------------------------------------------------------------------------------
@@ -470,17 +500,18 @@ if ($opt_install) {
 # Find all tests.
 # --------------------------------------------------------------------------------------------
 
-{
+foreach my $tests_dir (@tests_dirs) {
+
     opendir(my $dh, $tests_dir) or die "ERROR: cth: Cannot open tests directory $tests_dir: $!";
-    if ($opt_verbose) { print "Searching for tests in $root_dir/$tests_dir ...\n"; }
+    if ($opt_verbose) { print "Searching for tests in $tests_dir ...\n"; }
     while (my $entry = readdir($dh)) {
         next if $entry eq '.' || $entry eq '..';
-        push @tests, $entry if -d "$tests_dir/$entry";
+        push @tests, "$tests_dir/$entry" if -d "$tests_dir/$entry";
     }
     closedir($dh);
 
     if (scalar(@tests) == 0) {
-        print "WARNING: No test directories found.\n";
+        print "WARNING: No test directories found in tests dir $tests_dir\n";
     } else {
         @tests = sort @tests;
         if ($opt_verbose) {
@@ -488,11 +519,27 @@ if ($opt_install) {
             my $first = 1;
             foreach my $test (@tests) {
                 if (!$first) { print ", "; } else { $first = 0; }
-                print "$test";
+                print basename($test);
             }
             print "\n";
         }
     }
+}
+
+# --------------------------------------------------------------------------------------------
+# Compute the size of the prefix that is common throughout all entries of @tests.
+# This removes redundant on-screen info while running tests.
+# --------------------------------------------------------------------------------------------
+
+if (@tests) {
+    my $common = $tests[0];
+    foreach my $test (@tests) {
+        while (index($test, $common) != 0) {
+            chop $common;
+            last if $common eq '';
+        }
+    }
+    $tests_prefix = length($common);
 }
 
 # --------------------------------------------------------------------------------------------
@@ -525,8 +572,7 @@ if ($opt_clear) {
 
     print "Clearing all tests ...\n";
     foreach my $test (@tests) {
-        my $work_dir = "$tests_dir/$test";
-        chdir $work_dir or die "ERROR: cth: Cannot change into test directory: $!";
+        chdir $test or die "ERROR: cth: Cannot change into test directory: $!";
         my $script = "clear";
         print "Clearing test $test ... ";
         unlink "run.log"; # remove run.log file
@@ -534,7 +580,7 @@ if ($opt_clear) {
             my $ret = system("./" . $script);
             if ($ret) {
                 print "ERROR: 'clear' failed for test $test with code: $ret\n";
-                push @FAILED_SETUP_TASKS, "$work_dir/$script";
+                push @FAILED_SETUP_TASKS, "$test/$script";
             } else {
                 print "\n";
             }
@@ -557,33 +603,31 @@ while (scalar(@opt_run) > 0) {
     if (scalar(@opt_run) < 3) {
         die "ERROR: --run option should have exactly 3 arguments; too few arguments.\n";
     }
-    my $component = shift @opt_run;
+    my $driver = shift @opt_run;
     my $executable = shift @opt_run;
     my $parameters = shift @opt_run;
 
-    print "cth: Running component:'$component' executable:'$executable' parameters:'$parameters' ...\n";
+    print "cth: Running driver:'$driver' executable:'$executable' parameters:'$parameters' ...\n";
 
     my $dir;
-    if (grep { $_ eq $component } @drivers) {
-        $dir = "drivers/$component";
-    } elsif (grep { $_ eq $component } @tests) {
-        $dir = "$tests_dir/$component";
+    if (grep { $_ eq $driver } @drivers) {
+        $dir = "drivers/$driver";
     } else {
-        die "ERROR: cth: cannot --run component '$component': no such driver or test (under '$tests_dir') found.\n";
+        die "ERROR: cth: cannot --run driver '$driver': no such driver found.\n";
     }
 
     if (! -d $dir) {
-        die "ERROR: cth: cannot --run component '$component': directory not found: '$dir'\n";
+        die "ERROR: cth: cannot --run driver '$driver': directory not found: '$dir'\n";
     }
 
     my $exe = "$dir/$executable";
 
     if (! -e $exe) {
-        die "ERROR: cth: cannot --run component '$component' executable '$executable': executable not found at: '$exe'\n";
+        die "ERROR: cth: cannot --run driver '$driver' executable '$executable': executable not found at: '$exe'\n";
     }
 
     if (! -x $exe) {
-        die "ERROR: cth: cannot --run component '$component' executable '$executable': executable isn't: '$exe'\n";
+        die "ERROR: cth: cannot --run driver '$driver' executable '$executable': executable isn't: '$exe'\n";
     }
 
     my $cmd = "$exe $parameters";
@@ -675,12 +719,14 @@ if ($opt_verbose) { print "Perl tests will receive environment variable PERL5LIB
 sub print_test_name {
     my $test_name = shift;
     if (! defined $test_name) { die "FATAL ERROR: cth: print_test_name undefined test_name"; }
-    print "  " . $test_name . " " . ("." x (48 - length($test_name))) . " ";
+    if (length($test_name) >= $tests_prefix) { $test_name = substr($test_name, $tests_prefix); } # less clutter
+    print "  " . $test_name . " " . ("." x (50 - length($test_name))) . " ";
 }
 
 sub test_result {
     my $test_name = shift;
     if (! defined $test_name) { die "FATAL ERROR: cth: test_result undefined test_name"; }
+    if (length($test_name) >= $tests_prefix) { $test_name = substr($test_name, $tests_prefix); } # less clutter
     my $exit_status = shift;
     if (! defined $exit_status) { die "FATAL ERROR: cth: test_result undefined exit_status"; }
     if ($exit_status == 0) {
@@ -717,6 +763,7 @@ print "Running tests ...\n";
 if ($opt_verbose) { print "The output of each test is saved to the 'run.log' file on each test directory.\n"; }
 print "\n";
 
+# NOTE: @tests now contains the full path to every test directory, e.g. '/home/username/cth/tests/combat-test'
 foreach my $test (@tests) {
 
     # check if we will skip this test.
@@ -732,8 +779,7 @@ foreach my $test (@tests) {
 
     # run the test
     #
-    my $work_dir = "$tests_dir/$test";
-    chdir $work_dir or die "ERROR: cth: Cannot change into test directory: $!";
+    chdir $test or die "ERROR: cth: Cannot change into test directory: $!";
     my $script = "run";
     my $log_file = "run.log";
     unlink $log_file;
