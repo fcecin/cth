@@ -27,19 +27,15 @@ To do maintanance tasks and not run any tests just omit '-f': call `cth -i` to i
 
 # How to use cth to test your DoH code
 
-If you run `cth -i`, `cth` will download the entire DoH source code from github. If, instead, you want to test a local DoH tree that you are using locally to develop, the current recommended way is:
+If you just run `cth -i`, `cth` will download the entire DoH source code from github and compile it at `cth/local/test`, for the `test` ('hg3/tc3') target, for running tests against it. If, instead, you want to test a local DoH tree that you are using locally to develop and that is already compiled, the current recommended way is:
 
 ```
-cth -f --run coldstart install '' --run doh-coldstart install '--doh YOUR_DOH_DIR --target test' --run doh-hotstart install ''
+cth -f -i -o doh=YOUR_DOH_DIR -o target=test
 ```
 
-Replace `YOUR_DOH_DIR` with the path to the directory where you have your DoH installation with the entire DoH source code already fully compiled that you want to test (e.g. `~/doh-contracts`).
+Replace `YOUR_DOH_DIR` with the absolute path to the directory where you have your DoH installation with the entire DoH source code already fully compiled that you want to test (e.g. `~/doh-contracts`). Hint: if you use `~/` as a prefix, that will ensure the resulting path string is an absolute path.
 
-The `--run coldstart install ''` argument can be ommitted after the first run, since that is downloading and compiling the Antelope system contracts.
-
-The `--run doh-coldstart install '--doh YOUR_DOH_DIR --target test'` copies your DoH directory into the test system for use; specifically into the 'cth/local/test/' target directory (to run tests configured for 'hg3/tc3'). Make sure `YOUR_DOH_DIR` contains tests that are compiled for the test (hg3/tc3) target, or at least any target that isn't production (hgm/tcn) which does not work with the test system since it doesn't have test clock and test RNG support.
-
-Finally, the `--run doh-hotstart install ''` command builds the chainbase so that the `doh-hostart` driver can boot fast DoH tests, and run them in parallel.
+What `-o doh=YOUR_DOH_DIR -o target=test` does is ensure that the installation pipeline will know to copy your fully-assembled and compiled DoH working directory into the test system to be tested, specifically into the `cth/local/test/` target directory, to run tests configured for the 'hg3/tc3' (i.e. `test`) target. Make sure that the given directory contains DoH source code that is compiled for the `test` ('hg3/tc3') target, or at least any target that isn't `prod` ('hgm/tcn'), since the latter doesn't work with the test system, as it doesn't have test clock and test RNG support.
 
 # How to use
 

@@ -4,15 +4,13 @@ use strict;
 use warnings;
 use Cwd;
 use FindBin qw($RealBin);
-#use Cwd 'abs_path';
+use File::Spec::Functions qw(rel2abs);
 
 $| = 1;  # Turn on auto-flush for STDOUT (Perl doesn't do this by default)
 
 # ---------------------------------------------------------------------------
 # Global vars
 # ---------------------------------------------------------------------------
-
-my $current_dir = getcwd();
 
 my $driver = "doh-coldstart";
 
@@ -67,59 +65,53 @@ sub copy_doh {
 use lib "$RealBin/../../tools/cth-goodies";
 use CthGoodies;
 
-my ($switches, $options) = cth_standard_args_parser("target doh", "");
+my ($switches, $options) = cth_standard_args_parser("", "target doh");
 
 # ---------------------------------------------------------------------------
-# Take a --target switch that will tell which one we want to compile (or to
-#   install --doh <dir> into).
+# Take a -o target=xxx option that will tell which one we want to compile
+#   (or to install --doh <dir> into).
 # ---------------------------------------------------------------------------
 
-if (defined $switches->{'target'}) {
-    if ($switches->{'target'} eq 'hgm' || $switches->{'target'} eq 'prod') {
+if (defined $options->{'target'}) {
+    if ($options->{'target'} eq 'hgm' || $options->{'target'} eq 'prod') {
         $target = 'prod';
-    } elsif ($switches->{'target'} eq 'hg1' || $switches->{'target'} eq 'staging') {
+    } elsif ($options->{'target'} eq 'hg1' || $options->{'target'} eq 'staging') {
         $target = 'staging';
-    } elsif ($switches->{'target'} eq 'hg2' || $switches->{'target'} eq 'dev') {
+    } elsif ($options->{'target'} eq 'hg2' || $options->{'target'} eq 'dev') {
         $target = 'dev';
-    } elsif ($switches->{'target'} eq 'hg3' || $switches->{'target'} eq 'test') {
+    } elsif ($options->{'target'} eq 'hg3' || $options->{'target'} eq 'test') {
         $target = 'test';
-    } elsif ($switches->{'target'} eq 'hg4' || $switches->{'target'} eq 'debug') {
+    } elsif ($options->{'target'} eq 'hg4' || $options->{'target'} eq 'debug') {
         $target = 'debug';
     } else {
-        die "ERROR: doh-hotstart start: unknown target: '" . $switches->{'target'} . "'.";
+        die "ERROR: doh-hotstart start: unknown target: '" . $options->{'target'} . "'.";
     }
 }
 
 # ---------------------------------------------------------------------------
-# The switch --doh <directory> allows the user (e.g. via cth --run) to
-#   instead instruct the doh-coldstart driver to take the given directory,
+# The option -o doh=<directory> allows the user (e.g. via cth --run or
+#   cth -i) instruct the doh-coldstart driver to take the given directory,
 #   which should be a fully set-up version of the DoH source code that's
 #   already fully compiled to wasm/abi files, and then copy its contents
 #   to the correct local/doh-coldstart/... directory where this driver
 #   would be instead download the DoH source code and compiling it.
+# The given directory must either be an absolute path or a path relative to
+#   this driver's directory.
 # ---------------------------------------------------------------------------
 
-if (defined $switches->{'doh'}) {
-
-    my $doh_dir = $switches->{'doh'};
-    if (!-d $doh_dir) {
-        print "ERROR: doh-coldstart install: given --doh directory not found: '$doh_dir': $!\n";
-    }
-
-    #my $abs_doh_dir = abs_path("$doh_dir");
-    #if (!defined $abs_doh_dir) {
-    #    die "ERROR: doh-coldstart install: Can't compute absolute path from given relative --doh directory: '$doh_dir': $!";
-    #}
-    my $abs_doh_dir = rel2abs($doh_dir);
+if (defined $options->{'doh'}) {
 
     chdir_driver_dir();
+
+    my $doh_dir = $options->{'doh'};
+    if (!-d $doh_dir) {
+        print "ERROR: doh-coldstart install: given --doh directory not found (must be absolute or relative to " . getcwd() . "): '$doh_dir': $!\n";
+    }
+    my $abs_doh_dir = rel2abs($doh_dir); # in the odd case it's relative
+
     my $destination = "../../local/$target";
 
     # find the absolute path since we will be printing this and relative paths are confusing
-    #my $abs_destination = abs_path("$destination");
-    #if (!defined $abs_destination) {
-    #    die "ERROR: doh-coldstart install: Can't compute absolute path for DoH source code /local destination: '$destination': $!";
-    #}
     my $abs_destination = rel2abs($destination);
 
     # doh-contracts is part of it
@@ -135,7 +127,7 @@ if (defined $switches->{'doh'}) {
     print "doh-coldstart install: creating /local destination directory: '$abs_destination' ...\n";
     system("mkdir -p $abs_destination/doh-contracts") == 0 or die "ERROR: doh-coldstart: Failed to create target directory '$abs_destination': $!";
 
-    # copy the *files* within the given abs_doh_dir into a "doh-contracts" directory
+    # copy the *files* within the given doh_dir into a "doh-contracts" directory
     print "doh-coldstart install: copying all files inside given --doh directory '$abs_doh_dir'(/*) into '$abs_destination' ...\n";
     system("cp -r $abs_doh_dir/* $abs_destination") == 0 or die "ERROR: doh-coldstart: Failed to copy everything inside '$abs_doh_dir' to '$abs_destination': $!";
 

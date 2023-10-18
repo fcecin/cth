@@ -95,7 +95,9 @@ my $tests_dir = "tests";
 
 my $drivers_dir = "drivers";
 
-my $global_test_args = '';    # Uniform parameterization of the ENTIRE test suite that is run
+# Uniform parameterization of the ENTIRE test suite that is run.
+# -s and -o also allow cth to parameterize all driver installs via -i.
+my $global_test_or_installer_args = '';
 
 my @tests;           # All subdirectories under tests/
 
@@ -217,15 +219,16 @@ if ($opt_help) {
     print "  --clear, -c         Clear all tests and drivers (doesn't run tests)\n";
     print "  --force, -f         Force tests to run after all installation/set-up tasks\n";
     print "  --help, -h          Print this help\n";
-    print "  --install, -i       Run 'install' on all drivers\n";
+    print "  --install, -i       Run 'install' on all drivers.\n";
+    print "                      Forwards specified switches/options to each installer\n";
     print "  --jobs, -j <n>      Start at most <n> simultaneous jobs; default: $cpus\n";
-    print "  --option, -o <k=v>  Pass a '-o \"k=v\"' parameter to all tests\n";
+    print "  --option, -o <k=v>  Pass a '-o \"k=v\"' parameter to all tests/installers\n";
     print "                      (note: switches are preferred over options)\n";
     print "  --reset             Run 'reset' on all drivers (doesn't run tests)\n";
     print "  --run <c> <e> <p>   Call component <c>'s executable <s> with parameters <p>\n";
     print "                      <c> is a driver dir (1st try) or test dir (2nd try)\n";
     print "                      All --run commands are processed after -c and -i\n";
-    print "  --switch, -s <k=v>  Pass a '--k \"v\"' parameter to all tests\n";
+    print "  --switch, -s <k=v>  Pass a '--k \"v\"' parameter to all tests/installers\n";
     print "  --testdir <dir>     Set directory with all tests to run (default: 'tests')\n";
     print "  --verbose, -v       Print more messages\n";
     print "\n";
@@ -258,6 +261,42 @@ die "ERROR: cth: Failed to run pgrep: $!" if $?;
 chomp(@pgrep_output);
 @pgrep_output = grep { $_ != $$ } @pgrep_output; # Remove our own PID from the list
 die "ERROR: cth: This instance ($$) will exit since there are other running cth instances (PIDs: " . join(", ", @pgrep_output) . ")" if (@pgrep_output);
+
+# --------------------------------------------------------------------------------------------
+# Resolve switches and options to be passed to tests and/or installers
+# --------------------------------------------------------------------------------------------
+
+sub get_switch_value {
+    my $switchname = shift;
+    if (! defined $switchname) { die "ERROR: has_switch: undefined switchname"; };
+    foreach my $pair (@opt_switch) {
+        my ($key, $value) = @$pair;
+        if ($key eq $switchname) {
+            return $value;
+        }
+    }
+    return; # undef
+}
+
+print "Global parameters given to all tests/installers:\n\n";
+foreach my $pair (@opt_switch) {
+    my ($key, $value) = @$pair;
+    print "  Switch: \"$key\" = \"$value\" (--$key \"$value\")\n";
+    if ($global_test_or_installer_args ne '') { $global_test_or_installer_args .= ' '; }
+    $global_test_or_installer_args .= qq|--$key "$value"|;
+}
+foreach my $pair (@opt_option) {
+    my ($key, $value) = @$pair;
+    print "  Option: \"$key\" = \"$value\" (-o \"$key=$value\")\n";
+    if ($global_test_or_installer_args ne '') { $global_test_or_installer_args .= ' '; }
+    $global_test_or_installer_args .= qq|-o "$key=$value"|;
+}
+if ($global_test_or_installer_args eq '') {
+    print "  No parameters to be passed to tests/installers (neither switches nor options).\n\n";
+} else {
+    print "\n";
+    if ($opt_verbose) { print "Parameter string for all tests/installers:\n  $global_test_or_installer_args\n\n"; }
+}
 
 # --------------------------------------------------------------------------------------------
 # Get a list of all drivers
@@ -408,7 +447,7 @@ if ($opt_install) {
             my $log_file = "install.log";
             unlink $log_file;
             print "Running install script for driver $driver (output: $work_dir/$log_file) ...\n";
-            my $ret = system("./" . $script . " > $log_file 2>&1");
+            my $ret = system("./$script $global_test_or_installer_args  > $log_file 2>&1");
             if ($ret) {
                 print "*******************************************************************************\n";
                 print "WARNING: cth: Driver $driver installation failed with code: $ret\n";
@@ -588,42 +627,6 @@ if ($DO_NOT_RUN_TESTS) {
 }
 
 # --------------------------------------------------------------------------------------------
-# Resolve switches and options to be passed to tests
-# --------------------------------------------------------------------------------------------
-
-sub get_switch_value {
-    my $switchname = shift;
-    if (! defined $switchname) { die "ERROR: has_switch: undefined switchname"; };
-    foreach my $pair (@opt_switch) {
-        my ($key, $value) = @$pair;
-        if ($key eq $switchname) {
-            return $value;
-        }
-    }
-    return; # undef
-}
-
-print "Global parameters given to all tests:\n\n";
-foreach my $pair (@opt_switch) {
-    my ($key, $value) = @$pair;
-    print "  Switch: \"$key\" = \"$value\" (--$key \"$value\")\n";
-    if ($global_test_args ne '') { $global_test_args .= ' '; }
-    $global_test_args .= qq|--$key "$value"|;
-}
-foreach my $pair (@opt_option) {
-    my ($key, $value) = @$pair;
-    print "  Option: \"$key\" = \"$value\" (-o \"$key=$value\")\n";
-    if ($global_test_args ne '') { $global_test_args .= ' '; }
-    $global_test_args .= qq|-o "$key=$value"|;
-}
-if ($global_test_args eq '') {
-    print "  No parameters to be passed to tests (neither switches nor options).\n\n";
-} else {
-    print "\n";
-    if ($opt_verbose) { print "Parameter string for all tests:\n  $global_test_args\n\n"; }
-}
-
-# --------------------------------------------------------------------------------------------
 # Configure environment variables so the tests can find the test libraries under tools/
 # --------------------------------------------------------------------------------------------
 
@@ -779,7 +782,7 @@ foreach my $test (@tests) {
             if (!defined $pid) {
                 print "Started... ";
             }
-            my $ret = system("./" . "$script $global_test_args > $log_file 2>&1");
+            my $ret = system("./" . "$script $global_test_or_installer_args > $log_file 2>&1");
             if ($ret) {
                 if ($ret < 0) {
                     if (!defined $pid) {

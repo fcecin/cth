@@ -110,13 +110,7 @@ sleep(3);
 #
 # Create entire local/doh-hotstart/nodeos-template/ path
 #
-#use Cwd 'abs_path';
-#my $abs_template_dir = abs_path("$template_dir");
 my $abs_template_dir = rel2abs("$template_dir");
-#if (!defined $abs_template_dir) {
-#    print "ERROR: Malformed abs_template_dir from '$template_dir': $!\n";
-#    exit 1;
-#}
 if (!-d $abs_template_dir && !make_path($abs_template_dir)) {
     print "ERROR: Failed to create path for abs_working_dir '$abs_template_dir': $!\n";
     exit 1;

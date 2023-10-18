@@ -1,19 +1,48 @@
 #!/usr/bin/perl
 
+$| = 1;
+
+use strict;
+use warnings;
+
 my $driver = "coldstart";
-my $dir = "../../tools/reference-contracts/";
+my $dir = "../../tools/reference-contracts";
 my $file = "build.sh";
 
-print "$driver: Checking for reference-contracts at $dir\n";
-
-if (-e "$dir$file") {
-    print "$driver: Directory found. Running reference contracts build script...\n";
-    chdir $dir;
-    system("./" . "$file");
+# go to driver dir
+use FindBin qw($RealBin);
+if (chdir($RealBin)) {
+    print "$driver: Changed working directory to driver location: $RealBin\n";
 } else {
-    print "$driver: ERROR: Antelope.io reference-contracts not found in the expected tools directory path.\n";
+    print "ERROR: $driver: Failed to change working directory to driver directory: $!\n";
     exit 1;
 }
+
+# check that the tools/reference-contracts submodule is there
+print "$driver: Checking for reference-contracts at $dir\n";
+if (! -e "$dir/$file") {
+    print "ERROR: $driver: Antelope.io reference-contracts not found in the expected tools directory path.\n";
+    exit 1;
+}
+
+# go to the tools/reference-contracts directory
+print "$driver: Directory found.\n";
+if (chdir($dir)) {
+    print "$driver: Changed working directory to tools/reference-contracts directory\n";
+} else {
+    print "ERROR: $driver: Failed to change working directory to tools/reference-contracts directory: $!\n";
+}
+
+# skip building if the build directory already exists, assuming that building reference-contracts
+#   is not something that should normally fail (if it IS failing, then you have bigger problems anyway).
+if (-d "build") {
+    print "$driver: Antelope.io reference-contracts seems to be already built (build/ directory found). Skipping (re)build.\n";
+    exit 0;
+}
+
+# run build
+print "$driver: Running reference-contracts build script...\n";
+system("./" . "$file");
 
 # Check the exit status of the build script
 my $ret = $?;
@@ -22,7 +51,7 @@ if ($ret == 0) {
     print "$driver: Reference contracts built successfully\n";
 } else {
     my $exit_status = $ret >> 8;
-    print "$driver: ERROR: Reference contracts build failed with error code: $exit_status\n";
+    print "ERROR: $driver: Reference contracts build failed with error code: $exit_status\n";
     exit 1;
 }
 
