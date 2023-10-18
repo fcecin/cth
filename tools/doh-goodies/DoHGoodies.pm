@@ -24,21 +24,15 @@ our @EXPORT = qw(
     doh_get_tcn_target
     doh_get_constants
     doh_extract_tcn_amount
-    );
+);
 
 my %doh_constants = (); # doh_hotstart_start() fills it with all DoH readonly constants
 
 # -----------------------------------------------------------------------
-# Load my perl module dependencies from cth/tools following the
-#   cth directory tree convention.
+# PERL5LIB env var should contain all useful paths under cth/tools/
 # -----------------------------------------------------------------------
 
-use File::Basename;
-
-use lib dirname(dirname(__FILE__)) . "/cth-goodies";
 use CthGoodies;
-
-use lib dirname(dirname(__FILE__)) . "/JSON-Tiny/lib";
 use JSON::Tiny;
 
 # -----------------------------------------------------------------------
@@ -95,22 +89,13 @@ sub doh_init {
 # -----------------------------------------------------------------------
 
 sub doh_hotstart_start {
+    # This doubles as requiring doh_init() to be called first (here we need the cleos provider to be set)
     if (! defined $doh_target) {
         print "ERROR: doh_hotstart_start: doh_target is undefined; must call doh_init() first.\n";
         return -1;
     }
 
     my ($ret, $out, $args);
-
-    # yeah, this is redundant. the $doh_target check above would blow up if doh_init wasn't called.
-    #
-    # TODO/REVIEW: doh_init is already doing this... shouldn't we demand doh_init
-    #              is called before we will allow doh_hotstart_start to be called?
-    #$ret = cth_set_cleos_provider("cleos-driver");
-    #if ($ret) {
-    #    print "ERROR: doh_hotstart_start: cth_set_cleos_provider failed\n";
-    #    return -1;
-    #}
 
     # Assemble a label for the new instance
     use FindBin qw($RealBin);
@@ -144,7 +129,6 @@ sub doh_hotstart_start {
     }
 
     # attempt to read the readonly contract to fill in %doh_constants
-    #cleos -u http://148.251.126.54:8888 push action readonly.hg2 getconstants '{}' --read --json
     my $json_constants = cth_cleos_pipe(qq|--verbose push action readonly.${doh_target} getconstants '{}' --read --json|);   # --force-unique -p $default_signer|);
     if (!defined $json_constants) {
         print "WARNING: doh_hotstart_start : error trying to fetch constants from readonly.${doh_target} (cleos readonly query error). '\%doh_constants' hash will be empty.\n";

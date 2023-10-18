@@ -7,21 +7,14 @@
 # This test is a port of cryptomechanics/doh-unit-tests/drip-distrib.sh from August, 2023.
 # --------------------------------------------------------------------------------------------
 
+$| = 1;
 use strict;
 use warnings;
-
-# include paths assume this script is in the following directory depth: cth/<testdir>/<testscript>
-use lib '../../tools/cth-goodies';
 use CthGoodies;
-use lib '../../tools/doh-goodies';
 use DoHGoodies;
 
-$| = 1;  # Turn on auto-flush for STDOUT (Perl doesn't do this by default)
-
-# all tests should be hard-coded for the test (hg3/tc3) DoH compilation target.
 my ($doh_target, $tcn_target) = ("hg3", "tc3");
 
-# this test's DoH game master account
 my $doh_gm = "dohplayer1";
 
 # --------------------------------------------------------------------------------------------

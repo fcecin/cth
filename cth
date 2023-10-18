@@ -37,7 +37,8 @@
 #
 # Drivers that need global configuration before they are run can provide a 'configure'
 #   tool. The configure tool can be anything the driver needs. This is also not called
-#   by cth and concerns only the tests that use it.
+#   by cth and concerns only the tests that use it. Alternatively, driver scripts can
+#   take command-line parameters, which can be accessed by using cth --run.
 #
 # --------------------------------------------------------------------------------------------
 #
@@ -62,32 +63,10 @@
 #
 # --------------------------------------------------------------------------------------------
 #
-# Test development tips:
-#
-# All tests should probably handle a --cleos_url or --target switch given to them.
-#   See dcs-combat-test/run for a documented example of what these mean.
-#
-# To do remote testing, you'd call:
-#   cth -s cleos_url=http://api.chain.com    [other args...]
-#
-# To do testing to a given DoH target (contract suffix), you'd call (example):
-#   cth -s target=hg2    [other args...]
-#
-# You can of course combine those and can also use other args if required (like test
-#   name filters, for example).
-#
-# --------------------------------------------------------------------------------------------
-#
-# (TODO) more/better DoH tests
-#
-# (TODO) finish tools/cth-goodies test library
-#
-# (TODO) finish tools/doh-goodies test library
+# (TODO) add javascript test support
 #
 # (TODO) re-enable parallel contract compilation (test that it works and doesn't crash)
 #        if it's unstable for some reason, make it an explicit cth option
-#
-# (TODO) refactor everything
 #
 # --------------------------------------------------------------------------------------------
 
@@ -96,6 +75,7 @@ use warnings;
 use Digest::SHA qw(sha256_hex);
 use Getopt::Long;
 use Cwd;
+use File::Basename;
 
 $| = 1;  # Turn on auto-flush for STDOUT (Perl doesn't do this by default)
 
@@ -278,34 +258,6 @@ die "ERROR: cth: Failed to run pgrep: $!" if $?;
 chomp(@pgrep_output);
 @pgrep_output = grep { $_ != $$ } @pgrep_output; # Remove our own PID from the list
 die "ERROR: cth: This instance ($$) will exit since there are other running cth instances (PIDs: " . join(", ", @pgrep_output) . ")" if (@pgrep_output);
-
-# Removed: this never worked at all, worked even less when we moved to /local/reference-contracts, and is a bad idea in general.
-# If you don't install the drivers then it's obviously not going to work.
-#
-# --------------------------------------------------------------------------------------------
-# DIRTY CHEAT: If tools/reference-contracts/ is present, try to find at least one .wasm
-#   file in it. If there is none (i.e. it is pristine) then "cth -i" was probably never
-#   run. In that case, refuse to continue and tell the user they should run "cth -i" once.
-# --------------------------------------------------------------------------------------------
-#
-#use File::Find;
-#use File::Spec;
-#
-#my $tools_reference_contracts = 'tools/reference-contracts';
-#
-#if (-d $tools_reference_contracts && !$opt_install) { # if we are going to install now, then no problem
-#    my $wasm_found = 0;
-#    sub search_wasm {
-#        if (-f $_ && $_ =~ /\.wasm$/) {
-#            $wasm_found = 1;
-#            return;
-#        }
-#    }
-#    find(\&search_wasm, $tools_reference_contracts);
-#    if (!$wasm_found) {
-#        die "ERROR: No .wasm files found under '$tools_reference_contracts'. This means you probably have not run 'cth --install' at least once! You should do that before running any tests, since that will call 'install' on all drivers, which will compile contracts that are required by the drivers, for example. Exiting.\n";
-#    }
-#}
 
 # --------------------------------------------------------------------------------------------
 # Get a list of all drivers
@@ -782,9 +734,47 @@ foreach my $test (@tests) {
         }
 
         if (!defined $pid || $pid == 0) {
+
+            # Javascript test support settings.
+            #
+            # FIXME/TODO: When we add support for javascript tests, this is where we'd doctor
+            #   the environment to help the test script find the tools/ javascript libraries
+            #   that help you with cth testing.
+
+            # Perl test support settings.
+            #
+            # Add every tool subdirectory to @INC that has a .pm file in it.
+            # This is needed because we don't know where in each tool dir the .pm files are.
+            # If the test is written in Perl 5+, this will ensure it can find Perl modules
+            #   located directly under cth/tools/, as this gets added to the test's @INC.
+            my @pm_directories;  # Initialize an array to store directories with ".pm" files
+            my @dirs_to_process = ("$root_dir/tools");
+            while (my $dir = shift @dirs_to_process) {
+                opendir my $dh, $dir or die "Unable to open directory $dir: $!";
+                my @files = readdir $dh;
+                closedir $dh;
+                foreach my $file (@files) {
+                    next if $file eq '.' or $file eq '..';
+                    my $path = "$dir/$file";
+                    if (-d $path) {
+                        push @dirs_to_process, $path;
+                    } elsif (-f $path && $file =~ /\.pm$/) {
+                        my $pm_directory = $dir;
+                        push @pm_directories, $pm_directory;
+                        # add previous one as well so we can do "use JSON::Tiny;" instead of "use Tiny;"
+                        push @pm_directories, dirname($pm_directory);
+                    }
+                }
+            }
+            my %seen;
+            @pm_directories = grep { !$seen{$_}++ } @pm_directories; # Remove duplicate directories
+            $ENV{PERL5LIB} = join(':', @pm_directories);
+            #if ($verbose) { print "Updated PERL5LIB: $ENV{PERL5LIB}\n"; }
+
             if (!defined $pid) {
                 print "Started... ";
             }
+
             my $ret = system("./" . "$script $global_test_args > $log_file 2>&1");
             if ($ret) {
                 if ($ret < 0) {

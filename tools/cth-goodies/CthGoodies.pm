@@ -17,6 +17,7 @@ use warnings;
 
 use Exporter qw(import);
 our @EXPORT = qw(
+    cth_get_root_dir
     cth_skip_test
     cth_set_cleos_provider
     cth_set_cleos_url
@@ -29,6 +30,7 @@ our @EXPORT = qw(
 );
 
 use File::Spec::Functions qw(rel2abs);
+use File::Basename;
 
 # -----------------------------------------------------------------------
 # Global state
@@ -40,6 +42,22 @@ my $cleos_provider_working_dir;
 
 # no cleos url argument by default
 my $cleos_url_param = '';
+
+# -----------------------------------------------------------------------
+# cth_get_root_dir
+#
+# Returns path to our best guess to what the root directory of the
+#   running cth installation is.
+# This is suddenly an issue because we're now allowing tests to be
+#   installed "anywhere".
+# This added complexity is only needed for the test library functions.
+#   The driver programs don't call tests, and drivers and tools are all
+#   still at standard, relative, well-known locations w.r.t. each other.
+# -----------------------------------------------------------------------
+
+sub cth_get_root_dir {
+    return dirname(dirname(dirname(__FILE__))); # If "cth/tools/cth-goodies/CthGoodies.pm" holds, then it's rather easy.
+}
 
 # -----------------------------------------------------------------------
 # cth_skip_test
@@ -76,20 +94,8 @@ sub cth_set_cleos_provider {
         print "ERROR: cth_set_cleos_provider: driver argument is undefined\n";
         return 1;
     }
-    my $driver_working_dir = "../../local/$driver"; # a driver's default working directory is now under /local
-    #if (! -d $driver_working_dir) {
-    #    print "ERROR: cth_set_cleos_provider: driver $driver working directory not found at '$driver_working_dir'\n";
-    #    return 1;
-    #}
 
-    # Since we found via relative path, now transform in absolute path so that
-    #   we don't run into errors if the working directory changes for whatever reason.
-    #use Cwd 'abs_path';
-    #my $abs_driver_working_dir = abs_path("$driver_working_dir");
-    #if (!defined $abs_driver_working_dir) {
-    #    print "ERROR: cth_set_cleos_provider: cannot compute absolute path for driver $driver working directory '$driver_working_dir'\n";
-    #    exit 1;
-    #}
+    my $driver_working_dir = cth_get_root_dir() . "/local/$driver";
     my $abs_driver_working_dir = rel2abs($driver_working_dir);
 
     $cleos_provider_driver      = $driver;
@@ -368,18 +374,6 @@ sub cth_standard_args_parser {
         print "WARNING: cth_standard_args_parser: Unexpected option '$opt' received.\n" unless grep { $_ eq $opt } @options;
     }
 
-    # Print the parsed switches
-    #print "Switches:\n";
-    #while (my ($switch, $value) = each %switches) {
-    #    print "--$switch => $value\n";
-    #}
-
-    # Print the parsed options
-    #print "Options:\n";
-    #while (my ($opt, $value) = each %options) {
-    #    print "$opt => $value\n";
-    #}
-
     return (\%switches, \%options);
 }
 
@@ -419,7 +413,7 @@ sub cth_call_driver {
         return ("ERROR", 100001);
     }
 
-    my $command_path = "../../drivers/$driver/$command";
+    my $command_path = cth_get_root_dir() . "/drivers/$driver/$command";
 
     print "cth_call_driver: run command: $command_path\n";
 

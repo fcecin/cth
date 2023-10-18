@@ -8,21 +8,15 @@
 #   for example.
 # --------------------------------------------------------------------------------------------
 
+$| = 1;
 use strict;
 use warnings;
-
-# include paths assume this script is in the following directory depth: cth/<testdir>/<testscript>
-use lib '../../tools/cth-goodies';
 use CthGoodies;
-use lib '../../tools/doh-goodies';
 use DoHGoodies;
 
-$| = 1;  # Turn on auto-flush for STDOUT (Perl doesn't do this by default)
-
-# all tests should be hard-coded for the test (hg3/tc3) DoH compilation target.
 my ($doh_target, $tcn_target) = ("hg3", "tc3");
 
-my $doh_gm = 'dohplayer.aa';   # game master & default tx/action signer for cleos calls
+my $doh_gm = 'dohplayer.aa';
 
 # FIXME/TODO: This has to be obtained either from the source code of the target or
 #             the running contract (e.g. consulting the readonly contract)
