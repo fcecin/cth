@@ -457,7 +457,7 @@ if ($opt_install) {
     #
     # Fetch all driver installation dependencies
     #
-    print "Fetching driver installation dependencies...\n";
+    if ($opt_verbose) { print "Fetching driver installation dependencies...\n"; }
     my %deps;
     foreach my $driver (@drivers) {
         my $depends = "$drivers_dir/$driver/depends";
@@ -471,10 +471,11 @@ if ($opt_install) {
                 next if $_ eq '';
                 # Check if the string is a valid POSIX directory name
                 if ($_ =~ /^[a-zA-Z0-9_.-]+$/) {
-                    print "Driver '$driver' depends on driver '$_'\n";
+                    if ($opt_verbose) { print "Driver '$driver' depends on driver '$_'\n"; }
                     push @driver_deps, $_;
                 } else {
-                    die "ERROR: cth: Invalid driver '$driver' dependency directory name: $_\n";
+                    print "ERROR: cth: Invalid driver '$driver' dependency directory name: $_\n";
+                    exit 1;
                 }
             }
             $deps{$driver} = \@driver_deps;
@@ -485,7 +486,7 @@ if ($opt_install) {
     #
     # Resolve driver installation dependencies
     #
-    print "Resolving driver installation dependencies...\n";
+    if ($opt_verbose) { print "Resolving driver installation dependencies...\n"; }
     my @sorted_drivers = @drivers;
     my $inconsistent = 1;
     my $max_iters = scalar(@drivers) * scalar(@drivers);
@@ -504,11 +505,14 @@ if ($opt_install) {
         }
         $max_iters -= 1;
         if ($max_iters <= 0 && $inconsistent) {
-            die "ERROR: cth: drivers likely have circular dependencies; can't install them.";
+            print "ERROR: cth: drivers likely have circular dependencies; can't install them.\n";
+            exit 1;
         }
     }
-    print "Original driver list: @drivers\n";
-    print "Resolved driver list: @sorted_drivers\n";
+    if ($opt_verbose) {
+        print "Original driver list: @drivers\n";
+        print "Resolved driver list: @sorted_drivers\n";
+    }
     @drivers = @sorted_drivers;
 
     #
