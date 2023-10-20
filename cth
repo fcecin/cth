@@ -153,6 +153,7 @@ if (!defined $cpus || !($cpus =~ /^\d+$/)) {
 my @opt_option;       # each element of these two outer arrays is a
 my @opt_switch;       #  2-element array that contains the key and value pair.
 my $opt_clear = 0;
+my $opt_findtests;
 my $opt_force = 0;
 my $opt_help = 0;
 my $opt_install = 0;
@@ -164,6 +165,7 @@ my $opt_verbose = 0;
 
 GetOptions(
     "clear|c"      => \$opt_clear,
+    "findtests=s"  => \$opt_findtests,
     "force|f"      => \$opt_force,
     "help|h"       => \$opt_help,
     "install|i"    => \$opt_install,
@@ -217,6 +219,11 @@ if ($opt_help) {
     print "  Installation/set-up operations like --install, --run, --clear and --reset\n";
     print "  prevent cth from running tests afterwards, unless --force is specified.\n";
     print "\n";
+    print "Tests directories:\n";
+    print "  A 'tests dir' is a directory whose subdirectories are all tests. A valid\n";
+    print "  test subdirectory must contain an executable 'run' file that is the test\n";
+    print "  program itself; the name of that subdirectory is the name of the test.\n";
+    print "\n";
     print "Auto Switch Filter:\n";
     print "  Test directories with the SWITCHNAME:VALUE pattern in their name will be\n";
     print "  automatically skipped by cth if the switch SWITCHNAME is not defined with\n";
@@ -226,6 +233,8 @@ if ($opt_help) {
     print "Options:\n";
     print "\n";
     print "  --clear, -c         Clear all tests and drivers (doesn't run tests)\n";
+    print "  --findtests <d>     Scans directory <d> recursively for tests dirs, which\n";
+    print "                      is the same as using -t for every tests subdirectory\n";
     print "  --force, -f         Force tests to run after all installation/set-up tasks\n";
     print "  --help, -h          Print this help\n";
     print "  --install, -i       Run 'install' on all drivers\n";
@@ -259,6 +268,57 @@ if (@opt_run || $opt_install || $opt_reset || $opt_clear) {
     }
 } else {
     if ($opt_verbose) { print "Will run tests (no installation/set-up tasks detected).\n"; }
+}
+
+if ($opt_findtests) {
+    # --findtests <d> expands in a bunch of --testsdir <sd> where sd is every subdirectory of d (or d itself) that contains
+    #   *exclusively* (and at least one) subdirectories that are valid cth tests, that is, contain executable files named "run".
+    my $abs_ft = Cwd::abs_path($opt_findtests);
+    if (!defined $abs_ft || !-d $abs_ft) {
+        print "ERROR: --findtests directory not found: $opt_findtests (current: $root_dir)\n";
+        exit 1;
+    }
+    if ($opt_verbose) { print "Scanning for tests directories under '$abs_ft' due to --findtests ...\n"; }
+    my @found_tests_dirs;
+    my @stack = ($abs_ft);
+    while (@stack) {
+        my $dir = pop @stack;
+        if (-d $dir) {
+            my @subdirs;
+            opendir(my $dh, $dir) or die "Cannot open directory $dir: $!";
+            while (my $subdir = readdir($dh)) {
+                next if $subdir eq '.' || $subdir eq '..';
+                my $subdir_path = "$dir/$subdir";
+                if (-d $subdir_path) {
+                    push @stack, $subdir_path;
+                    push @subdirs, $subdir_path;
+                }
+            }
+            closedir($dh);
+            my $all_subdirs_have_run_file = scalar(@subdirs) > 0; # must have at least 1 test subdir
+            foreach my $subdir (@subdirs) {
+                my $run_file = "$subdir/run";
+                if (!-e $run_file || !-x $run_file) {
+                    $all_subdirs_have_run_file = 0;
+                    last;
+                }
+            }
+            if ($all_subdirs_have_run_file) {
+                push @found_tests_dirs, $dir; # for verbose printing only
+                push @opt_testsdir, $dir;     # apply it (emulate -t <dir>)
+            }
+        }
+    }
+    if ($opt_verbose) {
+        print "Found " . scalar(@found_tests_dirs) . " tests dirs";
+        if (scalar(@found_tests_dirs) == 0) {
+            print ".\n";
+        } else {
+            print ": ";
+            foreach my $dir (@found_tests_dirs) { print "$dir "; }
+            print "\n";
+        }
+    }
 }
 
 if (! @opt_testsdir) {
