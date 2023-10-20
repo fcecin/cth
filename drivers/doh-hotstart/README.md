@@ -2,9 +2,13 @@
 
 `start` will start one new instance under a new `/local/doh-hotstart/<p2p-port-number>` and return that p2p port value to the caller. It takes the desired DoH target (e.g. 'hg3') as a command-line argument.
 
-`stop` takes as argument the p2p port number of the instance to stop. It does not erase the data directory.
+`stopinstance` takes as argument the p2p port number of the instance to stop (`--port <num>`). It does not erase the data directory.
 
-`clear` takes as argument the p2p port number of the instance to clear. This will call `stop` to ensure the instance is stopped, and then clear its data directory.
+`clearinstance` takes as argument the p2p port number of the instance to clear (`--port <num>`). This will call `stopinstance` to ensure the instance is stopped, and then clear its data directory.
+
+`stop` will stop all instances.
+
+`clear` will clear all instances.
 
 `nuke` will forcibly destroy ALL `doh-hotstart` instances in the system and erase all data in `/local/doh-hotstart/`.
 
