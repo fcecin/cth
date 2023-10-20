@@ -165,6 +165,8 @@ $o = `$cmd`;
 if ($? != 0) {
     print "ERROR: nodeos-tool start returned an error code.\n";
     print "Output: $o\n";
+    do_stop(); # needs this here because if there's a bug in nodeos-tool start that leaves
+               #   the nodeos instance alive, we will make sure it would be terminated here.
     exit 1;
 }
 
@@ -174,6 +176,7 @@ if ($? != 0) {
 
 sub crashed() {
     print "ERROR: coldstart start: crashed while booting the chain (a cleos command failed)\n";
+    do_stop();
     exit 1;
 }
 

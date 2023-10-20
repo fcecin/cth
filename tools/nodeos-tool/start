@@ -169,7 +169,10 @@ print "nodeos-tool: will loop for a while, trying to get nodeos to create a dumm
 $max_tries = 30; # 30 x 0.2s = 6 seconds
 
 while (1) {
-    my $out = cth_cleos_pipe(qq|system newaccount eosio nodeostoolxx EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV --stake-net "1.0000 EOS" --stake-cpu "1.0000 EOS" --buy-ram-kbytes 8 --transfer|);
+    #my $out = cth_cleos_pipe(qq|system newaccount eosio nodeostoolxx EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV --stake-net "1.0000 EOS" --stake-cpu "1.0000 EOS" --buy-ram-kbytes 8 --transfer|);
+    #my $out = cth_cleos_pipe(qq|system delegatebw eosio eosio "1.0000 EOS" "1.0000 EOS"|);
+    #cth_cleos_pipe(qq|get account eosio|);
+    my $out = cth_cleos_pipe(qq|create account eosio nodeostoolxx EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV|);
     if (defined $out) {
         # seems like our nodeos instance is accepting transactions
         print "nodeos-tool start: nodeos seems to have executed a transaction successfully.\n";
