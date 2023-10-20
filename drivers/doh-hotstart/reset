@@ -2,7 +2,7 @@
 
 cd "$(dirname "$0")"
 if ! cd "../../local/doh-hotstart"; then
-  echo "doh-hotstart nuke: cannot change directory to local/doh-hotstart; assuming no running doh-hotstart session to nuke"
+  echo "doh-hotstart reset: cannot change directory to local/doh-hotstart; assuming no running doh-hotstart session to reset"
   exit 0
 fi
 

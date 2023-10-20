@@ -243,6 +243,8 @@ if ($opt_help) {
     print "  --option, -o <k=v>  Pass a '-o \"k=v\"' parameter to all tests/installers\n";
     print "                      (note: switches are preferred over options)\n";
     print "  --reset             Run 'reset' on all drivers (doesn't run tests)\n";
+    print "                      WARNING: 'reset' is forceful and it will likely kill\n";
+    print "                      *ALL* running nodeos processes!\n";
     print "  --run <d> <e> <p>   Call driver <d>'s executable <s> with parameters <p>\n";
     print "                      All --run commands are processed after -c and -i\n";
     print "  --switch, -s <k=v>  Pass a '--k \"v\"' parameter to all tests/installers\n";

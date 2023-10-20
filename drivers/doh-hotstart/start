@@ -415,15 +415,16 @@ $running_nodeos_pid = read_from_file($nodeos_pid_file);
 print "doh-hotstart start: nodeos PID is $running_nodeos_pid ...\n";
 
 # --------------------------------------------------------------------------------------------
-# Check that the nodeos process is actually there
+# Check that the nodeos process is actually there and sync with its warm-up delay
 # --------------------------------------------------------------------------------------------
 
 # To test nodeos process dying quickly
 #`kill -9 $running_nodeos_pid`;
 
 # Sleep a tiny bit before checking if nodeos is alive, helps to diagnose insta-deaths
-#   sooner (instead of cleos connection exception later in the test)
-sleep(0.2);
+#   sooner (instead of cleos connection exception later in the test). This also helps
+#   the cleos get info test below to succeed on first try.
+sleep(1);
 
 if (kill(0, $running_nodeos_pid)) {
     print "doh-hotstart start: It SEEMS that nodeos is started successfully; nodeos log: $abs_this_inst_dir/chain.log\n";
@@ -436,13 +437,9 @@ if (kill(0, $running_nodeos_pid)) {
     exit 1;
 }
 
-# --------------------------------------------------------------------------------------------
-# Since the hotstart strategy starts from an existing chainbase and so is too fast, we need
-#   to loop trying to connect to the HTTP port, to see if nodeos is already up. We don't
-#   want to do some ugly sleep(1) here.
-# If we don't do this, the test will explode the first time it tries to call cleos since
-#   nodeos takes some time to be ready to respond to cleos requests.
-# --------------------------------------------------------------------------------------------
+#
+# The correct way to see if a nodeos has finished booting is to do get_info on it
+#
 
 cth_set_cleos_url("http://127.0.0.1:$http_port_number");
 
@@ -459,17 +456,20 @@ while (1) {
     # did not find it yet, sleep a bit and retry (or give up if too many retries)
     $max_tries--;
     if ($max_tries <= 0) {
-        print "ERROR: doh-hotstart start: nodeos is taking too long to allow cleos get info to go through, assuming it is dead.\n";
+        print "ERROR: doh-hotstart start: nodeos is taking too long to allow cleos get info to go through, assuming it is dead. The chain.log was:\n";
+        print "\n==== chain.log start =====\n";
+        print `cat chain.log`;
+        print "\n==== chain.log end =====\n";
         do_stop();
         exit 1;
     }
     sleep(0.2);
 }
 
-# --------------------------------------------------------------------------------------------
+#
 # Unfortunately, we still need to sleep more, to avoid "expired transaction" errors for
 #   some dumb reason. Looks like nodeos is still warming up at this point.
-# --------------------------------------------------------------------------------------------
+#
 
 print "doh-hotstart start: sleeping for 1s to avoid Expired Transaction errors...\n";
 sleep(1);
