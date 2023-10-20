@@ -92,8 +92,8 @@ if [ "$all" = true ]; then
 
   # Go to the instances root dir
   if ! cd "../../local/doh-hotstart/instances"; then
-    echo "doh-hotstart stop: cannot cd into local/doh-hotstart/instances dir"
-    return
+    echo "doh-hotstart stop: cannot cd into local/doh-hotstart/instances dir. assuming nothing to do."
+    exit 0
   fi
 
   # Loop over the directory names and call stop_and_clear_instance for each
@@ -144,8 +144,8 @@ else
 
   # Go to the instances root dir
   if ! cd "../../local/doh-hotstart/instances"; then
-    echo "doh-hotstart stop: cannot cd into local/doh-hotstart/instances dir"
-    return
+    echo "doh-hotstart stop: cannot cd into local/doh-hotstart/instances dir. assuming nothing to do."
+    exit 0
   fi
 
   stop_and_clear_instance "$port"

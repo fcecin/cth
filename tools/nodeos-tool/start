@@ -168,12 +168,30 @@ print "nodeos-tool: will loop for a while, trying to get nodeos to create a dumm
 
 $max_tries = 30; # 30 x 0.2s = 6 seconds
 
+srand();
+
 while (1) {
     #my $out = cth_cleos_pipe(qq|system newaccount eosio nodeostoolxx EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV --stake-net "1.0000 EOS" --stake-cpu "1.0000 EOS" --buy-ram-kbytes 8 --transfer|);
     #my $out = cth_cleos_pipe(qq|system delegatebw eosio eosio "1.0000 EOS" "1.0000 EOS"|);
     #cth_cleos_pipe(qq|get account eosio|);
-    my $out = cth_cleos_pipe(qq|create account eosio nodeostoolxx EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV|);
-    if (defined $out) {
+
+    # Come up with a random throwaway account name to create, to avoid problems where the
+    #   chainbase we are starting was already started by this script and thus will have
+    #   one or more of those .cth garbage names.
+
+    my @characters = ('a'..'z', 1..5);
+    my $randomname = "";
+    for my $i (1..8) {
+        my $random_char = $characters[int(rand(scalar @characters))];
+        $randomname .= $random_char;
+    }
+    $randomname .= "xcth";
+
+    # one of these will have to succeed
+    my $out1 = cth_cleos_pipe(qq|create account eosio $randomname EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV|);
+    my $out2 = cth_cleos_pipe(qq|system newaccount eosio $randomname EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV --stake-net "1.0000 EOS" --stake-cpu "1.0000 EOS" --buy-ram-kbytes 8 --transfer|);
+
+    if (defined $out1 || defined $out2) {
         # seems like our nodeos instance is accepting transactions
         print "nodeos-tool start: nodeos seems to have executed a transaction successfully.\n";
         last;

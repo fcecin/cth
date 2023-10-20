@@ -52,6 +52,14 @@ my $o;
 #   then change to it.
 # --------------------------------------------------------------------------------------------
 
+# Change into this scripts' directory temporarily (should be drivers/coldstart/) to resolve all other paths
+if (chdir($RealBin)) {
+    if ($verbose) { print "Forced current directory to driver directory: $RealBin\n"; }
+} else {
+    print "ERROR: Failed to change current directory: $!\n";
+    exit 1;
+}
+
 my $abs_working_dir = rel2abs("$RealBin/$working_dir");
 
 # Create the directory and its parent directories
@@ -67,6 +75,7 @@ if (!defined $abs_working_dir) { # never happens
     exit 1;
 }
 
+# go to the script's working directory (local/coldstart/)
 if (chdir($abs_working_dir)) {
     if ($verbose) { print "Forced working directory to driver working location: $abs_working_dir\n"; }
 } else {

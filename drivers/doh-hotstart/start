@@ -42,9 +42,10 @@ my $lock_file = "lock_file";
 # The paths below is relative to the location of this script (which is the driver's directory)
 my $working_dir   = "../../local/doh-hotstart";
 
-# The paths below are relative to the $working_dir which should be the current working dir
-my $template_dir  = "nodeos-template";
-my $instances_dir = "instances";
+# The paths below are relative to the $working_dir
+my $template_dir    = "nodeos-template";
+my $instances_dir   = "instances";
+my $nodeos_tool_dir = "../../tools/nodeos-tool";
 
 # This is relative to the driver's working dir, not the driver dir
 my $cleos_driver_dir = "../../drivers/cleos-driver"; # /drivers/cleos-driver
@@ -57,6 +58,11 @@ my $label; # passed as command-line argument: --label xxx
 
 # This default can be changed by command-line argument --max_instances xxx or by lscpu (see below)
 #my $max_instances = 1;
+
+# when the nodeos instance is up, that's where it will be (ports and directory)
+my $p2p_port_number;
+my $http_port_number;
+my $abs_this_inst_dir;
 
 my $cmd;
 my $o;
@@ -85,11 +91,12 @@ sub test_port {
 #   leave the directory with logs etc. that you can inspect.
 sub do_stop {
     print "doh-hotstart start: stopping driver and wiping it clean ('clear')...\n";
-    my $clear_script = "$RealBin/clear";
+    my $clear_script = "$RealBin/clearinstance";
     if (!-e $clear_script) {
         print "ERROR: can't find $clear_script, nodeos not stopped and/or instance dir not cleared\n";
         exit 1;
     } else {
+        # could use $p2p_port_number here if it is defined, but whatever; --label comes from the invocation
         my $o = `$clear_script  --label $label 2>&1`;
         print "Result: $o\n";
     }
@@ -99,6 +106,21 @@ sub do_stop {
 # The working_dir is relative to the script's directory. Make sure to create it, then find it,
 #   then change to it.
 # --------------------------------------------------------------------------------------------
+
+# Change into this scripts' directory temporarily (should be drivers/doh-hotstart/) to resolve all other paths
+if (chdir($RealBin)) {
+    if ($verbose) { print "Forced current directory to driver directory: $RealBin\n"; }
+} else {
+    print "ERROR: Failed to change current directory: $!\n";
+    exit 1;
+}
+
+# find the absolute location of tools/nodeos-tool and save it for later use
+my $abs_nodeos_tool_dir = abs_path($nodeos_tool_dir);
+if (!defined $abs_nodeos_tool_dir) {
+    print "ERROR: cannot find tools/nodeos-tool at the expected location '$nodeos_tool_dir'.\n";
+    exit 1;
+}
 
 # Compute absolute path to working directory in /local/doh-hotstart
 my $abs_working_dir = rel2abs("$RealBin/$working_dir");
@@ -128,11 +150,11 @@ if (!-d $abs_template_dir) {
     die "ERROR: doh-hotstart start: nodeos template data dir '$abs_template_dir' directory not found. (Was the doh-hotstart driver installed?)";
 }
 
-# Change into the working dir
+# Change into the drivers' working directory (local/doh-hotstart/)
 if (chdir($abs_working_dir)) {
-    if ($verbose) { print "Forced working directory to driver working location: $abs_working_dir\n"; }
+    if ($verbose) { print "Forced current directory to driver working location: $abs_working_dir\n"; }
 } else {
-    print "ERROR: Failed to change working directory: $!\n";
+    print "ERROR: Failed to change current directory: $!\n";
     exit 1;
 }
 
@@ -244,9 +266,6 @@ if ($? != 0) {
 
 my @inst_dirs;
 my $total_inst_dirs;
-my $p2p_port_number;
-my $http_port_number;
-my $abs_this_inst_dir;
 
 my $max_nblock_tries = 10;
 my $nblock_tries = $max_nblock_tries;
@@ -374,7 +393,7 @@ if ($? != 0) {
 
 print "Running tools/nodeos-tool/start to start nodeos from directory '$abs_this_inst_dir' ...\n";
 
-$cmd = "$nodeos_tool_dir/start";
+$cmd = "$abs_nodeos_tool_dir/start";
 $o = `$cmd`;
 if ($? != 0) {
     print "ERROR: nodeos-tool start returned an error code.\n";
