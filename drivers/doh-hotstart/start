@@ -31,7 +31,7 @@ use Time::HiRes qw(sleep);
 use Scalar::Util qw(looks_like_number);
 use File::Path qw(make_path);
 use Socket;
-#use Cwd 'abs_path';
+use Cwd 'abs_path';
 use File::Spec::Functions qw(rel2abs);
 use FindBin '$RealBin';
 
@@ -58,10 +58,6 @@ my $label; # passed as command-line argument: --label xxx
 # This default can be changed by command-line argument --max_instances xxx or by lscpu (see below)
 #my $max_instances = 1;
 
-my $nodeos_pid_file = "nodeos.pid";
-
-my $running_nodeos_pid;
-
 my $cmd;
 my $o;
 
@@ -82,24 +78,13 @@ sub test_port {
     return $ret; # '1'(true) or undef(false)
 }
 
-sub read_from_file {
-    my $file_path = shift;
-    if (!defined $file_path) { die "ERROR: read_from_file: undefined file_path"; }
-    local $/;
-    open my $file_handle, '<', $file_path or die "ERROR: read_from_file: Could not open file '$file_path': $!";
-    my $string = <$file_handle>;
-    close $file_handle;
-    $string =~ s/\R\z//;
-    return $string;
-}
-
 # This actually calls clear
 # This driver (doh-hotstart) allows for the creation of multiple nodeos/chainbases, so when a test fails,
 #   we can't really have the luxury of letting a bunch of directories available for debug.
 # During development of the driver itself, you may want to change this to 'stop' instead of 'clear' to
 #   leave the directory with logs etc. that you can inspect.
 sub do_stop {
-    print "doh-hotstart start: Stopping driver and wiping it clean ('clear')...\n";
+    print "doh-hotstart start: stopping driver and wiping it clean ('clear')...\n";
     my $clear_script = "$RealBin/clear";
     if (!-e $clear_script) {
         print "ERROR: can't find $clear_script, nodeos not stopped and/or instance dir not cleared\n";
@@ -116,39 +101,31 @@ sub do_stop {
 # --------------------------------------------------------------------------------------------
 
 # Compute absolute path to working directory in /local/doh-hotstart
-#my $abs_working_dir = abs_path("$RealBin/$working_dir");
-#if (!defined $abs_working_dir) {
-#    print "ERROR: Malformed abs_working_dir from '$RealBin' + '$working_dir': $!\n";
-#    exit 1;
-#}
 my $abs_working_dir = rel2abs("$RealBin/$working_dir");
 
-# Check that the template dir is there (should have been created by the driver installer)
-#my $abs_template_dir = abs_path("$abs_working_dir/$template_dir");
-#if (!defined $abs_template_dir) {
-#    die "ERROR: doh-hotstart start: cannot compute absolute path to nodeos template data dir '$abs_working_dir/$template_dir'";
-#}
-my $abs_template_dir = rel2abs("$abs_working_dir/$template_dir");
-if (!-d $abs_template_dir) {
-    die "ERROR: doh-hotstart start: nodeos template data dir '$abs_template_dir' directory not found. (Was the doh-hotstart driver installed?)";
-}
-
 # Create the instances subdirectory if it's not there
-#my $abs_instances_dir = abs_path("$abs_working_dir/$instances_dir");
-##if (!defined $abs_instances_dir || (!-d $abs_instances_dir && !make_path($abs_instances_dir))) {
-##    print "ERROR: Failed to create path for abs_instances_dir '$abs_instances_dir': $!\n";
-##    exit 1;
-##}
-## Unfortunately, the above can fail since multiple hotstart start scripts may be running (parallel tests)
-##   and so it fails between !-d and !make_path with a directory already exists error.
-#if (!defined $abs_instances_dir) {
-#    die "ERROR: Failed to calculate absolute path for abs_instances_dir: $!";
-#}
 my $abs_instances_dir = rel2abs("$abs_working_dir/$instances_dir");
-
 system("mkdir -p $abs_instances_dir");
 if ($? != 0 && $? != 17) {  # neither success nor error "already exists"
     die "ERROR: Failed to create path for abs_instances_dir '$abs_instances_dir': $! ($?)";
+}
+
+# rel2abs directories are ugly, so get rid of the ..'s using abs_path (which will succeed now that they exist)
+$abs_working_dir = abs_path($abs_working_dir);
+if (!defined $abs_working_dir) { # never happens
+    print "ERROR: abs_path failed on existing abs_working_dir for some reason.\n";
+    exit 1;
+}
+$abs_instances_dir = abs_path($abs_instances_dir);
+if (!defined $abs_instances_dir) { # never happens
+    print "ERROR: abs_path failed on existing abs_instances_dir for some reason.\n";
+    exit 1;
+}
+
+# Check that the template dir is there (should have been created by the driver installer)
+my $abs_template_dir = rel2abs("$abs_working_dir/$template_dir");
+if (!-d $abs_template_dir) {
+    die "ERROR: doh-hotstart start: nodeos template data dir '$abs_template_dir' directory not found. (Was the doh-hotstart driver installed?)";
 }
 
 # Change into the working dir
@@ -391,88 +368,20 @@ if ($? != 0) {
 }
 
 # --------------------------------------------------------------------------------------------
-# Start nodeos from the chainbase
+# Run nodeos-tool/start to start up nodeos in a child process using the
+#   chainbase/data/config/scripts in the current dir
 # --------------------------------------------------------------------------------------------
 
-$cmd = './start_nodeos.sh';
+print "Running tools/nodeos-tool/start to start nodeos from directory '$abs_this_inst_dir' ...\n";
 
-print "Starting nodeos...\n";
-print "Command: $cmd\n";
-
-$o = `$cmd 2>&1`;
-
+$cmd = "$nodeos_tool_dir/start";
+$o = `$cmd`;
 if ($? != 0) {
-    print "Result: $o\n";
-    print "ERROR: doh-hotstart start: failed to start nodeos (`$cmd` failed).\n";
+    print "ERROR: nodeos-tool start returned an error code.\n";
+    print "Output: $o\n";
     do_stop();
     exit 1;
 }
-
-print "doh-hotstart start: Trying to read nodeos PID from $nodeos_pid_file ...\n";
-
-$running_nodeos_pid = read_from_file($nodeos_pid_file);
-
-print "doh-hotstart start: nodeos PID is $running_nodeos_pid ...\n";
-
-# --------------------------------------------------------------------------------------------
-# Check that the nodeos process is actually there and sync with its warm-up delay
-# --------------------------------------------------------------------------------------------
-
-# To test nodeos process dying quickly
-#`kill -9 $running_nodeos_pid`;
-
-# Sleep a tiny bit before checking if nodeos is alive, helps to diagnose insta-deaths
-#   sooner (instead of cleos connection exception later in the test). This also helps
-#   the cleos get info test below to succeed on first try.
-sleep(1);
-
-if (kill(0, $running_nodeos_pid)) {
-    print "doh-hotstart start: It SEEMS that nodeos is started successfully; nodeos log: $abs_this_inst_dir/chain.log\n";
-} else {
-    print "ERROR: doh-hotstart start: nodeos failed to start, as PID $running_nodeos_pid doesn't seem to be alive. The chain.log was:\n";
-    print "\n==== chain.log start =====\n";
-    print `cat chain.log`;
-    print "\n==== chain.log end =====\n";
-    do_stop();
-    exit 1;
-}
-
-#
-# The correct way to see if a nodeos has finished booting is to do get_info on it
-#
-
-cth_set_cleos_url("http://127.0.0.1:$http_port_number");
-
-my $max_tries = 30;  # 30 x 0.2s = 6 seconds
-
-while (1) {
-    my $out = cth_cleos_pipe("get info");
-    if (defined $out && $out =~ /chain_id/) {
-        # seems like cleos get info is working on our nodeos instance
-        print "doh-hotstart start: nodeos is alive (responded to cleos get info)\n";
-        last;
-    }
-
-    # did not find it yet, sleep a bit and retry (or give up if too many retries)
-    $max_tries--;
-    if ($max_tries <= 0) {
-        print "ERROR: doh-hotstart start: nodeos is taking too long to allow cleos get info to go through, assuming it is dead. The chain.log was:\n";
-        print "\n==== chain.log start =====\n";
-        print `cat chain.log`;
-        print "\n==== chain.log end =====\n";
-        do_stop();
-        exit 1;
-    }
-    sleep(0.2);
-}
-
-#
-# Unfortunately, we still need to sleep more, to avoid "expired transaction" errors for
-#   some dumb reason. Looks like nodeos is still warming up at this point.
-#
-
-print "doh-hotstart start: sleeping for 1s to avoid Expired Transaction errors...\n";
-sleep(1);
 
 # --------------------------------------------------------------------------------------------
 # Done
