@@ -542,6 +542,17 @@ if (@tests) {
     $tests_prefix = length($common);
 }
 
+# utility that returns the shortest name a test can have in this run that would be disambiguated
+#  (not *exactly*, since a test run with 'dir1/test1' and 'dir2/test2' would still return those;
+#   what it gets rid of is the redundant /a/b/c path e.g. /a/b/c/dir1/test1 and /a/b/c/dir2/test2,
+#   even though you could deduce test1 is in dir1 and test2 is in dir2).
+sub shorten_test_name {
+    my $test_name = shift;
+    if (! defined $test_name) { die "FATAL ERROR: cth: shorten_test_name undefined test_name"; }
+    if (length($test_name) >= $tests_prefix) { $test_name = substr($test_name, $tests_prefix); }
+    return $test_name;
+}
+
 # --------------------------------------------------------------------------------------------
 # Check if we are going to --clear all tests and drivers
 # --------------------------------------------------------------------------------------------
@@ -674,11 +685,37 @@ if ($DO_NOT_RUN_TESTS) {
 # Configure environment variables so the tests can find the test libraries under tools/
 # --------------------------------------------------------------------------------------------
 
-# Javascript test support settings.
+my %seen;
+my @dirs_to_process;
+
+# Javascript test support settings (specifically the Node.js javascript interpreter).
 #
-# FIXME/TODO: When we add support for javascript tests, this is where we'd doctor
-#   the environment to help the test script find the tools/ javascript libraries
-#   that help you with cth testing.
+# Add every tool subdirectory to NODE_PATH that has a .js file in it.
+
+my @js_directories;
+@dirs_to_process = ("$root_dir/tools");
+while (my $dir = shift @dirs_to_process) {
+    opendir my $dh, $dir or die "Unable to open directory $dir: $!";
+    my @files = readdir $dh;
+    closedir $dh;
+    foreach my $file (@files) {
+        next if $file eq '.' or $file eq '..';
+        my $path = "$dir/$file";
+        if (-d $path) {
+            push @dirs_to_process, $path;
+        } elsif (-f $path && $file =~ /\.js$/) {
+            my $js_directory = $dir;
+            push @js_directories, $js_directory;
+        }
+    }
+}
+@js_directories = grep { !$seen{$_}++ } @js_directories; # Remove duplicate directories
+if (defined $ENV{NODE_PATH} && $ENV{NODE_PATH} ne '') {
+    $ENV{NODE_PATH} .= ':' . join(':', @js_directories);
+} else {
+    $ENV{NODE_PATH} = join(':', @js_directories);
+}
+if ($opt_verbose) { print "Node.js tests will receive environment variable NODE_PATH: $ENV{NODE_PATH}\n"; }
 
 # Perl test support settings.
 #
@@ -686,7 +723,7 @@ if ($DO_NOT_RUN_TESTS) {
 #   one as well so we can do e.g. "use JSON::Tiny;" instead of "use Tiny;")
 # This is needed because we don't know how deep under tools/ the .pm files are.
 my @pm_directories;
-my @dirs_to_process = ("$root_dir/tools");
+@dirs_to_process = ("$root_dir/tools");
 while (my $dir = shift @dirs_to_process) {
     opendir my $dh, $dir or die "Unable to open directory $dir: $!";
     my @files = readdir $dh;
@@ -703,7 +740,6 @@ while (my $dir = shift @dirs_to_process) {
         }
     }
 }
-my %seen;
 @pm_directories = grep { !$seen{$_}++ } @pm_directories; # Remove duplicate directories
 if (defined $ENV{PERL5LIB} && $ENV{PERL5LIB} ne '') {
     $ENV{PERL5LIB} .= ':' . join(':', @pm_directories);
@@ -719,14 +755,14 @@ if ($opt_verbose) { print "Perl tests will receive environment variable PERL5LIB
 sub print_test_name {
     my $test_name = shift;
     if (! defined $test_name) { die "FATAL ERROR: cth: print_test_name undefined test_name"; }
-    if (length($test_name) >= $tests_prefix) { $test_name = substr($test_name, $tests_prefix); } # less clutter
+    $test_name = shorten_test_name($test_name);
     print "  " . $test_name . " " . ("." x (50 - length($test_name))) . " ";
 }
 
 sub test_result {
     my $test_name = shift;
     if (! defined $test_name) { die "FATAL ERROR: cth: test_result undefined test_name"; }
-    if (length($test_name) >= $tests_prefix) { $test_name = substr($test_name, $tests_prefix); } # less clutter
+    $test_name = shorten_test_name($test_name);
     my $exit_status = shift;
     if (! defined $exit_status) { die "FATAL ERROR: cth: test_result undefined exit_status"; }
     if ($exit_status == 0) {
@@ -759,6 +795,7 @@ sub wait_and_process_test_result {
     }
 }
 
+if ($opt_verbose) { print "\n"; }
 print "Running tests ...\n";
 if ($opt_verbose) { print "The output of each test is saved to the 'run.log' file on each test directory.\n"; }
 print "\n";
@@ -770,8 +807,10 @@ foreach my $test (@tests) {
     # if no test names were passed in, that actually means we run all tests without checking
     #    if they are in the list (which is empty)
     if (scalar(@testspecs) != 0) {
-        if (!grep { $_ eq $test } @testspecs) {
+        my $shortened_test_name = shorten_test_name($test);
+        if (!grep { $_ eq $shortened_test_name } @testspecs) {
             # skip this test if it isn't in the list
+            #if ($opt_verbose) { print "Test '$test' doesn't match the testspecs; skipped.\n"; }
             $name_filter_skip++;
             next;
         }

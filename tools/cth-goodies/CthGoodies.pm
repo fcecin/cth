@@ -112,8 +112,8 @@ sub cth_set_cleos_provider {
 # inputs:
 #   $url : nodeos URL
 #
-# This sub will die if the given url is undefined, otherwise it does
-#   no validation of the given URL string.
+# outputs:
+#   $retval : 0 on success, 1 on error (given url is undefined)
 # -----------------------------------------------------------------------
 
 sub cth_set_cleos_url {
