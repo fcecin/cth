@@ -232,7 +232,10 @@ crashed() if cth_cleos(qq|push action eosio.token create '[ "eosio", "1000000000
 crashed() if cth_cleos(qq|push action eosio.token issue '[ "eosio", "1000000000.0000 EOS", "initial issuance" ]' -p eosio|);
 
 # use curl to do feature activations
-$cmd = qq|curl --request POST --url http://127.0.0.1:8888/v1/producer/schedule_protocol_feature_activations -d '{"protocol_features_to_activate": ["0ec7e080177b2c02b278d5088611686b49d739925a92d9bfcacd7fc6b74053bd"]}' 2>&1|;
+#$cmd = qq|curl --request POST --url http://127.0.0.1:8888/v1/producer/schedule_protocol_feature_activations -d '{"protocol_features_to_activate": ["0ec7e080177b2c02b278d5088611686b49d739925a92d9bfcacd7fc6b74053bd"]}' 2>&1|;
+#
+# use wget instead; curl isn't installed in e.g. Ubuntu by default, whereas wget is pretty much universal
+$cmd = qq|wget --method=POST --body-data='{"protocol_features_to_activate": ["0ec7e080177b2c02b278d5088611686b49d739925a92d9bfcacd7fc6b74053bd"]}' --header="Content-Type: application/json" http://127.0.0.1:8888/v1/producer/schedule_protocol_feature_activations -O - 2>&1|;
 $o = `$cmd`;
 if ($? != 0) {
     print "ERROR: coldstart start: Failed to execute: $cmd\n";
