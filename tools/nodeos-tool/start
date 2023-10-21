@@ -27,6 +27,21 @@ my $cmd;
 my $o;
 my $max_tries;
 
+my $SLEEP_INTERVAL = 1;
+
+# --------------------------------------------------------------------------------------------
+# Sleep a while and print current time
+# --------------------------------------------------------------------------------------------
+
+sub time_sleep() {
+    my $t;
+    $t = `date '+%Y-%m-%d %H:%M:%S.%3N'`;
+    print chomp($t) . ": sleeping for $SLEEP_INTERVAL second(s)...";
+    sleep($SLEEP_INTERVAL);
+    $t = `date '+%Y-%m-%d %H:%M:%S.%3N'`;
+    print chomp($t) . ": sleeping done.";
+}
+
 # --------------------------------------------------------------------------------------------
 # Detect dumb errors beforehand (helps with having clearer error messages) and extract the
 #   P2P and HTTP ports from the config.ini and print them here as a helpful reminder of
@@ -119,7 +134,7 @@ print "nodeos-tool start: read nodeos PID: $running_nodeos_pid\n";
 # Sleep a tiny bit before checking if nodeos is alive, helps to diagnose insta-deaths
 #   sooner (instead of cleos connection exception later in the test). We have to wait
 #   for the get_info and newaccount tests to be successful anyway...
-sleep(0.5);
+time_sleep();
 
 if (kill(0, $running_nodeos_pid)) {
     print "nodeos-tool start: it *seems* that nodeos is started successfully; nodeos log: $working_dir/chain.log\n";
@@ -137,7 +152,7 @@ if (kill(0, $running_nodeos_pid)) {
 
 print "nodeos-tool start: will loop for a while, trying to get nodeos to answer to 'get info' ...)\n";
 
-$max_tries = 30; # 30 x 0.2s = 6 seconds
+$max_tries = 30;
 
 while (1) {
     my $out = cth_cleos_pipe("get info");
@@ -155,7 +170,7 @@ while (1) {
         print "\n==== chain.log end =====\n";
         exit 1;
     }
-    sleep(0.2);
+    time_sleep();
 }
 
 #
@@ -166,7 +181,7 @@ while (1) {
 
 print "nodeos-tool: will loop for a while, trying to get nodeos to create a dummy account (to avoid e.g. 'Expired Transaction' errors) ...\n";
 
-$max_tries = 30; # 30 x 0.2s = 6 seconds
+$max_tries = 30;
 
 srand();
 
@@ -205,7 +220,7 @@ while (1) {
         print "\n==== chain.log end =====\n";
         exit 1;
     }
-    sleep(0.2);
+    time_sleep();
 }
 
 print "nodeos-tool: nodeos started and booted successfully, and is ready for use.\n";
