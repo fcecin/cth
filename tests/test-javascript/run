@@ -15,7 +15,7 @@ process.argv.slice(2).forEach((arg, index) => {
 console.log(`Print arguments end.`);
 
 // Import the DoHTestLib.js library that is somewhere under cth/tools/
-const doh_tester = require('DoHTestLib');
+const doh_tester = require('DoHTestDriver');
 
 // Call the args parser helper
 const switchesStr = 'cleos_url target';

@@ -1,4 +1,12 @@
-// Equivalent JavaScript code for CthGoodies & DoHGoodies Perl modules
+// -----------------------------------------------------------------------
+// DoHTestDriver.js allows a test to start and stop nodeos and use cleos,
+//   and provides other test-harness-related facilities.
+//
+// This is the "low-level" DoH JS test library.
+//
+// This was ported from the DoHGoodies and CthGoodies Perl libraries to
+//   javascript and, at least at that point, they were equivalent.
+// -----------------------------------------------------------------------
 
 const fs = require('fs');
 const path = require('path');

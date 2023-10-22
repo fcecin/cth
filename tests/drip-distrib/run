@@ -157,7 +157,7 @@ crashed() if (!defined $date_string);
 #$expected = 1200;
 $expected = 300;
 
-$actual = qx(TZ=UTC date -d "$date_string" +"%s"); 
+$actual = qx(TZ=UTC date -d "$date_string" +"%s");
 
 failed() if cth_assert("unix timestamp for day_start is $expected", "$expected == $actual");
 
