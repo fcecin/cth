@@ -12,7 +12,7 @@ Object.assign(global, require('DoHTest'));
 // Set up the test
 // --------------------------------------------------------------------------------------------
 
-// required by init()
+// global variables required by init()
 doh_target = "hg3";
 tcn_target = "tc3";
 doh_gm     = "dohplayer1";
@@ -23,9 +23,13 @@ init();
 // Testcase
 // --------------------------------------------------------------------------------------------
 
+let expected;
+let actual;
+
 console.log("TEST: testcase started.\n");
 
 createBasicGame();
+createBasicPlayers();
 
 cth_cleos(`push action main.${tcn_target} adddrip '{"symbol":"4,TCN", "contract":"tokens.${tcn_target}", "buckets":["players.${tcn_target}"], "shares":[10000]}' --force-unique -p main.${tcn_target}\@active`) ? crashed() : null;
 

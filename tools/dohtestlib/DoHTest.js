@@ -117,56 +117,30 @@ function failed() {
 // -----------------------------------------------------------------------
 
 function epochSecsFromDateString(date_string) {
-    // Perl version: qx(TZ=UTC date -d "$date_string" +"%s"); 
+    // Perl version: qx(TZ=UTC date -d "$date_string" +"%s");
     return child_process.execSync(`TZ=UTC date -d "${date_string}" +"%s"`, { encoding: 'utf-8' }).trim();
 }
 
 // -----------------------------------------------------------------------
 // createBasicGame
 //
-// Initializes a very basic DoH world.
+// Defines and initializes a very basic DoH world.
+// It will also set the game master account name (defined by global var
+//   ${doh_gm}).
 //
-// It's a world with two players: dohplayer1 and dohplayer2, three
-//   characters, and two plains tiles.
-//
-// Declares two global variables (helpers):
-//   expected
-//   actual
+// It's a world with two plains tiles.
+// To finish it up call e.g. createBasicPlayers() afterwards.
 // -----------------------------------------------------------------------
 
 function createBasicGame() {
 
     console.log("TEST: createBasicGame(): started.\n");
 
-    // **********************
-    // Creates the player accounts for the test
-    // **********************
-
-    cth_cleos("system newaccount eosio dohplayer1 EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV --stake-cpu '10000.0000 EOS' --stake-net '10000.0000 EOS' --buy-ram-kbytes 1000 --transfer") ? crashed() : null;
-
-    cth_cleos("system newaccount eosio dohplayer2 EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV --stake-cpu '10000.0000 EOS' --stake-net '10000.0000 EOS' --buy-ram-kbytes 1000 --transfer") ? crashed() : null;
-
-    // **********************
-    // this mostly comes from the first part of combat-test.sh
-    // **********************
-
-    let expected;
-    let actual;
-
     cth_cleos(`push action clock.${doh_target} useclock '{}' -p clock.${doh_target}`) ? crashed() : null;
 
     cth_cleos(`push action staking.${tcn_target} init '{ "epoch":"1", "distrib_contracts": [ "energy.${tcn_target}", "rep.${tcn_target}"], "drip_contracts": [ "main.${tcn_target}", "players.${tcn_target}"] }' -p staking.${tcn_target}`) ? crashed() : null;
 
     cth_cleos(`push action clock.${doh_target} sethash '{"hash":"092ba25b75b0ee1ac79c5a1aa1df28a5129cd8d15b878fdb50dc804fda79dbc8"}' --force-unique -p clock.${doh_target}`) ? crashed() : null;
-
-    cth_cleos(`push action dejavu.${doh_target} setplayer '{"p":{"owner":"dohplayer1", "asset_url":"/players/dominion/player-confederacy-01.png", "count":0, "reputation":0, "faction_id":2, "location_tile_id":1}}' -p hegemon.${doh_target}`) ? crashed() : null;
-    cth_cleos(`push action dejavu.${doh_target} setplayer '{"p":{"owner":"dohplayer2", "asset_url":"/players/dominion/player-dominion-02.png", "count":0, "reputation":0, "faction_id":4, "location_tile_id":1}}' -p hegemon.${doh_target}`) ? crashed() : null;
-
-    cth_cleos(`push action names.${doh_target} addcname '{"id":1, "first_name":"Jimmy", "middle_name":"", "last_name":"Page", "asset_url":"/characters/character-jimmy-page-neutral.png", "faction_id":2}' -p names.${doh_target}`) ? crashed() : null;
-    cth_cleos(`push action names.${doh_target} addcname '{"id":2, "first_name":"Robert", "middle_name":"", "last_name":"Plant", "asset_url":"/characters/character-robert-plant-neutral.png", "faction_id":2}' -p names.${doh_target}`) ? crashed() : null;
-    cth_cleos(`push action names.${doh_target} addcname '{"id":3, "first_name":"Jimi", "middle_name":"", "last_name":"Hendrix", "asset_url":"/characters/character-jimi-hendrix-neutral.png", "faction_id":4}' -p names.${doh_target}`) ? crashed() : null;
-
-    cth_cleos(`push action hegemon.${doh_target} setgm '{"player":"${doh_gm}"}' -p hegemon.${doh_target}`) ? crashed() : null;
 
     cth_cleos(`push action hegemon.${doh_target} addfaction '{"id":1, "global_entity_id":52, "name":"Empire", "code":"em", "flag_asset_url":"/factions-flags/flag-empire.jpg"}' -p hegemon.${doh_target}`) ? crashed() : null;
     cth_cleos(`push action hegemon.${doh_target} addfaction '{"id":2, "global_entity_id":53, "name":"Confederacy", "code":"co", "flag_asset_url":"/factions-flags/flag-confederacy.jpg"}' -p hegemon.${doh_target}`) ? crashed() : null;
@@ -186,6 +160,31 @@ function createBasicGame() {
 
     cth_cleos(`push action staking.${tcn_target} enable '{}' -p staking.${tcn_target}`) ? crashed() : null;
 
+    // must set GM before first regplayer
+    cth_cleos(`push action hegemon.${doh_target} setgm '{"player":"${doh_gm}"}' -p hegemon.${doh_target}`) ? crashed() : null;
+
+    console.log("TEST: createBasicGame(): finished OK.\n");
+}
+
+// -----------------------------------------------------------------------
+// createBasicPlayers
+//
+// Registers dohplayer1 and dohplayer2, and three characters.
+// -----------------------------------------------------------------------
+
+function createBasicPlayers() {
+
+    cth_cleos("system newaccount eosio dohplayer1 EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV --stake-cpu '10000.0000 EOS' --stake-net '10000.0000 EOS' --buy-ram-kbytes 1000 --transfer") ? crashed() : null;
+
+    cth_cleos("system newaccount eosio dohplayer2 EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV --stake-cpu '10000.0000 EOS' --stake-net '10000.0000 EOS' --buy-ram-kbytes 1000 --transfer") ? crashed() : null;
+
+    cth_cleos(`push action names.${doh_target} addcname '{"id":1, "first_name":"Jimmy", "middle_name":"", "last_name":"Page", "asset_url":"/characters/character-jimmy-page-neutral.png", "faction_id":2}' -p names.${doh_target}`) ? crashed() : null;
+    cth_cleos(`push action names.${doh_target} addcname '{"id":2, "first_name":"Robert", "middle_name":"", "last_name":"Plant", "asset_url":"/characters/character-robert-plant-neutral.png", "faction_id":2}' -p names.${doh_target}`) ? crashed() : null;
+    cth_cleos(`push action names.${doh_target} addcname '{"id":3, "first_name":"Jimi", "middle_name":"", "last_name":"Hendrix", "asset_url":"/characters/character-jimi-hendrix-neutral.png", "faction_id":4}' -p names.${doh_target}`) ? crashed() : null;
+
+    cth_cleos(`push action dejavu.${doh_target} setplayer '{"p":{"owner":"dohplayer1", "asset_url":"/players/dominion/player-confederacy-01.png", "count":0, "reputation":0, "faction_id":2, "location_tile_id":1}}' -p hegemon.${doh_target}`) ? crashed() : null;
+    cth_cleos(`push action dejavu.${doh_target} setplayer '{"p":{"owner":"dohplayer2", "asset_url":"/players/dominion/player-dominion-02.png", "count":0, "reputation":0, "faction_id":4, "location_tile_id":1}}' -p hegemon.${doh_target}`) ? crashed() : null;
+
     cth_cleos(`push action hegemon.${doh_target} regplayer '{"player":"dohplayer1", "opt_out_of_politics":false}' --force-unique -p dohplayer1`) ? crashed() : null;
 
     cth_cleos(`push action hegemon.${doh_target} regplayer '{"player":"dohplayer2", "opt_out_of_politics":false}' --force-unique -p dohplayer2`) ? crashed() : null;
@@ -195,8 +194,6 @@ function createBasicGame() {
     cth_cleos(`push action hegemon.${doh_target} createchar '{"player":"dohplayer2"}' --force-unique -p dohplayer2`) ? crashed() : null;
 
     cth_cleos(`push action clock.${doh_target} clockaddsec '{"seconds":120}' --force-unique -p clock.${doh_target}`) ? crashed() : null;
-
-    console.log("TEST: createBasicGame(): finished OK.\n");
 }
 
 // -----------------------------------------------------------------------
@@ -214,4 +211,5 @@ module.exports = {
     // Testcase construction
     epochSecsFromDateString,
     createBasicGame,
+    createBasicPlayers,
 };

@@ -12,7 +12,7 @@ Object.assign(global, require('DoHTest'));
 // Set up the test
 // --------------------------------------------------------------------------------------------
 
-// required by init()
+// global variables required by init()
 doh_target = "hg3";
 tcn_target = "tc3";
 doh_gm     = "dohplayer1";
@@ -23,9 +23,13 @@ init();
 // Testcase
 // --------------------------------------------------------------------------------------------
 
+let expected;
+let actual;
+
 console.log("TEST: testcase started.\n");
 
 createBasicGame();
+createBasicPlayers();
 
 cth_cleos(`push action clock.${doh_target} sethash '{"hash":"092ba25b75b0ee1ac79c5a1aa1df28a5129cd8d15b878fdb50dc804fda79dbc8"}' --force-unique -p clock.${doh_target}`) ? crashed() : null;
 

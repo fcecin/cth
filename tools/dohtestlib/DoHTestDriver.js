@@ -205,7 +205,7 @@ function cth_cleos_pipe(args) {
     try {
         const output = child_process.execSync(cmd, { stdio: 'pipe' }).toString();
         console.log(`cth_cleos_pipe: command successful, output:\n${output}`);
-        return output;
+        return output.trim(); // Trimming output should be benign
     } catch (error) {
         console.log(`ERROR: cth_cleos_pipe: command returned a nonzero (error) code: ${error.status}`);
         console.log("cth_cleos_pipe: ----- begin error dump -----");
