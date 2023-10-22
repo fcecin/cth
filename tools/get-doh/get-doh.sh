@@ -15,7 +15,7 @@ if [ -z "$target_dir" ]; then
     echo "Usage:"
     echo "   $0 <target_directory>"
     echo ""
-    echo "<target_directory> is relative to this script's path:"
+    echo "If <target_directory> is relative, it is to this script's path:"
     echo "   $script_dir/"
     echo ""
     echo "If the <target_directory> doesn't exist, then its parent directory must exist."
@@ -28,8 +28,16 @@ if [ -z "$target_dir" ]; then
     exit 1
 fi
 
+# support both relative and absolute target directory
+if [[ "$target_dir" == /* ]]; then
+  # If $target_dir is an absolute path
+  real_target_dir="$(readlink -f "$target_dir")"
+else
+  # If $target_dir is a relative path, convert it to an absolute path using the get-doh.sh script's location as the relative path source
+  real_target_dir="$(readlink -f "$script_dir/$target_dir")"
+fi
+
 # Ensure user is not screwing us by setting the target directory to local/tmp/ or something under it
-real_target_dir="$(readlink -f "$script_dir/$target_dir")"
 forbidden_dir="$(readlink -f "$script_dir/../../local/tmp")"
 if [[ "$real_target_dir" == "$forbidden_dir" || "$real_target_dir" == "$forbidden_dir"/* ]]; then
   echo "ERROR: get-doh: The target directory cannot be within or point to ../../local/tmp or its subdirectories."
@@ -76,6 +84,52 @@ fi
 echo "get-doh: Downloading doh-contracts to $real_tmp_dir"
 git clone https://github.com/CryptoMechanics/doh-contracts "$real_tmp_dir/doh-contracts"  || { echo "ERROR: get-doh: Failed to clone doh-contracts." && exit 1; }
 
+echo "get-doh: Computing DoH repository list ..."
+
+# get list of directories in doh-contracts, so that we can clone them
+cd "$real_tmp_dir/doh-contracts" || { echo "ERROR: get-doh: Failed to change directory." && exit 1; }
+directories=()
+for dir in */; do
+  dir="${dir%/}"
+  if [ -d "$dir/.git" ]; then
+    echo "Found DoH directory with .git subdirectory: $dir"
+    directories+=("$dir")
+  fi
+done
+
+# Directories to check and add if missing (the ones we already know about)
+desired_directories=(
+  "doh-clock-contract"
+  "doh-common-code"
+  "doh-config-files"
+  "doh-crafting-contract"
+  "doh-dejavu-contract"
+  "doh-deployment-script"
+  "doh-distrib-contract"
+  "doh-drip-contract"
+  "doh-hegemon-contract"
+  "doh-logs-contract"
+  "doh-market-contract"
+  "doh-meta-contract"
+  "doh-military-contract"
+  "doh-names-contract"
+  "doh-politics-contract"
+  "doh-readonly-contract"
+  "doh-research-contract"
+  "doh-staking-contract"
+  "doh-unit-tests"
+  "sighandler-contract"
+  "sighandler-token-contract"
+)
+
+# Check and add any missing directories
+for desired_dir in "${desired_directories[@]}"; do
+  if [[ ! " ${directories[@]} " =~ " $desired_dir " ]]; then
+    echo "Adding missing DoH directory: $desired_dir"
+    directories+=("$desired_dir")
+  fi
+done
+
 # Copy files from ../../local/tmp/doh-contracts to the target directory
 echo "get-doh: Copying doh-contracts scripts to $real_target_dir"
 cp -v "$real_tmp_dir"/doh-contracts/* "$real_target_dir"
@@ -84,29 +138,12 @@ cp -v "$real_tmp_dir"/doh-contracts/* "$real_target_dir"
 echo "get-doh: Changing working directory to $real_target_dir"
 cd "$real_target_dir" || { echo "ERROR: get-doh: Failed to change directory." && exit 1; }
 
-# Clone all repositories
+# Clone all repositories in the directories-with-.git found under the doh-contracts clone,
+#   merged with the explicit list we have above
 echo "get-doh: Cloning all DoH repositories to $real_target_dir"
-git clone --recursive https://github.com/CryptoMechanics/doh-clock-contract          || { echo "ERROR: get-doh: Failed to clone DoH repo." && exit 1; }
-git clone --recursive https://github.com/CryptoMechanics/doh-common-code             || { echo "ERROR: get-doh: Failed to clone DoH repo." && exit 1; }
-git clone --recursive https://github.com/CryptoMechanics/doh-config-files            || { echo "ERROR: get-doh: Failed to clone DoH repo." && exit 1; }
-git clone --recursive https://github.com/CryptoMechanics/doh-crafting-contract       || { echo "ERROR: get-doh: Failed to clone DoH repo." && exit 1; }
-git clone --recursive https://github.com/CryptoMechanics/doh-dejavu-contract         || { echo "ERROR: get-doh: Failed to clone DoH repo." && exit 1; }
-git clone --recursive https://github.com/CryptoMechanics/doh-deployment-script       || { echo "ERROR: get-doh: Failed to clone DoH repo." && exit 1; }
-git clone --recursive https://github.com/CryptoMechanics/doh-distrib-contract        || { echo "ERROR: get-doh: Failed to clone DoH repo." && exit 1; }
-git clone --recursive https://github.com/CryptoMechanics/doh-drip-contract           || { echo "ERROR: get-doh: Failed to clone DoH repo." && exit 1; }
-git clone --recursive https://github.com/CryptoMechanics/doh-hegemon-contract        || { echo "ERROR: get-doh: Failed to clone DoH repo." && exit 1; }
-git clone --recursive https://github.com/CryptoMechanics/doh-logs-contract           || { echo "ERROR: get-doh: Failed to clone DoH repo." && exit 1; }
-git clone --recursive https://github.com/CryptoMechanics/doh-market-contract         || { echo "ERROR: get-doh: Failed to clone DoH repo." && exit 1; }
-git clone --recursive https://github.com/CryptoMechanics/doh-meta-contract           || { echo "ERROR: get-doh: Failed to clone DoH repo." && exit 1; }
-git clone --recursive https://github.com/CryptoMechanics/doh-military-contract       || { echo "ERROR: get-doh: Failed to clone DoH repo." && exit 1; }
-git clone --recursive https://github.com/CryptoMechanics/doh-names-contract          || { echo "ERROR: get-doh: Failed to clone DoH repo." && exit 1; }
-git clone --recursive https://github.com/CryptoMechanics/doh-politics-contract       || { echo "ERROR: get-doh: Failed to clone DoH repo." && exit 1; }
-git clone --recursive https://github.com/CryptoMechanics/doh-readonly-contract       || { echo "ERROR: get-doh: Failed to clone DoH repo." && exit 1; }
-git clone --recursive https://github.com/CryptoMechanics/doh-research-contract       || { echo "ERROR: get-doh: Failed to clone DoH repo." && exit 1; }
-git clone --recursive https://github.com/CryptoMechanics/doh-staking-contract        || { echo "ERROR: get-doh: Failed to clone DoH repo." && exit 1; }
-git clone --recursive https://github.com/CryptoMechanics/doh-unit-tests              || { echo "ERROR: get-doh: Failed to clone DoH repo." && exit 1; }
-git clone --recursive https://github.com/CryptoMechanics/sighandler-contract         || { echo "ERROR: get-doh: Failed to clone DoH repo." && exit 1; }
-git clone --recursive https://github.com/CryptoMechanics/sighandler-token-contract   || { echo "ERROR: get-doh: Failed to clone DoH repo." && exit 1; }
+for dir in "${directories[@]}"; do
+  echo "Cloning https://github.com/CryptoMechanics/$dir ...";
+  git clone --recursive "https://github.com/CryptoMechanics/$dir" || { echo "ERROR: get-doh: Failed to clone DoH repo $dir." && exit 1; }
+done
 
 echo "get-doh: Success. Full DoH source code tree is assembled under $real_target_dir"
-
