@@ -7,9 +7,17 @@
 //   misc utility functions for writing tests like crashed/failed.
 // -----------------------------------------------------------------------
 
+const fs = require('fs');
 const child_process = require('child_process');
 
 const dohTestDriver = require('DoHTestDriver');
+
+// -----------------------------------------------------------------------
+// State
+// -----------------------------------------------------------------------
+
+// map of DoH error code to DoH error message
+const dohErrorMap = new Map();
 
 // -----------------------------------------------------------------------
 // Management functions
@@ -49,6 +57,26 @@ function init() {
         console.log("ERROR: TEST: init(): doh_hotstart_start() failed code: " + instance_port);
         process.exit(1);
     }
+
+    // Finally, try to find and parse the error codes for getError().
+    const actualtarget = dohTestDriver.doh_get_target_from_suffix(doh_target);
+    const errfile = dohTestDriver.cth_get_root_dir() + "/local/" + actualtarget + "/doh-contracts/doh-common-code/error_codes.hpp";
+    if (! fs.existsSync(errfile)) {
+        console.log(`WARNING: TEST: init(): cannot find DoH error codes file '${errfile}'. Error code translation is not available.`);
+    } else {
+        const headerContent = fs.readFileSync(errfile, 'utf8');
+        const regex = /codes\.push_back\(std::make_pair\((\d+), "([^"]+)"\)\);/g;
+        let match;
+        let count = 0;
+        while ((match = regex.exec(headerContent)) !== null) {
+            const errorCode = parseInt(match[1], 10);
+            const errorMessage = match[2];
+            dohErrorMap.set(errorCode, errorMessage);
+            count++;
+        }
+        console.log(`TEST: init(): parsed ${count} DoH error codes from '${errfile}'.`);
+    }
+
     console.log("TEST: init(): OK");
 }
 
@@ -101,12 +129,7 @@ function failed() {
 }
 
 // -----------------------------------------------------------------------
-// DoH high-level testcase logic functions
-//
-// All of these functions expect the following global variables to be set:
-//   doh_target: hegemon contracts suffix, e.g. "hg3"
-//   tcn_target: token contracts suffix, e.g. "tc3"
-//   doh_gm: game master account for hegemon::setgm()
+// Utility functions
 // -----------------------------------------------------------------------
 
 // -----------------------------------------------------------------------
@@ -133,6 +156,30 @@ function epochSecsFromDateString(date_string) {
     // Perl version: qx(TZ=UTC date -d "$date_string" +"%s");
     return child_process.execSync(`TZ=UTC date -d "${date_string}" +"%s"`, { encoding: 'utf-8' }).trim();
 }
+
+// -----------------------------------------------------------------------
+// getError
+//
+// given an error code (e.g. "10143") return the DoH error message.
+// -----------------------------------------------------------------------
+
+function getError(errcode) {
+    const m = dohErrorMap.get(errcode);
+    if (m) {
+        return m;
+    } else {
+        return `ERROR: getError(): DoH error code ${errcode} not found.`;
+    }
+}
+
+// -----------------------------------------------------------------------
+// DoH high-level testcase logic functions
+//
+// All of these functions expect the following global variables to be set:
+//   doh_target: hegemon contracts suffix, e.g. "hg3"
+//   tcn_target: token contracts suffix, e.g. "tc3"
+//   doh_gm: game master account for hegemon::setgm()
+// -----------------------------------------------------------------------
 
 // -----------------------------------------------------------------------
 // createBasicGame
@@ -221,9 +268,12 @@ module.exports = {
     crashed,
     failed,
 
-    // Testcase construction
+    // Utility functions
     check,
     epochSecsFromDateString,
+    getError,
+
+    // Testcase building blocks
     createBasicGame,
     createBasicPlayers,
 };

@@ -286,6 +286,60 @@ sub doh_extract_tcn_amount {
 }
 
 # -----------------------------------------------------------------------
+# doh_get_suffix_from_target
+#
+# Convert e.g. 'prod' to 'hgm'.
+#
+# inputs:
+#   $target : e.g. "staging"
+#
+# output:
+#   $suffix : e.g. "hg1"; crashes if input is garbage.
+# -----------------------------------------------------------------------
+
+sub doh_get_suffix_from_target {
+    my $target = shift;
+    die("ERROR: doh_get_suffix_from_target(): undefined target") unless defined $target;
+    my $suffix;
+    if ($target eq "prod")       { $suffix = "hgm"; }
+    elsif ($target eq "staging") { $suffix = "hg1"; }
+    elsif ($target eq "dev")     { $suffix = "hg2"; }
+    elsif ($target eq "test")    { $suffix = "hg3"; }
+    elsif ($target eq "debug")   { $suffix = "hg4"; }
+    else {
+        die("ERROR: doh_get_suffix_from_target(): unknown target '$target'\n");
+    }
+    return $suffix;
+}
+
+# -----------------------------------------------------------------------
+# doh_get_target_from_suffix
+#
+# Convert e.g. 'hgm' to 'prod'.
+#
+# inputs:
+#   $suffix : e.g. "hg3"
+#
+# output:
+#   $target : e.g. "test"; crashes if input is garbage.
+# -----------------------------------------------------------------------
+
+sub doh_get_target_from_suffix {
+    my $suffix = shift;
+    die("ERROR: doh_get_target_from_suffix(): undefined suffix") unless defined $suffix;
+    my $target;
+    if ($suffix eq "hgm")    { $target = "prod"; }
+    elsif ($suffix eq "hg1") { $target = "staging"; }
+    elsif ($suffix eq "hg2") { $target = "dev"; }
+    elsif ($suffix eq "hg3") { $target = "test"; }
+    elsif ($suffix eq "hg4") { $target = "debug"; }
+    else {
+        die("ERROR: doh_get_target_from_suffix(): unknown suffix '$suffix'\n");
+    }
+    return $target;
+}
+
+# -----------------------------------------------------------------------
 # End of library.
 # -----------------------------------------------------------------------
 

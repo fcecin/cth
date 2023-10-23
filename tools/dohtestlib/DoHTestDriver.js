@@ -161,7 +161,7 @@ function cth_cleos(args) {
         console.log("cth_cleos: ------ end error dump ------");
         if (error.status == 0)
             return -1;
-        else 
+        else
             return error.status;
     }
 }
@@ -710,6 +710,66 @@ function doh_extract_tcn_amount(amount_str) {
 }
 
 // -----------------------------------------------------------------------
+// doh_get_suffix_from_target
+//
+// Convert e.g. 'prod' to 'hgm'.
+//
+// inputs:
+//   $target : e.g. "staging"
+//
+// output:
+//   $suffix : e.g. "hg1"; crashes if input is garbage.
+// -----------------------------------------------------------------------
+
+function doh_get_suffix_from_target(target) {
+    if (target === undefined) {
+        console.log(`ERROR: doh_get_suffix_from_target(): undefined target`);
+        process.exit(1);
+    }
+    let suffix;
+    if (target === "prod")    suffix = "hgm"; else
+    if (target === "staging") suffix = "hg1"; else
+    if (target === "dev")     suffix = "hg2"; else
+    if (target === "test")    suffix = "hg3"; else
+    if (target === "debug")   suffix = "hg4"; else
+    {
+        console.log(`ERROR: doh_get_suffix_from_target(): unknown target '${target}'`);
+        process.exit(1);
+    }
+    return suffix;
+}
+
+// -----------------------------------------------------------------------
+// doh_get_target_from_suffix
+//
+// Convert e.g. 'hgm' to 'prod'.
+//
+// inputs:
+//   $suffix : e.g. "hg3"
+//
+// output:
+//   $target : e.g. "test"; crashes if input is garbage.
+// -----------------------------------------------------------------------
+
+function doh_get_target_from_suffix(suffix) {
+    if (suffix === undefined) {
+        console.log(`ERROR: doh_get_target_from_suffix(): undefined suffix`);
+        process.exit(1);
+    }
+    let target;
+    if (suffix === "hgm") target = "prod";    else
+    if (suffix === "hg1") target = "staging"; else
+    if (suffix === "hg2") target = "dev";     else
+    if (suffix === "hg3") target = "test";    else
+    if (suffix === "hg4") target = "debug";   else
+    {
+        console.log(`ERROR: doh_get_target_from_suffix(): unknown suffix '${suffix}'`);
+        process.exit(1);
+    }
+    return target;
+}
+
+// -----------------------------------------------------------------------
 // End of library.
 // -----------------------------------------------------------------------
 
@@ -731,4 +791,6 @@ module.exports = {
     doh_get_tcn_target,
     doh_get_constants,
     doh_extract_tcn_amount,
+    doh_get_suffix_from_target,
+    doh_get_target_from_suffix,
 };
