@@ -543,7 +543,7 @@ for (my $pid = 6; $pid <= $doh_max_players - 1; $pid++) {
 
     my $bal_tcn = $balances[$doh_max_players - 1];
     
-    failed() if cth_assert("last player $doh_max_players TCN $bal_tcn is greater or equal than reference $expected_tcn", "$bal_tcn >= $expected_tcn"); 
+    failed() if cth_assert("last player $doh_max_players TCN $bal_tcn is greater or equal than reference $expected_tcn", "$bal_tcn >= $expected_tcn");
 }
 
 # --------------------------------------------------------------------------------------------

@@ -110,6 +110,19 @@ function failed() {
 // -----------------------------------------------------------------------
 
 // -----------------------------------------------------------------------
+// check
+//
+// crashes the test if value is undefined, logging varname.
+// -----------------------------------------------------------------------
+
+function check(varname, value) {
+    if (value === undefined) {
+        console.log(`ERROR: TEST: checkDefined(): "${varname}" is undefined.\n`);
+        crashed();
+    }
+}
+
+// -----------------------------------------------------------------------
 // epochSecsFromDateString
 //
 // return seconds from epoch given a typical date string fetched from
@@ -209,6 +222,7 @@ module.exports = {
     failed,
 
     // Testcase construction
+    check,
     epochSecsFromDateString,
     createBasicGame,
     createBasicPlayers,

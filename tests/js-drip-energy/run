@@ -61,15 +61,15 @@ console.log("TEST: testcase started.\n");
 function run_endday_and_test(day_number, work_was_done) {
     console.log("Starting run_endday_and_test()");
 
-    if (day_number === undefined) crashed();
-    if (work_was_done === undefined) crashed();
+    check("day_number", day_number);
+    check("work_was_done", work_was_done);
 
     console.log(`Ending day ${day_number}; work done today? = ${work_was_done}`);
 
     cth_cleos(`push action clock.${doh_target} clockaddsec '{"seconds":${ONE_DAY}}' --force-unique -p clock.${doh_target}`) ? crashed() : null;
 
     const text_blob = cth_cleos_pipe(`push action hegemon.${doh_target} endday '{}' --force-unique -p hegemon.${doh_target}`);
-    text_blob === undefined ? crashed() : null;
+    check("text_blob", text_blob);
 
     if (work_was_done) {
         let daily_inflation;
@@ -114,7 +114,7 @@ function run_endday_and_test(day_number, work_was_done) {
     console.log(`Checking that we indeed ended day ${day_number} ...`);
 
     const date_string = cth_cleos_pipe(`get table hegemon.${doh_target} hegemon.${doh_target} global | jq .rows[0].day_stats.day_start | tr -d '"'`);
-    date_string === undefined ? crashed() : null;
+    check("date_string", date_string);
 
     const expected = ONE_DAY * day_number;
     const actual = epochSecsFromDateString(date_string);
@@ -127,7 +127,7 @@ function run_endday_and_test(day_number, work_was_done) {
 function do_player_work(day_number) {
     console.log("Starting do_player_work()");
 
-    day_number === undefined ? crashed() : null;
+    check("day_number", day_number);
 
     console.log(`Players are doing 'random' work with their characters in day ${day_number}.`);
 
@@ -154,19 +154,15 @@ function do_player_work(day_number) {
         const player_name = players[pid - 1];
 
         const num = cth_cleos_pipe(`get table energy.${tcn_target} energy.${tcn_target} users -L${player_name} -U${player_name} | jq .rows[0].numerator | tr -d '"'`);
-        num === undefined ? crashed() : null;
+        check("num", num);
 
         let work_cycles = ((pid - 1) % 5) + 1;
         if (pid === 1 && day_number === 1)
             work_cycles++; // extra work on the first day to account for the work cost benchmark done with dohplayer.aa
 
         const expected = work_cycles * energy_cost_work; // energy_cost_work should be 30 if nothing changed, and the numerator is directly a sum of spent energy working
-
-        console.log(`Expecting ${work_cycles} * ${energy_cost_work} == ${expected} ; (actual: ${num})`);
-
-        expected != num ? failed() : null;
+        cth_assert(`Expecting ${work_cycles} * ${energy_cost_work} == ${expected}`, `${expected} == ${num}`) ? failed() : null;
     }
-
     console.log("Finished do_player_work()");
 }
 
@@ -183,7 +179,7 @@ function do_player_work(day_number) {
 
 // **********************
 // Create the basic world
-// (also declares GM from doh_gm globalvar) 
+// (also declares GM from doh_gm globalvar)
 // **********************
 
 createBasicGame();
@@ -245,7 +241,7 @@ total_work++;
 // **********************
 
 console.log("Fetching cost of gameplay action (e.g. work action)...");
-doh.GAMEPLAY_ENERGY_COST === undefined ? crashed() : null;
+check("doh.GAMEPLAY_ENERGY_COST", doh.GAMEPLAY_ENERGY_COST);
 energy_cost_work = doh.GAMEPLAY_ENERGY_COST;
 console.log(`Energy cost of work is: ${energy_cost_work}`);
 
@@ -269,17 +265,10 @@ do_player_work(1);
 // -----------------------------------------------------------------------------------------
 
 dist = cth_cleos_pipe(`get table energy.${tcn_target} energy.${tcn_target} distribs`);
-dist === undefined ? crashed() : null;
+check("dist", dist);
 
 console.log("Distribs at the end of the first day looks like this:");
 console.log(dist);
-
-// Function to check if a value is undefined and call crashed() if it is
-function checkUndefined(value) {
-    if (value === undefined) {
-        crashed();
-    }
-}
 
 // -----------------------------------------------------------------------------------------
 // Advance clock for the first time (the day the characters are alive and did work)
@@ -294,7 +283,7 @@ run_endday_and_test(1, 1);
 
 console.log("Check the distribution object again at the beginning of the second day");
 dist = cth_cleos_pipe(`get table energy.${tcn_target} energy.${tcn_target} distribs`);
-checkUndefined(dist);
+check("dist", dist);
 console.log("Distribs at the beginning of the second day looks like this:");
 console.log(dist);
 
@@ -313,7 +302,7 @@ do_player_work(2);
 
 console.log("Check the distribution object at the end of the second day");
 dist = cth_cleos_pipe(`get table energy.${tcn_target} energy.${tcn_target} distribs`);
-checkUndefined(dist);
+check("dist", dist);
 console.log("Distribs at the end of the second day looks like this:");
 console.log(dist);
 
@@ -331,7 +320,7 @@ run_endday_and_test(2, 1);
 
 console.log("Check the distribution table at the beginning of the third day");
 dist = cth_cleos_pipe(`get table energy.${tcn_target} energy.${tcn_target} distribs`);
-checkUndefined(dist);
+check("dist", dist);
 console.log("Distribs at the beginning of the third day looks like this:");
 console.log(dist);
 
@@ -348,7 +337,7 @@ run_endday_and_test(3, 0);
 
 console.log("No work done on day 3. Distribs at the beginning of the fourth day looks like this:");
 dist = cth_cleos_pipe(`get table energy.${tcn_target} energy.${tcn_target} distribs`);
-checkUndefined(dist);
+check("dist", dist);
 console.log("Distribs at the beginning of the fourth day looks like this:");
 console.log(dist);
 
@@ -364,9 +353,7 @@ console.log("We will do all claims for distribution id == 1 now (except for the 
 for (let pid = 1; pid <= doh_max_players - 1; pid++) {
     let player_name = players[pid - 1];
     console.log(`Player ${pid} ('${player_name}') will now claim their TCN.`);
-    if (cth_cleos(`push action energy.${tcn_target} claim '["${player_name}"]' -p ${player_name}`)) {
-        crashed();
-    }
+    cth_cleos(`push action energy.${tcn_target} claim '["${player_name}"]' -p ${player_name}`) ? crashed() : null;
 }
 
 // -----------------------------------------------------------------------------------------
@@ -375,7 +362,7 @@ for (let pid = 1; pid <= doh_max_players - 1; pid++) {
 
 console.log("Check the distribution table at the beginning of the third day");
 dist = cth_cleos_pipe(`get table energy.${tcn_target} energy.${tcn_target} distribs`);
-checkUndefined(dist);
+check("dist", dist);
 console.log("Distribs at the beginning of the third day, after all claims made EXCEPT FOR THE LAST PLAYER, looks like this:");
 console.log(dist);
 
@@ -387,24 +374,19 @@ console.log(dist);
 
 console.log("Checking that the distribution has the pending claim of the last player...");
 
-// Get the second row of the distribs table
+
+// check that the second row of the distribs table is distribution id==1 (i.e. not gc'd yet)
 let row2id = cth_cleos_pipe(`get table energy.${tcn_target} energy.${tcn_target} distribs | jq .rows[1].id`);
-checkUndefined(row2id);
-if (row2id !== "1") {
-    crashed();
-}
+check("row2id", row2id);
+cth_assert(`id of second distribution returned is 1 (it was not completed and thus not gc'd yet)`, `${row2id} == 1`) ? failed() : null;
 
 // Get the distribution amount for distribution id == 1
 let todistrib = cth_cleos_pipe(`get table energy.${tcn_target} energy.${tcn_target} distribs | jq .rows[1].to_distribute`);
-checkUndefined(todistrib);
+check("todistrib", todistrib);
 todistrib = doh_extract_tcn_amount(todistrib);
-if (todistrib < 0) {
-    crashed();
-}
+todistrib < 0 ? crashed() : null;
 console.log(`To distribute: ${todistrib}`);
-if (todistrib <= 0) {
-    crashed();
-}
+cth_assert(`To distribute is greater than zero`, `${todistrib} > 0`) ? failed() : null;
 
 // -----------------------------------------------------------------------------------------
 // Execute last claim and verify that distribution id == 1 is gone (gc'd)
@@ -413,15 +395,18 @@ if (todistrib <= 0) {
 let pid = doh_max_players;
 let player_name = players[pid - 1];
 console.log(`Player ${pid} ('${player_name}') will now claim their TCN (LAST PLAYER!).`);
-if (cth_cleos(`push action energy.${tcn_target} claim '["${player_name}"]' -p ${player_name}`)) {
-    crashed();
-}
+cth_cleos(`push action energy.${tcn_target} claim '["${player_name}"]' -p ${player_name}`) ? crashed() : null;
 
 console.log("Check the distribution table after all claims made.");
 dist = cth_cleos_pipe(`get table energy.${tcn_target} energy.${tcn_target} distribs`);
-checkUndefined(dist);
+check("dist", dist);
 console.log("Distribs at the beginning of the third day, after ALL claims made (INCLUDING LAST PLAYER), looks like this:");
 console.log(dist);
+
+//get the id at the second row
+row2id = cth_cleos_pipe(`get table energy.${tcn_target} energy.${tcn_target} distribs | jq .rows[1].id`);
+check("row2id", row2id); //has to be defined, since that will be id==2 (the distribution that is pipelined for distribution the *next* day)
+cth_assert(`id of second distribution returned is not 1 (it was completed and gc'd)`, `${row2id} != 1`) ? failed() : null;
 
 // -----------------------------------------------------------------------------------------
 // Check that the TCN balance between all players is proportional to their work on the
@@ -432,11 +417,18 @@ let balances = [];
 
 for (let pid = 1; pid <= doh_max_players; pid++) {
     let player_name = players[pid - 1];
-    let bal = cth_cleos_pipe(`get table tokens.${tcn_target} ${player_name} accounts | jq .rows[0].balance | tr -d '"'*`);
+    let bal = cth_cleos_pipe(`get table tokens.${tcn_target} ${player_name} accounts | jq .rows[0].balance | tr -d '"'`);
     console.log(`Player ${pid} ('${player_name}') balance: ${bal}`);
     bal = doh_extract_tcn_amount(bal);
     balances.push(bal);
 }
+
+// check that the TCN amount is the same as the reference value (extracted from one range of players that
+//   worked 1 to 5 times) -- except for the last player, which swipes the fund and has to test for >= instead of ==
+
+// NOT the case; day 1 work is lost; it's day 2 work that counts
+// player 1 is a garbage amount (must be same as 2)
+//cth_assert(`player 1 worked the same as player 2`, `${balances[0]} == ${balances[1]}`) ? failed() : null;
 
 // Get reference values from players 1-5
 let ref_bals = [];
@@ -450,19 +442,14 @@ for (let pid = 6; pid <= doh_max_players - 1; pid++) {
     let times_worked = ref_bal_idx + 1;
     let expected_tcn = ref_bals[ref_bal_idx];
     let bal_tcn = balances[pid - 1];
-    if (bal_tcn !== expected_tcn) {
-        failed();
-    }
+    cth_assert(`player ${pid} worked ${times_worked} times, so TCN ${bal_tcn} is expected to be equal to ${expected_tcn}`, `${bal_tcn} == ${expected_tcn}`) ? failed() : null;
 }
 
 // Check last player is greater or equal to the expected reference
 let ref_bal_idx = (doh_max_players - 1) % 5;
 let expected_tcn = ref_bals[ref_bal_idx];
 let bal_tcn = balances[doh_max_players - 1];
-if (bal_tcn < expected_tcn) {
-    failed();
-}
-
+cth_assert(`last player ${doh_max_players} TCN ${bal_tcn} is greater or equal than reference ${expected_tcn}`, `${bal_tcn} >= ${expected_tcn}`) ? failed() : null;
 
 // --------------------------------------------------------------------------------------------
 // Test done

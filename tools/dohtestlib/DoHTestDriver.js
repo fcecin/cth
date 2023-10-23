@@ -244,7 +244,7 @@ function cth_assert(desc, expr, orig) {
         return 1;
     }
     if (expr === undefined) {
-        console.log("ERROR: cth_cleos: expr argument is undefined");
+        console.log("ERROR: cth_assert: expr argument is undefined");
         return 1;
     }
     expr = expr.trim();
@@ -604,7 +604,7 @@ function doh_hotstart_stop(instancePort) {
     const args = "stopinstance --port " + instancePort;
     const [out, ret] = cth_call_driver("doh-hotstart", args);
     if (ret) {
-        console.log("ERROR: doh_hotstart_start: cth_call_driver doh-hotstart '" + args + "' failed");
+        console.log("ERROR: doh_hotstart_stop: cth_call_driver doh-hotstart '" + args + "' failed");
         return -1;
     }
 
@@ -633,7 +633,7 @@ function doh_hotstart_clear(instancePort) {
     const args = "clearinstance --port " + instancePort;
     const [out, ret] = cth_call_driver("doh-hotstart", args);
     if (ret) {
-        console.log("ERROR: doh_hotstart_start: cth_call_driver doh-hotstart '" + args + "' failed");
+        console.log("ERROR: doh_hotstart_clear: cth_call_driver doh-hotstart '" + args + "' failed");
         return -1;
     }
 
@@ -661,7 +661,7 @@ function doh_get_tcn_target(hgm) {
     } else if (/^hg\d$/.test(hgm)) {
         return "tc" + hgm.charAt(hgm.length - 1);
     } else {
-        throw new Error("ERROR: Cannot infer tcn target for doh target: " + hgm);
+        throw new Error("ERROR: doh_get_tcn_target: Cannot infer tcn target for doh target: " + hgm);
     }
 }
 
