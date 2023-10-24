@@ -45,3 +45,78 @@ if ! command -v wget &> /dev/null; then
 else
     echo "wget is already installed."
 fi
+
+echo
+echo "------------------------------------------------------------------------"
+echo "PACKAGE: build-essential"
+echo "  build-essential is needed for compiling and building software."
+echo "------------------------------------------------------------------------"
+echo
+
+echo "Checking for package build-essential ..."
+if ! dpkg -l | grep -q build-essential; then
+    echo "Installing build-essential..."
+    sudo apt-get update
+    sudo apt-get install -y build-essential
+    echo "build-essential is now installed and ready to use."
+else
+    echo "build-essential is already installed."
+fi
+
+echo
+echo "------------------------------------------------------------------------"
+echo "PACKAGE: cmake"
+echo "  cmake is used for building and configuring projects."
+echo "------------------------------------------------------------------------"
+echo
+
+echo "Checking for package cmake ..."
+if ! dpkg -l | grep -q cmake; then
+    echo "Installing cmake..."
+    sudo apt-get update
+    sudo apt-get install -y cmake
+    echo "cmake is now installed and ready to use."
+else
+    echo "cmake is already installed."
+fi
+
+echo
+echo "------------------------------------------------------------------------"
+echo "PACKAGE: git"
+echo "  git is a version control system used for managing source code."
+echo "------------------------------------------------------------------------"
+echo
+
+echo "Checking for package git ..."
+if ! dpkg -l | grep -q git; then
+    echo "Installing git..."
+    sudo apt-get update
+    sudo apt-get install -y git
+    echo "git is now installed and ready to use."
+else
+    echo "git is already installed."
+fi
+
+# Use the `which` command to check if "cdt-cpp" is installed
+if ! which cdt-cpp &> /dev/null; then
+    echo
+    echo "*************************************************************"
+    echo "* WARNING: Antelope CDT doesn't seem to be installed.       *"
+    echo "* This script does not install Antelope CDT.                *"
+    echo "* Make sure to install it in your system.                   *"
+    echo "* Antelope CDT:   https://github.com/AntelopeIO/cdt/        *"
+    echo "*************************************************************"
+    echo
+fi
+
+# Use the `which` command to check if "nodeos" is installed
+if ! which nodeos &> /dev/null; then
+    echo
+    echo "*************************************************************"
+    echo "* WARNING: Antelope Leap doesn't seem to be installed.      *"
+    echo "* This script does not install Antelope Leap.               *"
+    echo "* Make sure to install it in your system.                   *"
+    echo "* Antelope Leap:  https://github.com/AntelopeIO/leap/       *"
+    echo "*************************************************************"
+    echo
+fi
