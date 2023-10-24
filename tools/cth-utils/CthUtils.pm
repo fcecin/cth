@@ -50,7 +50,25 @@ sub absolute {
         if (-d $indir) {
             $dir = abs_path($indir);
         } else {
-            $dir = $indir; # just pass through rel2abs (TODO: could try to eliminate the ".."s textually...)
+            # try to remove the '..'s
+            if ($indir =~ /^\//) { # skip if it doesn't start with '/' for some reason
+                my @components = split /\//, $dir;
+                my @resolved_path;
+                foreach my $component (@components) {
+                    if ($component eq "..") {
+                        if (! @resolved_path) {
+                            $dir = $indir; # indir is a malformed/invalid path string; skip doing anything to it
+                            last;
+                        }
+                        pop @resolved_path;
+                    } elsif ($component ne ".") {
+                        push @resolved_path, $component;
+                    }
+                }
+                if (! defined $dir) {
+                    $dir = "/" . join("/", @resolved_path);
+                }
+            }
         }
     } elsif ($mode == CthUtils::ABSOLUTE_MUST_EXIST) {
         $dir = abs_path($indir);

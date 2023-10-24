@@ -138,7 +138,7 @@ if (defined $options->{'doh'}) {
 #   a submodule. This is done by tools/get-doh/get-doh.sh.
 # ---------------------------------------------------------------------------
 
-print "$driver: Ensuring source directory exists: $source_dir";
+print "$driver: Ensuring source directory exists: $source_dir\n";
 
 $source_dir = absolute($source_dir, CthUtils::ABSOLUTE_MUST_EXIST);
 

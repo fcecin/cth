@@ -45,13 +45,16 @@ my $o;
 
 chdir_for_sure($RealBin);
 
-print "doh-hotstart install: ensuring coldstart_dir exists ('$RealBin/$coldstart_dir') ...\n";
+$coldstart_dir        = absolute($coldstart_dir, CthUtils::ABSOLUTE_MAY_NOT_EXIST);
+print "doh-hotstart install: ensuring coldstart_dir exists ('$coldstart_dir') ...\n";
 $coldstart_dir        = absolute($coldstart_dir, CthUtils::ABSOLUTE_MUST_EXIST);
 
-print "doh-hotstart install: ensuring doh_coldstart_dir exists ('$RealBin/$doh_coldstart_dir') ...\n";
+$doh_coldstart_dir    = absolute($doh_coldstart_dir, CthUtils::ABSOLUTE_MAY_NOT_EXIST);
+print "doh-hotstart install: ensuring doh_coldstart_dir exists ('$doh_coldstart_dir') ...\n";
 $doh_coldstart_dir    = absolute($doh_coldstart_dir, CthUtils::ABSOLUTE_MUST_EXIST);
 
-print "doh-hotstart install: ensuring source_template_dir exists ('$RealBin/$source_template_dir') ...\n";
+$source_template_dir  = absolute($source_template_dir, CthUtils::ABSOLUTE_MAY_NOT_EXIST);
+print "doh-hotstart install: ensuring source_template_dir exists ('$source_template_dir') ...\n";
 $source_template_dir  = absolute($source_template_dir, CthUtils::ABSOLUTE_MUST_EXIST);
 
 # --------------------------------------------------------------------------------------------
