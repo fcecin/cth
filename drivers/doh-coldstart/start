@@ -8,7 +8,7 @@
 # - coldstart: runs nodeos
 # - cleos-driver: has the wallet file and a running keosd  (from /local/cleos-driver/)
 #
-# This will check the configured target (hgm, hg1, hg2, ...)
+# This will check the configured target (test/hg3 is the expected one by default)
 # Then it will load the contracts map
 # Then it will extract the contract names and the contract code to deploy for each
 # Then it will deploy the contracts to the correct accounts with the correct names
@@ -30,24 +30,32 @@ use lib "$RealBin/../../tools/cth-goodies";
 use CthGoodies;
 use lib "$RealBin/../../tools/cth-utils";
 use CthUtils;
+use lib "$RealBin/../../tools/doh-goodies";
+use DoHGoodies;
 
 my $verbose = 0;
 
 my $coldstart_dir    = "../coldstart";
 my $cleos_driver_wallet_dir = "../../local/cleos-driver";
 
-my $cleos = "cleos --wallet-url unix://$cleos_driver_wallet_dir/keosd.sock";
-
-my $target; # passed as command-line argument: --target xxx
+# computed from command-line argument: --target xxx
+my $target;       # prod, staging, dev, test, debug
+my $doh_suffix;   # hgm,  hg1,     hg2, hg3,  hg4
 
 my $cmd;
 my $o;
 
 # --------------------------------------------------------------------------------------------
-# We have to force the working directory to where the driver script is
+# Go to driver dir and resolve some relative paths
 # --------------------------------------------------------------------------------------------
 
 chdir_for_sure($RealBin);
+
+$coldstart_dir = absolute($coldstart_dir, CthUtils::ABSOLUTE_MUST_EXIST);
+
+$cleos_driver_wallet_dir = absolute($cleos_driver_wallet_dir, CthUtils::ABSOLUTE_MUST_EXIST);
+
+my $cleos = "cleos --wallet-url unix://$cleos_driver_wallet_dir/keosd.sock";
 
 # -------------------------------------------------------------------------
 # Utils
@@ -66,11 +74,11 @@ sub load_file {
 sub fail {
     my $msg = shift;
     if (defined $msg) { print $msg; }
-    print "Clearing coldstart ...\n";
+    print "doh-coldstart start: Clearing coldstart ...\n";
     $cmd = "$coldstart_dir/clear";
     $o = `$cmd`;
     if ($? != 0) {
-        print "ERROR: coldstart clear returned an error code.\n";
+        print "ERROR: doh-coldstart start: coldstart clear returned an error code.\n";
         print "Output: $o\n";
     }
     exit 1;
@@ -141,11 +149,8 @@ sub to_json_string_array {
 # We'll use the "target" switch ("start --target=xxx") to allow the caller to configure
 #   this driver session to use a specific target.
 #
-# NOTE: The underlying driver 'coldstart' doesn't care, as it has already compiled only the
-#   targets that it happens to like during its install.
-# If you choose a target here that coldstart hasn't compiled, then this script will blow up
-#   below when it is deploying the DoH contracts, since the wasm/abi files won't be there.
-# As of Oct/23, the only good target is the 'test' target, but the driver doesn't know that.
+# NOTE: if the selected target isn't compiled, this will obviously fail when it tries to
+#   setcontract wasm/abi files.
 # --------------------------------------------------------------------------------------------
 
 print "doh-coldstart start: will now attempt to parse command-line args; single '--target xxx' argument expected with the DoH compilation target.\n";
@@ -153,24 +158,25 @@ print "doh-coldstart start: will now attempt to parse command-line args; single 
 my ($switches, $options) = cth_standard_args_parser("target", "");
 
 if (!exists $switches->{'target'}) {
-    die "ERROR: doh-coldstart start: required '--target xxx' command-line argument not found.";
+    print "ERROR: doh-coldstart start: required '--target xxx' command-line argument not found.\n";
+    exit 1;
 }
 
-if ($switches->{'target'} eq 'hgm' || $switches->{'target'} eq 'prod') {
-    $target = 'hgm';
-} elsif ($switches->{'target'} eq 'hg1' || $switches->{'target'} eq 'staging') {
-    $target = 'hg1';
-} elsif ($switches->{'target'} eq 'hg2' || $switches->{'target'} eq 'dev') {
-    $target = 'hg2';
-} elsif ($switches->{'target'} eq 'hg3' || $switches->{'target'} eq 'test') {
-    $target = 'hg3';
-} elsif ($switches->{'target'} eq 'hg4' || $switches->{'target'} eq 'debug') {
-    $target = 'hg4';
+my $target_switch = $switches->{'target'};
+my $get_suffix = doh_get_suffix_from_target($target_switch);
+my $get_target = doh_get_target_from_suffix($target_switch);
+if (defined $get_suffix && !defined $get_target) {
+    $doh_suffix = $get_suffix;
+    $target     = $target_switch;
+} elsif (defined $get_target && !defined $get_suffix) {
+    $doh_suffix = $target_switch;
+    $target     = $get_target;
 } else {
-    die "ERROR: doh-coldstart start: unknown target: '" . $switches->{'target'} . "'.";
+    print "ERROR: doh_coldstart start: unknown target: '$target_switch'.\n";
+    exit 1;
 }
 
-print "doh-coldstart start: Configured DoH contracts target: $target\n";
+print "doh-coldstart start: Configured DoH contracts target '$target' with DoH suffix '$doh_suffix'.\n";
 
 # -------------------------------------------------------------------------
 # Figure out where the DoH scripts (deployment scripts, contracts map, ...)
@@ -180,43 +186,24 @@ print "doh-coldstart start: Configured DoH contracts target: $target\n";
 #
 # Note that the last path component is ALWAYS "/doh-contracts", even when
 #   the DoH tree comes from somewhere else (i.e. install --doh <dir>).
-#
-# Here we translate the OLD target names (which is what we are using for
-#   contract account suffixes) to the prod, staging, dev target names of
-#   the local/ subdirectories where the specific doh-contracts/ is found.
 # -------------------------------------------------------------------------
 
-my $doh_contracts_dir = "../../local/";
-if ($target eq 'hgm') {
-    $doh_contracts_dir .= "prod";
-} elsif ($target eq 'hg1') {
-    $doh_contracts_dir .= "staging";
-} elsif ($target eq 'hg2') {
-    $doh_contracts_dir .= "dev";
-} elsif ($target eq 'hg3') {
-    $doh_contracts_dir .= "test";
-} elsif ($target eq 'hg4') {
-    $doh_contracts_dir .= "debug";
-} else {
-    die "ERROR: doh-coldstart: does not know where to fetch doh-contracts for target: $target; expected hgm, hg1 or hg2 as configured target names in the driver.\n";
-}
-$doh_contracts_dir .= "/doh-contracts";
+my $doh_contracts_dir = absolute("../../local/$target/doh-contracts", CthUtils::ABSOLUTE_MUST_EXIST);
 
-print "Prepared & compiled DoH code and contracts for deployment will be taken from '$doh_contracts_dir'.\n";
-
-# end result is something like:  "../../local/test/doh-contracts"
+print "doh-coldstart start: Prepared & compiled DoH code and contracts for deployment will be taken from '$doh_contracts_dir'.\n";
 
 # -------------------------------------------------------------------------
 # Load and parse the corresponding contracts map from local doh-contracts/
 #   (fetched by get-doh.sh) in repository doh-deployment-script.
 # -------------------------------------------------------------------------
 
-print "Loading contracts map file for given driver target '$target'...\n";
+print "doh-coldstart start: Loading contracts map file for given driver target '$target' ('$doh_suffix') ...\n";
 
-my $contracts_map = "$doh_contracts_dir/doh-deployment-script/contracts_map.$target.json";
+my $contracts_map = "$doh_contracts_dir/doh-deployment-script/contracts_map.${doh_suffix}.json";
 
 if (! -e $contracts_map) {
-    die "ERROR: Contracts map file cannot be found: $contracts_map\n";
+    print "ERROR: doh-coldstart start: Contracts map file cannot be found: '$contracts_map'\n";
+    exit 1;
 }
 
 my $json = load_file($contracts_map);
@@ -228,22 +215,22 @@ my $data = JSON::Tiny::decode_json($json);
 # Starting coldstart also starts cleos-driver so we don't have to.
 # -------------------------------------------------------------------------
 
-print "Clearing coldstart ...\n";
+print "doh-coldstart start: Clearing coldstart ...\n";
 
 $cmd = "$coldstart_dir/clear";
 $o = `$cmd`;
 if ($? != 0) {
-    print "ERROR: coldstart clear returned an error code.\n";
+    print "ERROR: doh-coldstart start: coldstart clear returned an error code.\n";
     print "Output: $o\n";
     exit 1;
 }
 
-print "Starting coldstart ...\n";
+print "doh-coldstart start: Starting coldstart ...\n";
 
 $cmd = "$coldstart_dir/start";
 $o = `$cmd`;
 if ($? != 0) {
-    print "ERROR: coldstart start returned an error code.\n";
+    print "ERROR: doh-coldstart start: coldstart start returned an error code.\n";
     print "Output: $o\n";
     exit 1;
 }
@@ -254,7 +241,7 @@ if ($? != 0) {
 # Create those accounts with the developer key.
 # -------------------------------------------------------------------------
 
-print "Scanning for accounts that the contracts map assumes already exist, creating them, and assigning them the developer key ...\n";
+print "doh-coldstart start: Scanning for accounts that the contracts map assumes already exist, creating them, and assigning them the developer key ...\n";
 
 my @all_contracts_map_accounts;
 my @all_permission_actor_accounts;
@@ -280,11 +267,11 @@ if (ref($data) eq 'ARRAY') {
                                 push @all_permission_actor_accounts, $actor;
                             }
                         } else {
-                            print "ERROR: contracts map parse error at $account $permission_level (permission_level->accounts->permission[->actor])\n";
+                            print "ERROR: doh-coldstart start: contracts map parse error at $account $permission_level (permission_level->accounts->permission[->actor])\n";
                         }
                     }
                 } else {
-                    print "ERROR: contracts map parse error at $account $permission_level (permission_level[->accounts])\n";
+                    print "ERROR: doh-coldstart start: contracts map parse error at $account $permission_level (permission_level[->accounts])\n";
                 }
             }
         }
@@ -332,7 +319,7 @@ foreach my $superuser (@superusers) {
 # For each doh-deployment-script entry, create accounts and deploy code
 # -------------------------------------------------------------------------
 
-print "Creating accounts and deploying contracts ...\n";
+print "doh-coldstart start: Creating accounts and deploying contracts ...\n";
 
 # Create and deploy from the deployment script
 

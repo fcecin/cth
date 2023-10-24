@@ -30,6 +30,7 @@ use constant {
     ABSOLUTE_MAY_NOT_EXIST => 1,
     ABSOLUTE_MUST_EXIST    => 2, # it seems abs_path still works if entire path exists except last component (not sure)
     ABSOLUTE_ENSURE_CREATE => 3,
+    ABSOLUTE_MUST_RECREATE => 4,
 };
 
 sub absolute {
@@ -43,10 +44,6 @@ sub absolute {
         print "ERROR: absolute: undefined mode\n";
         exit 1;
     }
-    if ($mode != CthUtils::ABSOLUTE_MAY_NOT_EXIST && $mode != CthUtils::ABSOLUTE_MUST_EXIST && $mode != CthUtils::ABSOLUTE_ENSURE_CREATE) {
-        print "ERROR: absolute: invalid mode: $mode\n";
-        exit 1;
-    }
     $indir = rel2abs($indir);
     my $dir;
     if ($mode == CthUtils::ABSOLUTE_MAY_NOT_EXIST) {
@@ -57,7 +54,10 @@ sub absolute {
         }
     } elsif ($mode == CthUtils::ABSOLUTE_MUST_EXIST) {
         $dir = abs_path($indir);
-    } elsif ($mode == CthUtils::ABSOLUTE_ENSURE_CREATE) {
+    } elsif ($mode == CthUtils::ABSOLUTE_ENSURE_CREATE || $mode == CthUtils::ABSOLUTE_MUST_RECREATE) {
+        if ($mode == CthUtils::ABSOLUTE_MUST_RECREATE) {
+            system("rm -rf $indir");
+        }
         if (! -d $indir) {
             system("mkdir -p $indir");
             if ($? != 0 && $? != 17) { # neither success nor error "already exists"
@@ -66,6 +66,9 @@ sub absolute {
             }
         }
         $dir = abs_path($indir); # now that it exists, use abs_path to clean it up
+    } else {
+        print "ERROR: absolute: invalid mode: $mode\n";
+        exit 1;
     }
     if (! defined $dir) {
         print "ERROR: absolute: abs_path failed.\n";
@@ -75,7 +78,7 @@ sub absolute {
 }
 
 # -----------------------------------------------------------------------
-# sure_chdir: chdir with if and prints
+# chdir_for_sure: chdir with if and prints
 # -----------------------------------------------------------------------
 
 sub chdir_for_sure {

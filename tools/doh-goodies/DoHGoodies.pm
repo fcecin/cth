@@ -23,6 +23,8 @@ our @EXPORT = qw(
     doh_get_tcn_target
     doh_get_constants
     doh_extract_tcn_amount
+    doh_get_suffix_from_target
+    doh_get_target_from_suffix
 );
 
 my %doh_constants = (); # doh_hotstart_start() fills it with all DoH readonly constants
@@ -293,7 +295,7 @@ sub doh_extract_tcn_amount {
 #   $target : e.g. "staging"
 #
 # output:
-#   $suffix : e.g. "hg1"; crashes if input is garbage.
+#   $suffix : e.g. "hg1" or undefined if not found.
 # -----------------------------------------------------------------------
 
 sub doh_get_suffix_from_target {
@@ -305,9 +307,6 @@ sub doh_get_suffix_from_target {
     elsif ($target eq "dev")     { $suffix = "hg2"; }
     elsif ($target eq "test")    { $suffix = "hg3"; }
     elsif ($target eq "debug")   { $suffix = "hg4"; }
-    else {
-        die("ERROR: doh_get_suffix_from_target(): unknown target '$target'\n");
-    }
     return $suffix;
 }
 
@@ -320,7 +319,7 @@ sub doh_get_suffix_from_target {
 #   $suffix : e.g. "hg3"
 #
 # output:
-#   $target : e.g. "test"; crashes if input is garbage.
+#   $target : e.g. "test" or undefined if not found.
 # -----------------------------------------------------------------------
 
 sub doh_get_target_from_suffix {
@@ -332,9 +331,6 @@ sub doh_get_target_from_suffix {
     elsif ($suffix eq "hg2") { $target = "dev"; }
     elsif ($suffix eq "hg3") { $target = "test"; }
     elsif ($suffix eq "hg4") { $target = "debug"; }
-    else {
-        die("ERROR: doh_get_target_from_suffix(): unknown suffix '$suffix'\n");
-    }
     return $target;
 }
 

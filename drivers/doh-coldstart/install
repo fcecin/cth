@@ -1,30 +1,40 @@
 #!/usr/bin/perl
 
+# ---------------------------------------------------------------------------
+# doh-coldstart install
+#
+# Downloads and compiles the DoH source code for a given target.
+# ---------------------------------------------------------------------------
+
+$| = 1;
+
 use strict;
 use warnings;
 use Cwd;
 use FindBin qw($RealBin);
+use lib "$RealBin/../../tools/cth-goodies";
+use CthGoodies;
 use lib "$RealBin/../../tools/cth-utils";
 use CthUtils;
-
-$| = 1;  # Turn on auto-flush for STDOUT (Perl doesn't do this by default)
 
 # ---------------------------------------------------------------------------
 # Global vars
 # ---------------------------------------------------------------------------
 
-my $driver = "doh-coldstart";
+my $driver = "doh-coldstart install";
 
-my $source_dir = "../../local/doh-contracts"; # source dir with the template
+# default target is the test target (hg3/tc3)
+my $target = "test";
 
-my $run_build_sh = "run-build.sh";
+# source dir with the template
+my $source_dir = "../../local/doh-contracts";
 
 # build list of local directories for all supported targets
 my @targets = ("prod", "staging", "dev", "test", "debug");
 my %local_dir;
 foreach my $tg (@targets) { $local_dir{$tg} = "../../local/$tg/doh-contracts"; }
 
-my $target = "test"; # default target is the test target (hg3/tc3)
+my $run_build_sh = "run-build.sh";
 
 # ---------------------------------------------------------------------------
 # Utils
@@ -45,25 +55,22 @@ sub chdir_target_dir {
 # target is prod, staging, dev, test, debug
 sub copy_doh {
     my $target = shift;
-    die "ERROR: doh-coldstart: copy target not defined" unless (defined $target);
+    die "ERROR: $driver: copy target not defined" unless (defined $target);
 
-    my $destination = "../../local/$target/";
+    my $destination = absolute("../../local/$target", CthUtils::ABSOLUTE_ENSURE_CREATE);
 
-    my $to_remove = $destination . "doh-contracts";
+    my $to_remove = absolute($destination . "/doh-contracts", CthUtils::ABSOLUTE_MUST_RECREATE);
 
-    if (-d $to_remove) {
-        system("rm -rf $destination") == 0 or die "ERROR: doh-coldstart: Error while trying to clear old local copy of doh_contracts for target $target ('rm -rf $to_remove'): $!";
+    system("cp -r $source_dir $destination");
+    if ($? != 0) {
+        print "ERROR: $driver: Failed to copy $source_dir to $destination: $!";
+        exit 1;
     }
-    system("mkdir -p $destination") == 0 or die "ERROR: doh-coldstart: Failed to create target directory $destination: $!";
-    system("cp -r $source_dir $destination") == 0 or die "ERROR: doh-coldstart: Failed to copy $source_dir to $destination: $!";
 }
 
 # ---------------------------------------------------------------------------
 # First, we need to parse arguments passed to this install script.
 # ---------------------------------------------------------------------------
-
-use lib "$RealBin/../../tools/cth-goodies";
-use CthGoodies;
 
 my ($switches, $options) = cth_standard_args_parser("", "target doh");
 
@@ -73,19 +80,17 @@ my ($switches, $options) = cth_standard_args_parser("", "target doh");
 # ---------------------------------------------------------------------------
 
 if (defined $options->{'target'}) {
-    if ($options->{'target'} eq 'hgm' || $options->{'target'} eq 'prod') {
-        $target = 'prod';
-    } elsif ($options->{'target'} eq 'hg1' || $options->{'target'} eq 'staging') {
-        $target = 'staging';
-    } elsif ($options->{'target'} eq 'hg2' || $options->{'target'} eq 'dev') {
-        $target = 'dev';
-    } elsif ($options->{'target'} eq 'hg3' || $options->{'target'} eq 'test') {
-        $target = 'test';
-    } elsif ($options->{'target'} eq 'hg4' || $options->{'target'} eq 'debug') {
-        $target = 'debug';
+    my $opt = $options->{'target'};
+    if (doh_get_suffix_from_target($opt)) {
+        $target = $opt;
     } else {
-        die "ERROR: doh-hotstart start: unknown target: '" . $options->{'target'} . "'.";
+        $target = doh_get_target_from_suffix($opt);
+        if (! $target) {
+            print "ERROR: $driver: unknown target: '$opt'.\n";
+            exit 1;
+        }
     }
+    print "$driver: target set to '$target' via command-line option\n";
 }
 
 # ---------------------------------------------------------------------------
@@ -103,7 +108,7 @@ chdir_driver_dir();
 #   which should be a fully set-up version of the DoH source code that's
 #   already fully compiled to wasm/abi files, and then copy its contents
 #   to the correct local/doh-coldstart/... directory where this driver
-#   would be instead download the DoH source code and compiling it.
+#   would be otherwise downloading the DoH source code in and compiling it.
 # The given directory must either be an absolute path or a path relative to
 #   this driver's directory.
 # ---------------------------------------------------------------------------
@@ -111,34 +116,20 @@ chdir_driver_dir();
 if (defined $options->{'doh'}) {
 
     my $doh_dir = $options->{'doh'};
-    if (!-d $doh_dir) {
-        print "ERROR: doh-coldstart install: given --doh directory not found (must be absolute or relative to " . getcwd() . "): '$doh_dir': $!\n";
-    }
+
+    print "$driver: Ensuring given --doh directory exists (must be absolute or relative to " . getcwd() . "): '$doh_dir': $!\n";
+
     my $abs_doh_dir = absolute($doh_dir, CthUtils::ABSOLUTE_MUST_EXIST);
 
-    # find the absolute path since we will be printing this and relative paths are confusing
-    my $abs_destination = absolute("../../local/$target", CthUtils::ABSOLUTE_MAY_NOT_EXIST);
+    print "$driver: (Re)creating local/$target/doh-contracts ...\n";
 
-    # doh-contracts is part of it
-    $abs_destination = $abs_destination . "/doh-contracts";
+    my $abs_destination = absolute("../../local/$target/doh-contracts", CthUtils::ABSOLUTE_MUST_RECREATE);
 
-    # clear the target dir if needed
-    if (-d $abs_destination) {
-        print "doh-coldstart install: deleting /local destination directory: '$abs_destination' ...\n";
-        system("rm -rf $abs_destination") == 0 or die "ERROR: doh-coldstart: Error while trying to clear old local copy of doh_contracts for target $target ('rm -rf $abs_destination'): $!";
-    }
+    print "$driver: Copying all files inside given --doh directory '$abs_doh_dir'(/*) into '$abs_destination' ...\n";
 
-    # recreate the destination with an empty doh-contracts (which is expected)
-    print "doh-coldstart install: creating /local destination directory: '$abs_destination' ...\n";
-    system("mkdir -p $abs_destination") == 0 or die "ERROR: doh-coldstart: Failed to create target directory '$abs_destination': $!";
+    system("cp -r $abs_doh_dir/* $abs_destination") == 0 or die "ERROR: $driver: Failed to copy everything inside '$abs_doh_dir' to '$abs_destination': $!";
 
-    # copy the *files* within the given doh_dir into a "doh-contracts" directory
-    print "doh-coldstart install: copying all files inside given --doh directory '$abs_doh_dir'(/*) into '$abs_destination' ...\n";
-    system("cp -r $abs_doh_dir/* $abs_destination") == 0 or die "ERROR: doh-coldstart: Failed to copy everything inside '$abs_doh_dir' to '$abs_destination': $!";
-
-    print "doh-coldstart install: given DoH source/binaries installed successfully.\n";
-
-    # success
+    print "$driver: Given DoH source/binaries installed successfully.\n";
     exit 0;
 }
 
@@ -147,9 +138,13 @@ if (defined $options->{'doh'}) {
 #   a submodule. This is done by tools/get-doh/get-doh.sh.
 # ---------------------------------------------------------------------------
 
+print "$driver: Ensuring source directory exists: $source_dir";
+
+$source_dir = absolute($source_dir, CthUtils::ABSOLUTE_MUST_EXIST);
+
 print "$driver: Downloading latest DoH source code to $source_dir using tools/get-doh.sh\n";
 
-system("../../tools/get-doh/get-doh.sh $source_dir") == 0 or die "ERROR: doh-coldstart: Failed to get DoH source code: $!";
+system("../../tools/get-doh/get-doh.sh $source_dir") == 0 or die "ERROR: $driver: Failed to get DoH source code: $!";
 
 # ---------------------------------------------------------------------------
 # The doh-contracts assembled by get-doh.sh is a CODE TEMPLATE. It is not actual
@@ -180,7 +175,7 @@ print "$driver: Checking for doh-contracts at $source_dir\n";
 if (-e "$source_dir/$run_build_sh") {
     print "$driver: DoH contracts found.\n";
 } else {
-    print "$driver: ERROR: DoH contracts not found in the expected tools directory path.\n";
+    print "ERROR: $driver: DoH contracts not found in the expected tools directory path.\n";
     exit 1;
 }
 
@@ -221,200 +216,77 @@ foreach my $tg (@targets) {
 # ---------------------------------------------------------------------------
 # Compile DoH
 #
-# Currently, the test system compiles only the test target:
-#
-#   local/test/doh-contracts/
+# Compile just $target ('test' (hg3/tc3) is the default)
 # ---------------------------------------------------------------------------
 
-my $ret;
+my $COMPILE_ERROR_FILE = 'COMPILE_ERROR';
 
 print "$driver: ************************************************************************************************\n";
-print "$driver: *** SKIPPING COMPILATION of all DoH targets that are not the test (hg3/tc3) target!!!\n";
-print "$driver: *** Tests that try to run with any target other than the test target will fail.\n";
+print "$driver: *** SKIPPING COMPILATION of all DoH targets that are not the '$target' target!!!\n";
+print "$driver: *** Tests that try to run with any target other than the '$target' target will fail.\n";
 print "$driver: ************************************************************************************************\n";
 
-# *************************************************************************************************************
-# Compile DoH contracts
-# FIXME/TODO: Redo with fork/wait (see cth parallel test execution code)
-# *************************************************************************************************************
+print "$driver: Building DoH for compilation target '$target' ONLY...\n";
 
-my $cpus = `lscpu -b -p=Core,Socket | grep -v '^#' | sort -u | wc -l`;
-chomp($cpus);
-if (!defined $cpus || !($cpus =~ /^\d+$/)) {
-    print "WARNING: Can't retrieve number of cpu cores; will assume only 1 core.\n";
-    $cpus = 1;
-}
+chdir_target_dir($target);
 
-# ***********************
-# FIXME/REMOVE:
-$cpus = 1;  # Getting some weird crashes, so disabling parallel compilation for now
-# ***********************
-
-print "Detected $cpus processors available to build DoH contracts.\n";
-
-if ($target ne 'test') {
-    print "WARNING: doh-colstart install: caller specified '--target $target' but this will be unused/ignored since --doh <dir> was not also used. When doh-coldstart compiles contracts, it always compiles the 'test' target.\n";
-}
-print "Building DoH for compilation target 'test' (hg3/tc3) ONLY...\n";
-chdir_target_dir('test');
-
-use File::Temp qw(tempfile);
-use File::Path qw(make_path);
-
-# Find all subdirectories that have a CMakeLists.txt in them (meaning its a compilable contract dir)
-opendir(my $dh, '.') or die "ERROR: Could not open current directory: $!";
-my @directories = grep { -d "./$_" && ! /^\.{1,2}$/ && -e "./$_/CMakeLists.txt"} readdir($dh);
+# Find all subdirectories that have a CMakeLists.txt in them (meaning it's a compilable contract dir)
+opendir(my $dh, '.') or die "ERROR: $driver: Could not open the current directory: $!";
+my @directories = grep { -d "./$_" && ! /^\.{1,2}$/ && -e "./$_/CMakeLists.txt" } readdir($dh);
 closedir($dh);
 my $total_dirs = scalar @directories;
-print "Found $total_dirs contracts to compile.\n";
-
-# Push doh-hegemon-contract to the top since it is the one that takes the longest
-my $hegemon_contract = "doh-hegemon-contract";
-my $hegemon_index = -1;
-for my $i (0 .. $#directories) {
-    if ($directories[$i] eq $hegemon_contract) {
-        $hegemon_index = $i;
-        last;  # Element found, exit the loop
-    }
-}
-if ($hegemon_index >= 0) {
-    splice(@directories, $hegemon_index, 1);  # Remove the element
-    unshift(@directories, $hegemon_contract);  # Add it to the beginning
-}
+print "$driver: Found $total_dirs contracts to compile.\n";
 
 # Print the contract list and clean up the build dirs on each
+@directories = sort @directories;
 foreach my $di (@directories) {
-    `rm -rf $di/build`;
-    print "Contract to compile: $di\n";
+    system("rm -rf $di/build");
+    print "$driver: Contract to compile: $di\n";
 }
 
 # Remove the compile error file if any
-`rm -f COMPILE_ERROR`;
+unlink($COMPILE_ERROR_FILE);
 
-# Create a temporary directory to hold task files
-# If it exists, get rid of it
-my $task_dir = 'task_files';
-`rm -rf $task_dir`;
-make_path($task_dir);
-
-# Create a global lock file
-# If it exists, get rid of it
-my $lock_file = 'lock_file';
-`rm -f $lock_file`;
-open(my $lock_fh, '>', $lock_file) or die "Could not create lock file: $!";
-close($lock_fh);  # Close the lock file
-
-# Create task files for each directory
+# Compile
 for my $i (0 .. $total_dirs - 1) {
     my $dir = $directories[$i];
-    my $task_file = "$task_dir/task_$i";
-    open(my $fh, '>', $task_file) or die "Could not create task file: $!";
-    print $fh $dir;
-    close($fh);
-}
+    print "$driver: Compiling $dir\n";
 
-# Fork processes
-for my $i (0 .. $cpus - 1) {
-    print "doh-coldstart: install: compiler child process " . ($i+1) . "/$cpus starting.\n";
+    system("mkdir -p $dir/build");
 
-    my $pid;
-    if ($cpus == 1) {
-        # if only one CPU, just run it here
-        $pid = 0;
-    } else {
-        $pid = fork();
-        die "ERROR: Failed to fork: $!" unless defined $pid;
-    }
+    my $error = 0;
 
-    if ($pid == 0) {
-        my $child_id = $$;  # Get the PID of the current process
-
-        while (1) {
-            # Acquire the global lock before processing the task
-            open my $lockfile, ">", "$lock_file" or die "FATAL ERROR: Runner $child_id: Can't acquire lock file: $!";
-            flock($lockfile, 2);  # Lock for writing
-
-            my @task_files = glob("$task_dir/task_*");
-            my $task_file = shift @task_files;
-
-            if (! defined $task_file) {
-                print "Runner $child_id: Can't find a task file (probably there are no more compilation tasks to pick up).\n";
-                last;
-            }
-
-            my $dir;
-            open(my $fh, '<', $task_file) or die "FATAL ERROR: Runner $child_id: Could not read task file: $!";
-            $dir = <$fh>;
-            close($fh);
-
-            unlink($task_file);  # Remove the task file
-            close($lockfile);  # Unlock
-
-            print "Runner $child_id: compiling $dir\n";
-
-            `mkdir -p $dir/build`;
-
-            my $error = 0;
-
-            if (chdir("$dir/build")) {
-                my $build_dir = `pwd`;
-                chomp($build_dir);
-                #print "Runner $child_id: changed to directory: $dir/build\n";
-                system("cmake .. > cmake.log 2>&1");
-                if ($? != 0) {
-                    print "Runner $child_id: COMPILE ERROR: cmake error for '$dir'. Log in $build_dir/cmake.log\n"; # $o
-                    $error = 1;
-                } else {
-                    system("make -j 6 > make.log 2>&1"); # not sure if -j actually buys us anything here... (copypaste)
-                    if ($? != 0) {
-                        print "Runner $child_id: COMPILE ERROR: make error for '$dir'. Log in $build_dir/make.log\n"; # $o
-                        $error = 1;
-                    } else {
-                        print "Runner $child_id: successfully compiled '$dir'\n";
-                    }
-                }
-                chdir("../..");
-            } else {
-                print "Runner $child_id: ERROR: Failed to change to directory: $dir - $!\n";
+    if (chdir("$dir/build")) {
+        my $build_dir = getcwd();
+        chomp($build_dir);
+        system("cmake .. > cmake.log 2>&1");
+        if ($? != 0) {
+            print "$driver: COMPILE ERROR: cmake error for '$dir'. Log in $build_dir/cmake.log\n";
+            $error = 1;
+        } else {
+            system("make -j 6 > make.log 2>&1");
+            if ($? != 0) {
+                print "$driver: COMPILE ERROR: make error for '$dir'. Log in $build_dir/make.log\n";
                 $error = 1;
-            }
-
-            if ($error != 0) {
-                open my $lockfile, ">", "$lock_file" or die "FATAL ERROR: Runner $child_id: Can't acquire lock file: $!";
-                flock($lockfile, 2);  # Lock for writing
-
-                `echo "$dir" >> COMPILE_ERROR`;
-
-                close($lockfile);  # Unlock
+            } else {
+                print "$driver: Successfully compiled '$dir'\n";
             }
         }
+        chdir("../..");
+    } else {
+        print "$driver: ERROR: Failed to change to directory: $dir - $!\n";
+        $error = 1;
+    }
 
-        print "Runner $child_id: done.\n";
-
-        # Don't exit if not actually spawning child processes
-        if ($cpus > 1) {
-            exit;  # Child process exits
-        }
+    if ($error != 0) {
+        `echo "$dir" >> $COMPILE_ERROR_FILE`;
     }
 }
 
-# Parent process waits for child processes to finish
-for my $i (0 .. $cpus - 1) {
-    # If only one cpu, did not actually fork so no need to wait()
-    if ($cpus > 1) {
-        wait();
-    }
-    print "doh-coldstart: install: compiler child process " . ($i+1) . "/$cpus finished.\n";
-}
-
-`rm -r task_files`;
-
-`rm -f lock_file`;
-
-if (-e 'COMPILE_ERROR') {
-    print "ERROR: doh-coldstart: install: DoH source code compilation failed for the following contracts:\n";
-    print `cat COMPILE_ERROR`;
+if (-e $COMPILE_ERROR_FILE) {
+    print "ERROR: $driver: DoH source code compilation failed for the following contracts:\n";
+    print `cat $COMPILE_ERROR_FILE`;
     exit 1;
 }
 
-print "doh-coldstart: install: Successfully built DoH.\n";
+print "Successfully built DoH.\n";

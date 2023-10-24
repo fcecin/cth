@@ -9,7 +9,7 @@
 #
 # cth runs all the tests or a subset of them.
 #
-# cth also initializes all tools and drivers if run with "cth -i".
+# cth initializes all tools and drivers if run with "cth -i".
 # --------------------------------------------------------------------------------------------
 #
 # Driver development tips:
@@ -60,11 +60,6 @@
 #            the exact code returned by each test program to aid in debugging.
 #          This can change; the rest of the 32-63 range will be leveraged for other special
 #            cases that we may need to handle in cth.
-#
-# --------------------------------------------------------------------------------------------
-#
-# (TODO) re-enable parallel contract compilation (test that it works and doesn't crash)
-#        if it's unstable for some reason, make it an explicit cth option
 #
 # --------------------------------------------------------------------------------------------
 
