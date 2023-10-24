@@ -17,13 +17,8 @@
 
 use strict;
 use warnings;
-#use Time::HiRes qw(sleep);
 use Scalar::Util qw(looks_like_number);
-#use File::Path qw(make_path);
-#use File::Spec::Functions qw(rel2abs);
-#use FindBin '$RealBin';
 use FindBin qw($RealBin);
-
 use lib "$RealBin/../../tools/cth-utils";
 use CthUtils;
 
@@ -49,12 +44,6 @@ my $o;
 # --------------------------------------------------------------------------------------------
 
 chdir_for_sure($RealBin);
-#if (chdir($RealBin)) {
-#    if ($verbose) { print "Forced working directory to driver start script location: $RealBin\n"; }
-#} else {
-#    print "ERROR: Failed to change working directory: $!\n";
-#    exit 1;
-#}
 
 print "doh-hotstart install: ensuring coldstart_dir exists ('$RealBin/$coldstart_dir') ...\n";
 $coldstart_dir        = absolute($coldstart_dir, CthUtils::ABSOLUTE_MUST_EXIST);
@@ -127,11 +116,6 @@ sleep(3);
 # Create entire local/doh-hotstart/nodeos-template/ path
 # This creates the $working_dir indirectly
 #
-#my $abs_template_dir = rel2abs("$template_dir");
-#if (!-d $abs_template_dir && !make_path($abs_template_dir)) {
-#    print "ERROR: Failed to create path for abs_working_dir '$abs_template_dir': $!\n";
-#    exit 1;
-#}
 my $abs_template_dir = absolute($template_dir, CthUtils::ABSOLUTE_ENSURE_CREATE);
 
 #

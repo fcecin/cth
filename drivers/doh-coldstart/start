@@ -48,12 +48,6 @@ my $o;
 # --------------------------------------------------------------------------------------------
 
 chdir_for_sure($RealBin);
-#if (chdir($RealBin)) {
-#    if ($verbose) { print "Forced working directory to driver start script location: $RealBin\n"; }
-#} else {
-#    print "ERROR: Failed to change working directory: $!\n";
-#    exit 1;
-#}
 
 # -------------------------------------------------------------------------
 # Utils
@@ -87,20 +81,13 @@ sub fail {
 sub command {
     my $cmd_arg = shift; # the command to run
     if (!defined $cmd_arg) { die "ERROR: command: undefined cmd_arg"; }
-
     my $cmd = "$cmd_arg 2>&1";
-
     my $o = `$cmd`;
-
     if ($? != 0) {
         print "ERROR: Failed to execute: $cmd\n";
         print "Output: $o\n";
         fail();
     }
-    #else {
-    #    print "Command: $cmd\n";
-    #    print "Output: $o\n";
-    #}
 }
 
 # Convert given decoded JSON data structure to string

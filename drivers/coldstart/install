@@ -5,7 +5,6 @@ $| = 1;
 use strict;
 use warnings;
 use FindBin qw($RealBin);
-
 use lib "$RealBin/../../tools/cth-utils";
 use CthUtils;
 
@@ -16,12 +15,6 @@ my $build_success = "BUILD_SUCCESS";
 
 # go to driver dir
 chdir_for_sure($RealBin);
-#if (chdir($RealBin)) {
-#    print "$driver: Changed working directory to driver location: $RealBin\n";
-#} else {
-#    print "ERROR: $driver: Failed to change working directory to driver directory: $!\n";
-#    exit 1;
-#}
 
 # check that the tools/reference-contracts submodule is there
 print "$driver: Checking for reference-contracts at $dir\n";
@@ -32,11 +25,6 @@ if (! -e "$dir/$file") {
 
 # go to the tools/reference-contracts directory
 print "$driver: Directory found.\n";
-#if (chdir($dir)) {
-#    print "$driver: Changed working directory to tools/reference-contracts directory\n";
-#} else {
-#    print "ERROR: $driver: Failed to change working directory to tools/reference-contracts directory: $!\n";
-#}
 chdir_for_sure($dir);
 
 # skip building if the build directory already exists and it has a magic BUILD_SUCCESS file in it

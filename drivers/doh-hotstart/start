@@ -27,14 +27,9 @@
 
 use strict;
 use warnings;
-#use Time::HiRes qw(sleep);
-#use Scalar::Util qw(looks_like_number);
 use File::Path qw(make_path);
 use Socket;
-#use Cwd 'abs_path';
-#use File::Spec::Functions qw(rel2abs);
 use FindBin '$RealBin';
-
 use lib "$RealBin/../../tools/cth-utils";
 use CthUtils;
 
@@ -110,61 +105,11 @@ sub do_stop {
 #   then change to it.
 # --------------------------------------------------------------------------------------------
 
-# Change into this scripts' directory temporarily (should be drivers/doh-hotstart/) to resolve all other paths
-#if (chdir($RealBin)) {
-#    if ($verbose) { print "Forced current directory to driver directory: $RealBin\n"; }
-#} else {
-#    print "ERROR: Failed to change current directory: $!\n";
-#    exit 1;
-#}
-
-# find the absolute location of tools/nodeos-tool and save it for later use
-#my $abs_nodeos_tool_dir = abs_path($nodeos_tool_dir);
-#if (!defined $abs_nodeos_tool_dir) {
-#    print "ERROR: cannot find tools/nodeos-tool at the expected location '$nodeos_tool_dir'.\n";
-#    exit 1;
-#}
-
-# Compute absolute path to working directory in /local/doh-hotstart
-#my $abs_working_dir = rel2abs("$RealBin/$working_dir");
-
-# Create the instances subdirectory if it's not there
-#my $abs_instances_dir = rel2abs("$abs_working_dir/$instances_dir");
-#system("mkdir -p $abs_instances_dir");
-#if ($? != 0 && $? != 17) {  # neither success nor error "already exists"
-#    die "ERROR: Failed to create path for abs_instances_dir '$abs_instances_dir': $! ($?)";
-#}
-
-# rel2abs directories are ugly, so get rid of the ..'s using abs_path (which will succeed now that they exist)
-#$abs_working_dir = abs_path($abs_working_dir);
-#if (!defined $abs_working_dir) { # never happens
-#    print "ERROR: abs_path failed on existing abs_working_dir for some reason.\n";
-#    exit 1;
-#}
-#$abs_instances_dir = abs_path($abs_instances_dir);
-#if (!defined $abs_instances_dir) { # never happens
-#    print "ERROR: abs_path failed on existing abs_instances_dir for some reason.\n";
-#    exit 1;
-#}
-
-# Check that the template dir is there (should have been created by the driver installer)
-#my $abs_template_dir = rel2abs("$abs_working_dir/$template_dir");
-#if (!-d $abs_template_dir) {
-#    die "ERROR: doh-hotstart start: nodeos template data dir '$abs_template_dir' directory not found. (Was the doh-hotstart driver installed?)";
-#}
-
 my $abs_nodeos_tool_dir = absolute("$RealBin/$nodeos_tool_dir", CthUtils::ABSOLUTE_MUST_EXIST);
 my $abs_working_dir = absolute("$RealBin/$working_dir", CthUtils::ABSOLUTE_ENSURE_CREATE); # NEW behavior
 my $abs_instances_dir = absolute("$abs_working_dir/$instances_dir", CthUtils::ABSOLUTE_ENSURE_CREATE);
 my $abs_template_dir = absolute("$abs_working_dir/$template_dir", CthUtils::ABSOLUTE_MUST_EXIST);
 
-# Change into the drivers' working directory (local/doh-hotstart/)
-#if (chdir($abs_working_dir)) {
-#    if ($verbose) { print "Forced current directory to driver working location: $abs_working_dir\n"; }
-#} else {
-#    print "ERROR: Failed to change current directory: $!\n";
-#    exit 1;
-#}
 chdir_for_sure($abs_working_dir);
 
 # global lock_file should already exist but touch it just to make sure it does (creating it in parallel is less bad
