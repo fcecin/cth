@@ -4,7 +4,10 @@ use strict;
 use warnings;
 use Cwd;
 use FindBin qw($RealBin);
-use File::Spec::Functions qw(rel2abs);
+#use File::Spec::Functions qw(rel2abs);
+
+use lib "$RealBin/../../tools/cth-utils";
+use CthUtils;
 
 $| = 1;  # Turn on auto-flush for STDOUT (Perl doesn't do this by default)
 
@@ -31,15 +34,18 @@ my $target = "test"; # default target is the test target (hg3/tc3)
 
 # change to driver dir
 sub chdir_driver_dir {
-    chdir($RealBin) or die "ERROR: $driver: Failed to change working directory: $!";
+    #chdir($RealBin) or die "ERROR: $driver: Failed to change working directory: $!";
+    chdir_for_sure($RealBin);
 }
 
 sub chdir_target_dir {
     my $tg = shift;
     die "ERROR: doh-coldstart: chdir_target_dir target not defined" unless (defined $tg);
     chdir_driver_dir();    # absolute
-    chdir $local_dir{$tg};
-    print "Current working directory: " . getcwd() .  "\n";
+
+    #chdir $local_dir{$tg};
+    #print "Current working directory: " . getcwd() .  "\n";
+    chdir_for_sure($local_dir{$tg});
 }
 
 # target is prod, staging, dev, test, debug
@@ -114,12 +120,14 @@ if (defined $options->{'doh'}) {
     if (!-d $doh_dir) {
         print "ERROR: doh-coldstart install: given --doh directory not found (must be absolute or relative to " . getcwd() . "): '$doh_dir': $!\n";
     }
-    my $abs_doh_dir = rel2abs($doh_dir); # in the odd case it's relative
+    #my $abs_doh_dir = rel2abs($doh_dir); # in the odd case it's relative
+    my $abs_doh_dir = absolute($doh_dir, CthUtils::ABSOLUTE_MUST_EXIST);
 
-    my $destination = "../../local/$target";
-
+    #my $destination = "../../local/$target";
     # find the absolute path since we will be printing this and relative paths are confusing
-    my $abs_destination = rel2abs($destination);
+    #my $abs_destination = rel2abs($destination);
+
+    my $abs_destination = absolute("../../local/$target", CthUtils::ABSOLUTE_MAY_NOT_EXIST);
 
     # doh-contracts is part of it
     $abs_destination = $abs_destination . "/doh-contracts";
@@ -132,7 +140,7 @@ if (defined $options->{'doh'}) {
 
     # recreate the destination with an empty doh-contracts (which is expected)
     print "doh-coldstart install: creating /local destination directory: '$abs_destination' ...\n";
-    system("mkdir -p $abs_destination/doh-contracts") == 0 or die "ERROR: doh-coldstart: Failed to create target directory '$abs_destination': $!";
+    system("mkdir -p $abs_destination") == 0 or die "ERROR: doh-coldstart: Failed to create target directory '$abs_destination': $!";
 
     # copy the *files* within the given doh_dir into a "doh-contracts" directory
     print "doh-coldstart install: copying all files inside given --doh directory '$abs_doh_dir'(/*) into '$abs_destination' ...\n";

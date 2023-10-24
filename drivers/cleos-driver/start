@@ -19,7 +19,10 @@ use Time::HiRes qw(sleep);
 use Scalar::Util qw(looks_like_number);
 #use File::Path qw(make_path);
 use FindBin '$RealBin';
-use File::Spec::Functions qw(rel2abs);
+##use File::Spec::Functions qw(rel2abs);
+
+use lib "$RealBin/../../tools/cth-utils";
+use CthUtils;
 
 $| = 1;  # Turn on auto-flush for STDOUT (Perl doesn't do this by default)
 
@@ -46,7 +49,7 @@ my $o;
 #if (!defined $abs_wallet_dir) {
 #    die "ERROR: Malformed abs_wallet_dir from '$RealBin' + '$wallet_dir': $!";
 #}
-my $abs_wallet_dir = rel2abs("$RealBin/$wallet_dir");
+##my $abs_wallet_dir = rel2abs("$RealBin/$wallet_dir");
 
 # FIXME: This fails if you invoke it in parallel (e.g. doh-hotstart start + cth parallel test running)
 # Create the directory and its parent directories
@@ -54,17 +57,20 @@ my $abs_wallet_dir = rel2abs("$RealBin/$wallet_dir");
 #    print "ERROR: Failed to create path for abs_wallet_dir '$abs_wallet_dir': $!\n";
 #    exit 1;
 #
-system("mkdir -p $abs_wallet_dir");
-if ($? != 0 && $? != 17) {  # neither success nor error "already exists"
-    die "ERROR: Failed to create path for abs_wallet_dir '$abs_wallet_dir': $! ($?)";
-}
+##system("mkdir -p $abs_wallet_dir");
+#if ($? != 0 && $? != 17) {  # neither success nor error "already exists"
+##    die "ERROR: Failed to create path for abs_wallet_dir '$abs_wallet_dir': $! ($?)";
+##}
 
-if (chdir($abs_wallet_dir)) {
-    if ($verbose) { print "Forced working directory to cleos-driver working location: $abs_wallet_dir\n"; }
-} else {
-    print "ERROR: Failed to change working directory: $!\n";
-    exit 1;
-}
+my $abs_wallet_dir = absolute("$RealBin/$wallet_dir", CthUtils::ABSOLUTE_ENSURE_CREATE);
+
+chdir_for_sure($abs_wallet_dir);
+#if (chdir($abs_wallet_dir)) {
+#    if ($verbose) { print "Forced working directory to cleos-driver working location: $abs_wallet_dir\n"; }
+#} else {
+#    print "ERROR: Failed to change working directory: $!\n";
+#    exit 1;
+#}
 
 # Now that we have the absolute path to the working directory, we can use it in the
 #  cleos command line that starts the wallet.

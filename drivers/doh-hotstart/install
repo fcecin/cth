@@ -17,19 +17,25 @@
 
 use strict;
 use warnings;
-use Time::HiRes qw(sleep);
+#use Time::HiRes qw(sleep);
 use Scalar::Util qw(looks_like_number);
-use File::Path qw(make_path);
-use File::Spec::Functions qw(rel2abs);
-use FindBin '$RealBin';
+#use File::Path qw(make_path);
+#use File::Spec::Functions qw(rel2abs);
+#use FindBin '$RealBin';
+use FindBin qw($RealBin);
+
+use lib "$RealBin/../../tools/cth-utils";
+use CthUtils;
 
 $| = 1;  # Turn on auto-flush for STDOUT (Perl doesn't do this by default)
 
-# All are relative to this script's location
-my $coldstart_dir        = "../coldstart";
-my $doh_coldstart_dir    = "../doh-coldstart";
+# Relative to this script's location, might have to create/recreate
 my $working_dir          = "../../local/doh-hotstart";
 my $template_dir         = "$working_dir/nodeos-template";
+
+# All are relative to this script's location and must already exist
+my $coldstart_dir        = "../coldstart";
+my $doh_coldstart_dir    = "../doh-coldstart";
 my $source_template_dir  = "../../local/coldstart";
 
 my $verbose = 1;
@@ -38,16 +44,26 @@ my $cmd;
 my $o;
 
 # --------------------------------------------------------------------------------------------
-# We have to force the working directory to where the driver script is
+# We have to force the working directory to where the driver script is.
+# Also resolve dirs that already should exist to absolute locations for better prints.
 # --------------------------------------------------------------------------------------------
 
-use FindBin qw($RealBin);
-if (chdir($RealBin)) {
-    if ($verbose) { print "Forced working directory to driver start script location: $RealBin\n"; }
-} else {
-    print "ERROR: Failed to change working directory: $!\n";
-    exit 1;
-}
+chdir_for_sure($RealBin);
+#if (chdir($RealBin)) {
+#    if ($verbose) { print "Forced working directory to driver start script location: $RealBin\n"; }
+#} else {
+#    print "ERROR: Failed to change working directory: $!\n";
+#    exit 1;
+#}
+
+print "doh-hotstart install: ensuring coldstart_dir exists ('$RealBin/$coldstart_dir') ...\n";
+$coldstart_dir        = absolute($coldstart_dir, CthUtils::ABSOLUTE_MUST_EXIST);
+
+print "doh-hotstart install: ensuring doh_coldstart_dir exists ('$RealBin/$doh_coldstart_dir') ...\n";
+$doh_coldstart_dir    = absolute($doh_coldstart_dir, CthUtils::ABSOLUTE_MUST_EXIST);
+
+print "doh-hotstart install: ensuring source_template_dir exists ('$RealBin/$source_template_dir') ...\n";
+$source_template_dir  = absolute($source_template_dir, CthUtils::ABSOLUTE_MUST_EXIST);
 
 # --------------------------------------------------------------------------------------------
 # Clear and start the backing doh-coldstart driver.
@@ -109,12 +125,19 @@ sleep(3);
 
 #
 # Create entire local/doh-hotstart/nodeos-template/ path
+# This creates the $working_dir indirectly
 #
-my $abs_template_dir = rel2abs("$template_dir");
-if (!-d $abs_template_dir && !make_path($abs_template_dir)) {
-    print "ERROR: Failed to create path for abs_working_dir '$abs_template_dir': $!\n";
-    exit 1;
-}
+#my $abs_template_dir = rel2abs("$template_dir");
+#if (!-d $abs_template_dir && !make_path($abs_template_dir)) {
+#    print "ERROR: Failed to create path for abs_working_dir '$abs_template_dir': $!\n";
+#    exit 1;
+#}
+my $abs_template_dir = absolute($template_dir, CthUtils::ABSOLUTE_ENSURE_CREATE);
+
+#
+# Resolve the $working_dir as well now that we know it exists
+#
+$working_dir = absolute($working_dir, CthUtils::ABSOLUTE_MUST_EXIST);
 
 #
 # Actually rm -rf the template dir itself because we will copy over the new content

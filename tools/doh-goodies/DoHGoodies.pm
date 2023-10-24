@@ -3,10 +3,9 @@
 #
 # Perl utility functions for writing DoH tests.
 #
-# This library can be imported easily by Perl testcases like this
-# (if they are following the cth directory hierarchy):
+# This library can be imported easily by Perl testcases like this, since
+# the module include path should be taken care of by cth:
 #
-#   use lib '../../tools/doh-goodies';
 #   use DoHGoodies;
 # -----------------------------------------------------------------------
 

@@ -3,10 +3,9 @@
 #
 # Perl utility functions for writing cth tests.
 #
-# This library can be imported easily by Perl testcases like this
-# (if they are following the cth directory hierarchy):
+# This library can be imported easily by Perl testcases like this, since
+# the module include path should be taken care of by cth:
 #
-#   use lib '../../tools/cth-goodies';
 #   use CthGoodies;
 # -----------------------------------------------------------------------
 
@@ -29,7 +28,6 @@ our @EXPORT = qw(
     cth_generate_account_names
 );
 
-use File::Spec::Functions qw(rel2abs);
 use File::Basename;
 
 # -----------------------------------------------------------------------
@@ -94,12 +92,8 @@ sub cth_set_cleos_provider {
         print "ERROR: cth_set_cleos_provider: driver argument is undefined\n";
         return 1;
     }
-
-    my $driver_working_dir = cth_get_root_dir() . "/local/$driver";
-    my $abs_driver_working_dir = rel2abs($driver_working_dir);
-
     $cleos_provider_driver      = $driver;
-    $cleos_provider_working_dir = $abs_driver_working_dir;
+    $cleos_provider_working_dir = cth_get_root_dir() . "/local/$driver";
     return 0;
 }
 

@@ -72,7 +72,6 @@ $| = 1;
 
 use strict;
 use warnings;
-use Digest::SHA qw(sha256_hex);
 use Getopt::Long;
 use Cwd;
 use File::Basename;
@@ -267,6 +266,10 @@ if ($opt_help) {
 # --------------------------------------------------------------------------------------------
 
 if ($opt_verbose) { print "Working directory (test root): $root_dir\n"; }
+
+# Ensure "local/" exists
+if (! -d "$root_dir/local") { `mkdir -p $root_dir/local`; }
+if (! -e "$root_dir/local/.gitkeep") { `touch $root_dir/local/.gitkeep`; }
 
 if (@opt_run || $opt_install || $opt_reset || $opt_clear) {
     if ($opt_force) {

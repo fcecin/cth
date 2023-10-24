@@ -39,7 +39,7 @@ What `-o doh=YOUR_DOH_DIR -o target=test` does is ensure that the installation p
 
 ## Workflow trick (dangerous! not recommended)
 
-If you know what you're doing (does anybody? I don't think so), you can develop DoH directly inside of `/cth/local/test/doh-contracts/` after a, say, `cth -i`. After you recompile the contracts that need to be recompiled in there, you can run tests with `cth --run doh_hotstart install '' -f`. This regenerates the `doh_hotstart` chainbase template from the newest `doh_coldstart` wasm/abi tree (which you just illegally doctored) and after that it will run all the tests. This is dangerous because if you accidentally run `--clear`, `--reset`, etc. on the `doh_coldstart` driver, your "working" directory will vanish. It's better to use the previous recipe, above, that copies your DoH work tree into the test system for use.
+If you know what you're doing (does anybody? I don't think so), you can develop DoH directly inside of `/cth/local/test/doh-contracts/` after a, say, `cth -i`. After you recompile the contracts that need to be recompiled in there, you can run tests with `cth --run doh-hotstart install '' -f`. This regenerates the `doh-hotstart` chainbase template from the newest `doh-coldstart` wasm/abi tree (which you just illegally doctored) and after that it will run all the tests. This is dangerous because if you accidentally run `--clear`, `--reset`, etc. on the `doh-coldstart` driver, your "working" directory will vanish. It's better to use the previous recipe, above, that copies your DoH work tree into the test system for use.
 
 # How to use
 

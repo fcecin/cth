@@ -1,8 +1,5 @@
 #!/usr/bin/perl
 
-use strict;
-use warnings;
-
 # --------------------------------------------------------------------------------------------
 # Driver: doh-coldstart
 # Operation: start
@@ -16,9 +13,6 @@ use warnings;
 # Then it will extract the contract names and the contract code to deploy for each
 # Then it will deploy the contracts to the correct accounts with the correct names
 #   (accounts that have no code will be created also)
-# Then TODO/FIXME extra general steps that apply to all tests ("init" calls, etc.)
-#   - probably starting "deterministic mode" goes here
-#   - also probably token creation and setting authorities
 #
 # This driver does not load any data files. It only does common initialization.
 # The testcase will have its own libraries/tools that load e.g. common data files or
@@ -26,6 +20,16 @@ use warnings;
 # --------------------------------------------------------------------------------------------
 
 $| = 1;  # Turn on auto-flush for STDOUT (Perl doesn't do this by default)
+
+use strict;
+use warnings;
+use FindBin qw($RealBin);
+use lib "$RealBin/../../tools/JSON-Tiny/lib";
+use JSON::Tiny;
+use lib "$RealBin/../../tools/cth-goodies";
+use CthGoodies;
+use lib "$RealBin/../../tools/cth-utils";
+use CthUtils;
 
 my $verbose = 0;
 
@@ -43,13 +47,13 @@ my $o;
 # We have to force the working directory to where the driver script is
 # --------------------------------------------------------------------------------------------
 
-use FindBin qw($RealBin);
-if (chdir($RealBin)) {
-    if ($verbose) { print "Forced working directory to driver start script location: $RealBin\n"; }
-} else {
-    print "ERROR: Failed to change working directory: $!\n";
-    exit 1;
-}
+chdir_for_sure($RealBin);
+#if (chdir($RealBin)) {
+#    if ($verbose) { print "Forced working directory to driver start script location: $RealBin\n"; }
+#} else {
+#    print "ERROR: Failed to change working directory: $!\n";
+#    exit 1;
+#}
 
 # -------------------------------------------------------------------------
 # Utils
@@ -145,16 +149,6 @@ sub to_json_string_array {
     return $json_string;
 }
 
-# -------------------------------------------------------------------------
-# Load JSON_Tiny from tools/
-# -------------------------------------------------------------------------
-
-# Assuming the JSON_Tiny library is cloned in ../../tools/JSON-Tiny
-use lib '../../tools/JSON-Tiny/lib';
-
-# Load the JSON_Tiny module
-use JSON::Tiny;
-
 # --------------------------------------------------------------------------------------------
 # Recycle cth_standard_args_parser() to process switches passed to this test driver starter.
 # We'll use the "target" switch ("start --target=xxx") to allow the caller to configure
@@ -166,10 +160,6 @@ use JSON::Tiny;
 #   below when it is deploying the DoH contracts, since the wasm/abi files won't be there.
 # As of Oct/23, the only good target is the 'test' target, but the driver doesn't know that.
 # --------------------------------------------------------------------------------------------
-
-# include the tools/cth-goodies library
-use lib '../../tools/cth-goodies';
-use CthGoodies;
 
 print "doh-coldstart start: will now attempt to parse command-line args; single '--target xxx' argument expected with the DoH compilation target.\n";
 

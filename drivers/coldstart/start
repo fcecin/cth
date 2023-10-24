@@ -17,12 +17,10 @@
 
 use strict;
 use warnings;
-use Time::HiRes qw(sleep);
-use Scalar::Util qw(looks_like_number);
-use File::Path qw(make_path);
 use FindBin '$RealBin';
-use File::Spec::Functions qw(rel2abs);
-use Cwd 'abs_path';
+
+use lib "$RealBin/../../tools/cth-utils";
+use CthUtils;
 
 $| = 1;  # Turn on auto-flush for STDOUT (Perl doesn't do this by default)
 
@@ -52,36 +50,9 @@ my $o;
 #   then change to it.
 # --------------------------------------------------------------------------------------------
 
-# Change into this scripts' directory temporarily (should be drivers/coldstart/) to resolve all other paths
-if (chdir($RealBin)) {
-    if ($verbose) { print "Forced current directory to driver directory: $RealBin\n"; }
-} else {
-    print "ERROR: Failed to change current directory: $!\n";
-    exit 1;
-}
+my $abs_working_dir = absolute("$RealBin/$working_dir", CthUtils::ABSOLUTE_ENSURE_CREATE);
 
-my $abs_working_dir = rel2abs("$RealBin/$working_dir");
-
-# Create the directory and its parent directories
-if (!-d $abs_working_dir && !make_path($abs_working_dir)) {
-    print "ERROR: Failed to create path for abs_working_dir '$abs_working_dir': $!\n";
-    exit 1;
-}
-
-# the rel2abs dir is too ugly so let's resolve the ..'s using abs_path, now that we know the dir exists
-$abs_working_dir = abs_path($abs_working_dir);
-if (!defined $abs_working_dir) { # never happens
-    print "ERROR: abs_path failed on an existing directory for some reason.\n";
-    exit 1;
-}
-
-# go to the script's working directory (local/coldstart/)
-if (chdir($abs_working_dir)) {
-    if ($verbose) { print "Forced working directory to driver working location: $abs_working_dir\n"; }
-} else {
-    print "ERROR: Failed to change working directory: $!\n";
-    exit 1;
-}
+chdir_for_sure($abs_working_dir);
 
 # --------------------------------------------------------------------------------------------
 # Load and set up the CthGoodies library to use the cleos-driver
@@ -356,14 +327,14 @@ crashed() if cth_cleos(qq|system voteproducer prods bpa ["bpa","bpb","bpc","bpd"
 
 # --------------------------------------------------------------------------------------------
 # And we *should* be done.
-# Try for 5 seconds to get a happy chain.log message, otherwise stop the node and fail.
+# Try to get a happy chain.log message, otherwise stop the node and fail.
 # --------------------------------------------------------------------------------------------
 
-print "Waiting for chain.log tail to show signs of a fully started blockchain (up to 15 seconds)...\n";
+print "Waiting for chain.log tail to show signs of a fully started blockchain (up to 30 seconds)...\n";
 
 my $start_successful = 0;
 
-my $max_tries_bp = 15 * 2;
+my $max_tries_bp = 30;
 
 for (my $i = 1; $i <= $max_tries_bp; $i++) {
     print "Try $i/$max_tries_bp: ";
@@ -381,7 +352,7 @@ for (my $i = 1; $i <= $max_tries_bp; $i++) {
     } else {
         print "Can't open 'chain.log': $!\n";
     }
-    sleep(0.5);
+    sleep(1);
 }
 
 if (! $start_successful) {
