@@ -6,6 +6,7 @@ cth is a collection of command-line tools that can be customized to build an aut
 
 - Perl 5.34 + core Perl libraries (already installed by default in Ubuntu)
 - Antelope Leap 4+ (cleos, keosd, nodeos) (https://github.com/antelopeio/leap/releases)
+- Antelope CDT 4+ (https://github.com/antelopeio/cdt/releases)
 - All programs and data required by your Antelope contracts at compile time and runtime
 
 # DoH cth: how to download and run for the first time
