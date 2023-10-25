@@ -70,6 +70,7 @@ use warnings;
 use Getopt::Long;
 use Cwd;
 use File::Basename;
+use File::Spec::Functions;
 
 my $RED = "\e[31m";
 my $GRN = "\e[32m";
@@ -102,6 +103,9 @@ my $global_test_or_installer_args = '';
 
 # This is a list of all tests directories. It's the same as @opt_testsdirs, but in absolute path form.
 my @tests_dirs;
+
+# Total tests found (scalar(@tests))
+my $tests_total = 0;
 
 # This is a list of all tests that will be run, with the full path to them.
 # The test directory can be obtained via use basename($test), and the path via dirname($test).
@@ -342,11 +346,13 @@ foreach my $opt_td (@opt_testsdir) {
     push @tests_dirs, $abs_td;
 }
 
-my $tests_dir_i = 1;
-my $tests_dir_max = scalar(@tests_dirs);
-foreach my $td (@tests_dirs) {
-    print "Tests directory ($tests_dir_i/$tests_dir_max): $td\n";
-    $tests_dir_i++;
+if ($opt_verbose) {
+    my $tests_dir_i = 1;
+    my $tests_dir_max = scalar(@tests_dirs);
+    foreach my $td (@tests_dirs) {
+        print "Tests directory ($tests_dir_i/$tests_dir_max): $td\n";
+        $tests_dir_i++;
+    }
 }
 
 #--------------------------------------------------------------------------------------------
@@ -573,44 +579,62 @@ if ($opt_install) {
 
 foreach my $tests_dir (@tests_dirs) {
 
+    my @tests_found; # tests found in this tests dir
+
     opendir(my $dh, $tests_dir) or die "ERROR: cth: Cannot open tests directory $tests_dir: $!";
     if ($opt_verbose) { print "Searching for tests in $tests_dir ...\n"; }
     while (my $entry = readdir($dh)) {
         next if $entry eq '.' || $entry eq '..';
-        push @tests, "$tests_dir/$entry" if -d "$tests_dir/$entry";
+        push @tests_found, "$tests_dir/$entry" if -d "$tests_dir/$entry";
     }
     closedir($dh);
 
-    if (scalar(@tests) == 0) {
+    if (scalar(@tests_found) == 0) {
         print "WARNING: No test directories found in tests dir $tests_dir\n";
     } else {
-        @tests = sort @tests;
+        @tests_found = sort @tests_found;
         if ($opt_verbose) {
-            print "Found tests: ";
+            print "Found " . scalar(@tests_found) . " tests: ";
             my $first = 1;
-            foreach my $test (@tests) {
+            foreach my $test (@tests_found) {
                 if (!$first) { print ", "; } else { $first = 0; }
                 print basename($test);
             }
             print "\n";
         }
+        push @tests, @tests_found; # this saves the tests found in this testsdir
     }
 }
 
+$tests_total = scalar(@tests);
+@tests = sort @tests;
+
 # --------------------------------------------------------------------------------------------
-# Compute the size of the prefix that is common throughout all entries of @tests.
+# Compute the size of the path prefix that is common throughout all entries of @tests.
 # This removes redundant on-screen info while running tests.
 # --------------------------------------------------------------------------------------------
 
 if (@tests) {
-    my $common = $tests[0];
+    my $common_prefix = $tests[0];
     foreach my $test (@tests) {
-        while (index($test, $common) != 0) {
-            chop $common;
-            last if $common eq '';
+        my @test_parts = File::Spec->splitdir($test);
+        my @common_parts = File::Spec->splitdir($common_prefix);
+        my $min_parts = @test_parts < @common_parts ? @test_parts : @common_parts;
+        my $match_parts = 0;
+        for my $i (0 .. $min_parts - 1) {
+            last if $test_parts[$i] ne $common_parts[$i];
+            $match_parts++;
         }
+        $common_prefix = File::Spec->catdir(@test_parts[0 .. $match_parts - 1]);
     }
-    $tests_prefix = length($common);
+    # include a last slash into the common prefix if it's there
+    if (length($common_prefix) < length($tests[0])) {
+        my $index = length($common_prefix);
+        my $char = substr($tests[0], $index, 1);
+        if ($char eq '/') { $common_prefix .= '/'; }
+    }
+    $tests_prefix = length($common_prefix);
+    if ($opt_verbose) { print "Common test name prefix (omitted) is: '$common_prefix'\n"; }
 }
 
 # utility that returns the shortest name a test can have in this run that would be disambiguated
@@ -827,7 +851,9 @@ sub print_test_name {
     my $test_name = shift;
     if (! defined $test_name) { die "FATAL ERROR: cth: print_test_name undefined test_name"; }
     $test_name = shorten_test_name($test_name);
-    print "  " . $test_name . " " . ("." x (50 - length($test_name))) . " ";
+    my $tests_done  = $sum_pass + $sum_fail + $sum_skip;
+    my $test_counter = sprintf("%3d", int(100 * (($tests_done + 1) / $tests_total))) . "%";
+    print "  " . $test_counter . " " . $test_name . " " . ("." x (50 - length($test_name) - 1 - length($test_counter))) . " ";
 }
 
 sub test_result {
@@ -852,9 +878,9 @@ sub test_result {
 }
 
 sub wait_and_process_test_result {
-    print "Waiting (running $active_jobs/$opt_jobs)... ";
+    if ($opt_verbose) { print "Waiting (running $active_jobs/$opt_jobs)... "; }
     my $pid = waitpid(-1, 0);  # Wait for any child process to finish and get its PID
-    print "\n";
+    if ($opt_verbose) { print "\n"; }
     if ($pid > 0) {
         $active_jobs--;
         my $test_name = delete $child_pids{$pid};
@@ -867,7 +893,7 @@ sub wait_and_process_test_result {
 }
 
 if ($opt_verbose) { print "\n"; }
-print "Running tests ...\n";
+print "Running $tests_total tests (up to $opt_jobs in parallel) ...\n";
 if ($opt_verbose) { print "The output of each test is saved to the 'run.log' file on each test directory.\n"; }
 print "\n";
 
@@ -893,7 +919,6 @@ foreach my $test (@tests) {
     my $script = "run";
     my $log_file = "run.log";
     unlink $log_file;
-    print_test_name($test);
 
     # pass test name through the auto switch filter
     my $auto_switch_filter_skip_test = 0;
@@ -902,11 +927,13 @@ foreach my $test (@tests) {
         my ($switchname, $switchvalue) = split /:/, $1;
         my $actualvalue = get_switch_value($switchname);
         if (!defined $actualvalue) {
+            print_test_name($test);
             print "Skipped (missing switch '$switchname')\n";
             $auto_switch_filter_skip_test = 1;
             last;
         }
         if ($actualvalue ne $switchvalue) {
+            print_test_name($test);
             print "Skipped (switch '$switchname' != '$switchvalue')\n";
             $auto_switch_filter_skip_test = 1;
             last;
@@ -918,13 +945,14 @@ foreach my $test (@tests) {
         $sum_skip++;
         push @sum_skipped_tests, $test;
     } elsif (! -e $script) {
+        print_test_name($test);
         print "${RED}Failed${DEF} (no 'run' file)\n";
         $sum_fail++;
         push @sum_failed_tests, $test;
     } else {
         if ($active_jobs >= $opt_jobs) {
+            if ($opt_verbose) { print_test_name($test); }
             wait_and_process_test_result();
-            print_test_name($test);
         }
 
         my $pid = fork();
@@ -968,7 +996,10 @@ foreach my $test (@tests) {
 
         # if pid is not defined, fork failed so we ran the test in the parent cth process
         if (defined $pid) {
-            print "Running (PID $pid)...\n";
+            if ($opt_verbose) {
+                print_test_name($test);
+                print "Running (PID $pid)...\n";
+            }
             $active_jobs++;
             $child_pids{$pid} = $test;
         }
@@ -979,7 +1010,7 @@ foreach my $test (@tests) {
 
 # Wait for any remaining child processes to finish
 while ($active_jobs > 0) {
-    print_test_name('');
+    if ($opt_verbose) { print_test_name(''); }
     wait_and_process_test_result();
 }
 

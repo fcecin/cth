@@ -1,0 +1,206 @@
+#!/usr/bin/perl
+
+# --------------------------------------------------------------------------------------------
+# combat-test
+# --------------------------------------------------------------------------------------------
+# This test is a port of cryptomechanics/doh-unit-tests/combat-test.sh from August, 2023.
+# --------------------------------------------------------------------------------------------
+
+$| = 1;
+use strict;
+use warnings;
+use CthGoodies;
+use DoHGoodies;
+
+my ($doh_target, $tcn_target) = ("hg3", "tc3");
+
+my $doh_gm = "dohplayer1";
+
+# --------------------------------------------------------------------------------------------
+# Set up the test
+# --------------------------------------------------------------------------------------------
+
+print "TEST: starting setup...\n";
+
+my $ret = doh_init($doh_target, $doh_gm);
+if ($ret) { die "ERROR: TEST: doh_init failed\n"; }
+
+my $instance_port = doh_hotstart_start($doh_target);
+if ($instance_port < 0) { die "ERROR: TEST: doh_hotstart_start failed code: $instance_port\n"; }
+
+print "TEST: setup OK.\n";
+
+# --------------------------------------------------------------------------------------------
+# Test helper functions
+# --------------------------------------------------------------------------------------------
+
+sub cleanup {
+    print "TEST: starting cleanup...\n";
+    my $ret = doh_hotstart_clear($instance_port);
+    if ($ret) { die "ERROR: TEST: doh_hostart_clear failed\n"; }
+    print "TEST: cleanup OK.\n";
+}
+sub crashed { print "ERROR: TEST: testcase has crashed.\n"; cleanup(); die; }
+sub failed { print "ERROR: TEST: testcase has failed.\n"; cleanup(); die; }
+
+# --------------------------------------------------------------------------------------------
+# Testcase
+# --------------------------------------------------------------------------------------------
+
+print "TEST: testcase started.\n";
+
+# **********************
+# Creates the player accounts for the test (not in combat-test.sh)
+# **********************
+
+crashed() if cth_cleos(qq|system newaccount eosio dohplayer1 EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV --stake-cpu "10000.0000 EOS" --stake-net "10000.0000 EOS" --buy-ram-kbytes 1000 --transfer|);
+
+crashed() if cth_cleos(qq|system newaccount eosio dohplayer2 EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV --stake-cpu "10000.0000 EOS" --stake-net "10000.0000 EOS" --buy-ram-kbytes 1000 --transfer|);
+
+# **********************
+# combat-test.sh port
+# **********************
+
+my $expected;
+my $actual;
+
+crashed() if cth_cleos(qq|push action clock.${doh_target} useclock '{}' -p clock.${doh_target}|);
+
+crashed() if cth_cleos(qq|push action staking.${tcn_target} init '{ "epoch":"1", "distrib_contracts": [ "energy.${tcn_target}", "rep.${tcn_target}"], "drip_contracts": [ "main.${tcn_target}", "players.${tcn_target}"] }' -p staking.${tcn_target}|);
+
+# Commented-out on combat-test.sh
+#crashed() if cth_cleos(qq|push action hegemon.${doh_target} updaterng '{}' --force-unique -p hegemon.${doh_target}|);
+
+crashed() if cth_cleos(qq|push action clock.${doh_target} sethash '{"hash":"092ba25b75b0ee1ac79c5a1aa1df28a5129cd8d15b878fdb50dc804fda79dbc8"}' --force-unique -p clock.${doh_target}|);
+
+crashed() if cth_cleos(qq|push action dejavu.${doh_target} setplayer '{"p":{"owner":"dohplayer1", "asset_url":"/players/dominion/player-confederacy-01.png", "count":0, "reputation":0, "faction_id":2, "location_tile_id":1}}' -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action dejavu.${doh_target} setplayer '{"p":{"owner":"dohplayer2", "asset_url":"/players/dominion/player-dominion-02.png", "count":0, "reputation":0, "faction_id":4, "location_tile_id":1}}' -p hegemon.${doh_target}|);
+
+crashed() if cth_cleos(qq|push action names.${doh_target} addcname '{"id":1, "first_name":"Jimmy", "middle_name":"", "last_name":"Page", "asset_url":"/characters/character-jimmy-page-neutral.png", "faction_id":2}' -p names.${doh_target}|);
+crashed() if cth_cleos(qq|push action names.${doh_target} addcname '{"id":2, "first_name":"Robert", "middle_name":"", "last_name":"Plant", "asset_url":"/characters/character-robert-plant-neutral.png", "faction_id":2}' -p names.${doh_target}|);
+crashed() if cth_cleos(qq|push action names.${doh_target} addcname '{"id":3, "first_name":"Jimi", "middle_name":"", "last_name":"Hendrix", "asset_url":"/characters/character-jimi-hendrix-neutral.png", "faction_id":4}' -p names.${doh_target}|);
+
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} setgm '{"player":"$doh_gm"}' -p hegemon.${doh_target}|);
+
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} addfaction '{"id":1, "global_entity_id":52, "name":"Empire", "code":"em", "flag_asset_url":"/factions-flags/flag-empire.jpg"}' -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} addfaction '{"id":2, "global_entity_id":53, "name":"Confederacy", "code":"co", "flag_asset_url":"/factions-flags/flag-confederacy.jpg"}' -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} addfaction '{"id":3, "global_entity_id":54, "name":"Alliance", "code":"al", "flag_asset_url":"/factions-flags/flag-alliance.jpg"}' -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} addfaction '{"id":4, "global_entity_id":55, "name":"Dominion", "code":"do", "flag_asset_url":"/factions-flags/flag-dominion.jpg"}' -p hegemon.${doh_target}|);
+
+crashed() if cth_cleos(qq|push action crafting.${doh_target} addeffect '{"id":1, "name":"Plains", "description":"Farming production output increased by 50%. Mining production output decreased by 50%", "modifiers":[{ "modified_stat" : 3, "modifier_operator": 1, "condition": { "target":2, "filter":null, "value": 3 }, "value": 50 }, { "modified_stat" : 3, "modifier_operator": 1, "condition": { "target":2, "filter":null, "value": 1 }, "value": -50 }], "duration":-1 }' -p crafting.${doh_target} |);
+
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} addplanet '{"id":1, "area_map":"tulon", "q_coord":0, "r_coord":0, "name":"Tulon", "code":"tu", "asset_url":"/planets/tulon.png", "r_color":255, "g_color":255, "b_color":255}' -p hegemon.${doh_target}|);
+
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} addregion '{"id":1, "area_map":"tulon", "name":"Nefari", "code":"ne"}' -p hegemon.${doh_target}|);
+
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} addterrain '{"id":1, "type":"Plains", "map_asset_urls":["/tiles/tile-plains.jpg"], "background_asset_url":"/character-backgrounds/character-background-plains.png", "building_slots":6, "effects":[1]}' -p hegemon.${doh_target}|);
+
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} addtile '{"id":1,"area_map":"tulon","region_id":1,"q_coord":0,"r_coord":0,"terrain_type":1}' -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} addtile '{"id":2,"area_map":"tulon","region_id":1,"q_coord":0,"r_coord":1,"terrain_type":1}' -p hegemon.${doh_target}|);
+
+crashed() if cth_cleos(qq|push action staking.${tcn_target} enable '{}' -p staking.${tcn_target}|);
+
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} regplayer '{"player":"dohplayer1", "opt_out_of_politics":false}' --force-unique -p dohplayer1|);
+
+# ------------------------------------------------------------------------------------------------------------------------------------------------------------
+# Cheat by giving a bunch of cryopods to dohplayer1.
+# This is just an example that actually works. We don't need this outside of prod/hgm/tcn since all other targets have generous game constants like infinite
+#   cryopods for testing.
+# Using this is not enough to allow this test to run on prod/hgm/tcn because there are other blockers, such as the hardcoded clock/RNG prevention code
+#   in hegemon.cpp, for example '  if (BUILD.to_string().substr(3, 1) == "m") {  '
+# ------------------------------------------------------------------------------------------------------------------------------------------------------------
+#my $o = cth_cleos_pipe(qq*get table hegemon.${doh_target} hegemon.${doh_target} players*);
+#crashed() if (!defined $o);
+#$o =~ s/"first":\s*10000/"first": 1000000/; # Give a gazillion cryopods to the player by replacing the first occurrence of "first": 10000 with "first": 1000000"
+#$o =~ s/"character_slots":\s*1/"character_slots": 100/; # Give a gazillion character slots to the player
+#$o =~ s/"rows": \[\{//;
+#$o =~ s/    }\n  ],\n  "more": false,\n  "next_key": ""//; # Doctor it to the entire outer json context for the table query and leave only the player record
+#$o =~ s/\n//g; # Remove all newlines so it fits into a single cleos shell call
+#crashed() if cth_cleos(qq|push action hegemon.${doh_target} setplayer '{"p":$o}' --force-unique -p hegemon.${doh_target}|); # Now we can setplayer it with a gazillion cryopods
+# ------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} regplayer '{"player":"dohplayer2", "opt_out_of_politics":false}' --force-unique -p dohplayer2|);
+
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} createchar '{"player":"dohplayer1"}' --force-unique -p dohplayer1|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} createchar '{"player":"dohplayer1"}' --force-unique -p dohplayer1|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} createchar '{"player":"dohplayer2"}' --force-unique -p dohplayer2|);
+
+# Regen 8 hours of energy so docombat won't fail below with "not enough energy" (if you were to try and run this on hgm)
+#crashed() if cth_cleos(qq|push action clock.${doh_target} clockaddsec '{"seconds":28800}' --force-unique -p clock.${doh_target}|);
+crashed() if cth_cleos(qq|push action clock.${doh_target} clockaddsec '{"seconds":120}' --force-unique -p clock.${doh_target}|);
+
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} docombat '{"player":"dohplayer1", "faction_id":4}' --force-unique -p dohplayer1|);
+crashed() if cth_cleos(qq|push action clock.${doh_target} clockaddsec '{"seconds":120}' --force-unique -p clock.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} updaterng '{}' --force-unique -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} resolverngs '{"count":0}' --force-unique -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} proc '{"count":0}' --force-unique -p hegemon.${doh_target}|);
+
+$expected = 9;
+
+$actual = cth_cleos_pipe(qq*get table hegemon.${doh_target} hegemon.${doh_target} battleunits --lower 3 --limit 1 | jq .rows[0].hp*);
+
+crashed() if (!defined $actual);
+
+failed() if cth_assert("asserting battle round 1 -> unit 3 hp == $expected", "$expected == $actual");
+
+crashed() if cth_cleos(qq|push action clock.${doh_target} clockaddsec '{"seconds":120}' --force-unique -p clock.${doh_target}|);
+
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} updaterng '{}' --force-unique  -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} resolverngs '{"count":0}' --force-unique -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} proc '{"count":0}' --force-unique -p hegemon.${doh_target}|);
+
+$expected = 8;
+
+$actual = cth_cleos_pipe(qq*get table hegemon.${doh_target} hegemon.${doh_target} battleunits --lower 1 --limit 1 | jq .rows[0].hp*);
+
+crashed() if (!defined $actual);
+
+failed() if cth_assert("asserting battle round 2 -> unit 1 hp == $expected", "$expected == $actual");
+
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} doretreat '{"player":"dohplayer1", "destination_tile_id":2}' --force-unique  -p dohplayer1 |);
+
+crashed() if cth_cleos(qq|push action clock.${doh_target} sethash '{"hash":"092ba25b75b0ee1ac79c5a1aa1df28a5129cd8d15b878fdb50dc804fda79dbc2"}' --force-unique -p clock.${doh_target}|);
+
+crashed() if cth_cleos(qq|push action clock.${doh_target} clockaddsec '{"seconds":120}' --force-unique -p clock.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} updaterng '{}' --force-unique -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} resolverngs '{"count":0}' --force-unique -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} proc '{"count":0}' --force-unique -p hegemon.${doh_target}|);
+
+$expected = 1;
+
+$actual = cth_cleos_pipe(qq*get table hegemon.${doh_target} hegemon.${doh_target} players --lower dohplayer1 --limit 1 --index 2 --key-type i64 | jq .rows[0].location_tile_id*);
+
+crashed() if (!defined $actual);
+
+failed() if cth_assert("played dohplayer1 failed retreating : still on tile 1", "$expected == $actual");
+
+crashed() if cth_cleos(qq|push action clock.${doh_target} sethash '{"hash":"092ba25b75b0ee1ac79c5a1aa1df28a5129cd8d15b878fdb50dc804fda79dbc5"}' --force-unique -p clock.${doh_target}|);
+
+crashed() if cth_cleos(qq|push action clock.${doh_target} clockaddsec '{"seconds":120}' --force-unique -p clock.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} updaterng '{}' --force-unique -p hegemon.${doh_target}|);
+crashed() if cth_cleos(qq|push action hegemon.${doh_target} resolverngs '{"count":0}' --force-unique -p hegemon.${doh_target}|);
+
+my $expected_checksum256 = '3786e2d0a8286823a1586b3996537d106e32779c8bf0d732c0c12a0d3e3611fd';
+
+my $actual_checksum256 = cth_cleos_pipe(qq*push action hegemon.${doh_target} proc '{"count":0}' --force-unique -p hegemon.${doh_target} --json | jq .processed.action_traces[1].console | awk -F "checksum256:" '{print substr(\$NF, 1, 64)}'*);
+chomp($actual_checksum256);
+
+crashed() if (!defined $actual_checksum256);
+
+$expected = 2;
+
+$actual = cth_cleos_pipe(qq*get table hegemon.${doh_target} hegemon.${doh_target} players --lower dohplayer1 --limit 1 --index 2 --key-type i64 | jq .rows[0].location_tile_id*);
+
+crashed() if (!defined $actual);
+
+failed() if cth_assert("played dohplayer1 successfully retreated to tile 2 ", "$expected == $actual");
+
+failed() if cth_assert("last derived hash is 3786e2d0a8286823a1586b3996537d106e32779c8bf0d732c0c12a0d3e3611fd", "'$expected_checksum256' eq '$actual_checksum256'");
+
+# --------------------------------------------------------------------------------------------
+# Test done
+# --------------------------------------------------------------------------------------------
+
+cleanup();
+
+print "TEST: completed successfully.\n";

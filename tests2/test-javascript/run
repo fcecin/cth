@@ -1,0 +1,28 @@
+#!/usr/bin/env node
+
+// ---------------------------------------------------------------------------------------
+// Minimal demonstration that the DoHTestLib can be found, loaded and invoked.
+// Doesn't actually run nodeos or anything.
+// ---------------------------------------------------------------------------------------
+
+console.log(`Print arguments begin.`);
+
+// Print all command line arguments
+process.argv.slice(2).forEach((arg, index) => {
+  console.log(`Argument ${index + 1}: ${arg}`);
+});
+
+console.log(`Print arguments end.`);
+
+// Import the DoHTestLib.js library that is somewhere under cth/tools/
+const doh_tester = require('DoHTestDriver');
+
+// Call the args parser helper
+const switchesStr = 'cleos_url target';
+const optionsStr = '';
+const [switches, options] = doh_tester.cth_standard_args_parser(switchesStr, optionsStr);
+
+console.log('Switches:', switches);
+console.log('Options:', options);
+
+Object.assign(global, require('DoHTest'));

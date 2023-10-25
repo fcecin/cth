@@ -10,6 +10,25 @@ fi
 
 echo
 echo "------------------------------------------------------------------------"
+echo "PACKAGE: nodejs"
+echo "  nodejs is a Javascript runtime that's needed to support JS tests."
+echo "------------------------------------------------------------------------"
+echo
+
+echo "Checking for package nodejs ..."
+
+# Check if nodejs is already installed
+if ! command -v node &> /dev/null; then
+    echo "Installing nodejs..."
+    sudo apt-get update
+    sudo apt-get install -y nodejs
+    echo "nodejs is now installed and ready to use."
+else
+    echo "nodejs is already installed."
+fi
+
+echo
+echo "------------------------------------------------------------------------"
 echo "PACKAGE: jq"
 echo "  jq is used to write testcases. It is used by some of the DoH tests."
 echo "------------------------------------------------------------------------"

@@ -1,0 +1,86 @@
+#!/usr/bin/env node
+
+// --------------------------------------------------------------------------------------------
+// js-drip-distrib
+// --------------------------------------------------------------------------------------------
+// Test drip token distribution system.
+// This test is a port of cryptomechanics/doh-unit-tests/drip-distrib.sh from August, 2023.
+// --------------------------------------------------------------------------------------------
+
+Object.assign(global, require('DoHTestDriver'));
+Object.assign(global, require('DoHTest'));
+
+// --------------------------------------------------------------------------------------------
+// Set up the test
+// --------------------------------------------------------------------------------------------
+
+// global variables required by init()
+doh_target = "hg3";
+tcn_target = "tc3";
+doh_gm     = "dohplayer1";
+
+init();
+
+// --------------------------------------------------------------------------------------------
+// Testcase
+// --------------------------------------------------------------------------------------------
+
+let expected;
+let actual;
+
+console.log("TEST: testcase started.\n");
+
+createBasicGame();
+createBasicPlayers();
+createBasicEconomy();
+
+cth_cleos(`push action clock.${doh_target} sethash '{"hash":"092ba25b75b0ee1ac79c5a1aa1df28a5129cd8d15b878fdb50dc804fda79dbc7"}' --force-unique -p clock.${doh_target}`) ? crashed() : null;
+
+cth_cleos(`push action crafting.${doh_target} addgameasset '{"id":3, "name":"Food", "asset_url":"/items/food/food-neutral.png", "type":0, "category":"resource", "level":1, "rarity":0, "item_data":null}' --force-unique -p crafting.${doh_target}`) ? crashed() : null;
+
+cth_cleos(`push action hegemon.${doh_target} dowork '{"character_id":1, "activity":3}' --force-unique -p dohplayer1`) ? crashed() : null;
+
+let some_date_string = cth_cleos_pipe(`get table hegemon.${doh_target} hegemon.${doh_target} global | jq .rows[0].day_stats.day_start | tr -d '"'`);
+some_date_string === undefined ? crashed() : null;
+
+cth_cleos(`push action clock.${doh_target} clockaddsec '{"seconds":120}' --force-unique -p clock.${doh_target}`) ? crashed() : null;
+
+cth_cleos(`push action hegemon.${doh_target} updaterng '{}' --force-unique -p hegemon.${doh_target}`) ? crashed() : null;
+cth_cleos(`push action hegemon.${doh_target} resolverngs '{"count":0}' --force-unique -p hegemon.${doh_target}`) ? crashed() : null;
+cth_cleos(`push action hegemon.${doh_target} proc '{"count":0}' --force-unique -p hegemon.${doh_target}`) ? crashed() : null;
+
+expected = 10039;
+actual = cth_cleos_pipe(`push action hegemon.${doh_target} endday '{}' --force-unique -p hegemon.${doh_target} --json | jq .processed.action_traces[1].except.stack[0].data.error_code`);
+actual === undefined ? crashed() : null;
+cth_assert(`day not over yet`, `${expected} == ${actual}`) ? failed() : null;
+
+cth_cleos(`push action clock.${doh_target} clockaddsec '{"seconds":180}' --force-unique -p clock.${doh_target}`) ? crashed() : null;
+
+cth_cleos(`push action hegemon.${doh_target} endday '{}' --force-unique -p hegemon.${doh_target}`) ? crashed() : null;
+
+let date_string = cth_cleos_pipe(`get table hegemon.${doh_target} hegemon.${doh_target} global | jq .rows[0].day_stats.day_start | tr -d '"'`);
+date_string === undefined ? crashed() : null;
+
+// Day is 300s in hg3
+expected = 300;
+actual = epochSecsFromDateString(date_string);
+actual === undefined ? crashed() : null;
+cth_assert(`unix timestamp for day_start is ${expected}`, `${expected} == ${actual}`) ? failed() : null;
+
+expected = "191.7789";
+actual = cth_cleos_pipe(`get table tokens.${tcn_target} energy.${tcn_target} accounts | jq .rows[0].balance | tr -d '"' | tr -d 'TCN'`);
+actual === undefined ? crashed() : null;
+cth_assert(`energy.${tcn_target} balance is ${expected} TCN`, `${expected} == ${actual}`);
+
+expected = "82.1911";
+actual = cth_cleos_pipe(`get table tokens.${tcn_target} rep.${tcn_target} accounts | jq .rows[0].balance | tr -d '"' | tr -d 'TCN'`);
+actual === undefined ? crashed() : null;
+cth_assert(`rep.${tcn_target} balance is ${expected} TCN`, `${expected} == ${actual}`);
+
+// --------------------------------------------------------------------------------------------
+// Test done
+// --------------------------------------------------------------------------------------------
+
+finish();
+
+console.log("TEST: completed successfully.\n");
