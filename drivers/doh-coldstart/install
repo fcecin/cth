@@ -14,12 +14,12 @@ use strict;
 use warnings;
 use Cwd;
 use FindBin qw($RealBin);
-use lib "$RealBin/../../tools/doh-goodies";
-use DoHGoodies;
 use lib "$RealBin/../../tools/cth-goodies";
 use CthGoodies;
 use lib "$RealBin/../../tools/cth-utils";
 use CthUtils;
+use lib "$RealBin/../../tools/doh-goodies";
+use DoHGoodies;
 
 # ---------------------------------------------------------------------------
 # Global vars

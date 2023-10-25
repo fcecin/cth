@@ -31,7 +31,13 @@ my %doh_constants = (); # doh_hotstart_start() fills it with all DoH readonly co
 
 # -----------------------------------------------------------------------
 # PERL5LIB env var should contain all useful paths under cth/tools/
+#  if this is run from cth. If it's loaded from a driver, we'll still
+#  need to find it with use lib, unfortunately:
 # -----------------------------------------------------------------------
+
+use File::Basename;
+use lib dirname(dirname(__FILE__)) . "/cth-goodies";
+use lib dirname(dirname(__FILE__)) . "/JSON-Tiny/lib";
 
 use CthGoodies;
 use JSON::Tiny;

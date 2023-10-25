@@ -52,7 +52,7 @@ sub absolute {
         } else {
             # try to remove the '..'s
             if ($indir =~ /^\//) { # skip if it doesn't start with '/' for some reason
-                my @components = split /\//, $dir;
+                my @components = split /\//, $indir;
                 my @resolved_path;
                 foreach my $component (@components) {
                     if ($component eq "..") {
