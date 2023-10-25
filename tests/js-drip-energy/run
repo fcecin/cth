@@ -6,11 +6,6 @@
 // This is a functional test focused on the distrib contract in period_reset_mode == true,
 //   which is the mode the code operates in when it is deployed and init'ed in energy.tcn
 //   for example.
-//
-// FIXME/TODO: test is passing, but fix javascript translation garbage:
-//   - cth_assert correctly used
-//   - various crashes are fails
-//   - actually introduce a crashed-if-undefined helper function in DoHTest.js
 // --------------------------------------------------------------------------------------------
 
 Object.assign(global, require('DoHTestDriver'));
@@ -188,11 +183,7 @@ createBasicGame();
 // Economy inits
 // **********************
 
-cth_cleos(`push action main.${tcn_target} adddrip '{"symbol":"4,TCN", "contract":"tokens.${tcn_target}", "buckets":["players.${tcn_target}"], "shares":[10000]}' --force-unique -p main.${tcn_target}@active`) ? crashed() : null;
-cth_cleos(`push action players.${tcn_target} adddrip '{"symbol":"4,TCN", "contract":"tokens.${tcn_target}", "buckets":["energy.${tcn_target}","rep.${tcn_target}"], "shares":[7000, 3000]}' --force-unique -p players.${tcn_target}@active`) ? crashed() : null;
-cth_cleos(`push action tokens.${tcn_target} create '{"issuer":"hegemon.${doh_target}", "maximum_supply":"100000000000.0000 TCN"}' -p tokens.${tcn_target}@active`) ? crashed() : null;
-cth_cleos(`push action tokens.${tcn_target} issue '{"to":"hegemon.${doh_target}", "quantity":"100000000.0000 TCN", "memo":"initial issuance"}' -p hegemon.${doh_target}@active`) ? crashed() : null;
-cth_cleos(`transfer hegemon.${doh_target} reserve.${tcn_target} "100000000.0000 TCN" "" --contract tokens.${tcn_target} -p hegemon.${doh_target}@active`) ? crashed() : null;
+createBasicEconomy();
 
 // **********************
 // Hash init

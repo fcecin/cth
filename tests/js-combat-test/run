@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 
 // --------------------------------------------------------------------------------------------
-// js-combat-test
-// Javascript port of combat-test
+// combat-test
+//  --------------------------------------------------------------------------------------------
+// This test is a port of cryptomechanics/doh-unit-tests/combat-test.sh from August, 2023.
+// It is a simple test where 3 chars are in battle, damaging each other.
+// This test will fail if the combat math changes, for example; in that case, the test has
+//   to be updated with the new values.
 // --------------------------------------------------------------------------------------------
 
 Object.assign(global, require('DoHTestDriver'));

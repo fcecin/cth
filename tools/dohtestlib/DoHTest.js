@@ -234,6 +234,8 @@ function createBasicGame() {
 
 function createBasicPlayers() {
 
+    console.log("TEST: createBasicPlayers(): started.\n");
+
     cth_cleos("system newaccount eosio dohplayer1 EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV --stake-cpu '10000.0000 EOS' --stake-net '10000.0000 EOS' --buy-ram-kbytes 1000 --transfer") ? crashed() : null;
 
     cth_cleos("system newaccount eosio dohplayer2 EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV --stake-cpu '10000.0000 EOS' --stake-net '10000.0000 EOS' --buy-ram-kbytes 1000 --transfer") ? crashed() : null;
@@ -254,6 +256,31 @@ function createBasicPlayers() {
     cth_cleos(`push action hegemon.${doh_target} createchar '{"player":"dohplayer2"}' --force-unique -p dohplayer2`) ? crashed() : null;
 
     cth_cleos(`push action clock.${doh_target} clockaddsec '{"seconds":120}' --force-unique -p clock.${doh_target}`) ? crashed() : null;
+
+    console.log("TEST: createBasicPlayers(): finished OK.\n");
+}
+
+// -----------------------------------------------------------------------
+// createBasicEconomy
+//
+// Basic drip config and TCN token creation
+// -----------------------------------------------------------------------
+
+function createBasicEconomy() {
+
+    console.log("TEST: createBasicEconomy(): started.\n");
+
+    cth_cleos(`push action main.${tcn_target} adddrip '{"symbol":"4,TCN", "contract":"tokens.${tcn_target}", "buckets":["players.${tcn_target}"], "shares":[10000]}' --force-unique -p main.${tcn_target}@active`) ? crashed() : null;
+
+    cth_cleos(`push action players.${tcn_target} adddrip '{"symbol":"4,TCN", "contract":"tokens.${tcn_target}", "buckets":["energy.${tcn_target}","rep.${tcn_target}"], "shares":[7000, 3000]}' --force-unique -p players.${tcn_target}@active`) ? crashed() : null;
+
+    cth_cleos(`push action tokens.${tcn_target} create '{"issuer":"hegemon.${doh_target}", "maximum_supply":"100000000000.0000 TCN"}' -p tokens.${tcn_target}@active`) ? crashed() : null;
+
+    cth_cleos(`push action tokens.${tcn_target} issue '{"to":"hegemon.${doh_target}", "quantity":"100000000.0000 TCN", "memo":"initial issuance"}' -p hegemon.${doh_target}@active`) ? crashed() : null;
+
+    cth_cleos(`transfer hegemon.${doh_target} reserve.${tcn_target} "100000000.0000 TCN" "" --contract tokens.${tcn_target} -p hegemon.${doh_target}@active`) ? crashed() : null;
+
+    console.log("TEST: createBasicEconomy(): finished OK.\n");
 }
 
 // -----------------------------------------------------------------------
@@ -276,4 +303,5 @@ module.exports = {
     // Testcase building blocks
     createBasicGame,
     createBasicPlayers,
+    createBasicEconomy,
 };
