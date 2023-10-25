@@ -1,0 +1,87 @@
+#!/usr/bin/env node
+
+// --------------------------------------------------------------------------------------------
+// spam-test
+// --------------------------------------------------------------------------------------------
+// Test the anti-spam mechanism by performing > 1,000 actions in the same day
+// --------------------------------------------------------------------------------------------
+
+Object.assign(global, require('DoHTestDriver'));
+Object.assign(global, require('DoHTest'));
+
+// --------------------------------------------------------------------------------------------
+// Set up the test
+// --------------------------------------------------------------------------------------------
+
+// global variables required by init()
+doh_target = "hg3";
+tcn_target = "tc3";
+doh_gm     = "dohplayer1"
+
+// starts nodeos
+init();
+
+// get the game constants from the readonly contract
+let doh = doh_get_constants();
+
+// --------------------------------------------------------------------------------------------
+// Testcase setup
+// --------------------------------------------------------------------------------------------
+
+console.log("TEST: testcase started.\n");
+
+createBasicGame();
+createBasicPlayers();
+createBasicEconomy();
+
+cth_cleos(`push action clock.${doh_target} sethash '{"hash":"092ba25b75b0ee1ac79c5a1aa1df28a5129cd8d15b878fdb50dc804fda79dbc7"}' --force-unique -p clock.${doh_target}`) ? crashed() : null;
+
+// --------------------------------------------------------------------------------------------
+// Testcase logic
+// --------------------------------------------------------------------------------------------
+
+ACTION init(const time_point& , const time_point& meta_game_end); //initialize and start the meta game
+
+cth_cleos(`push action meta.${doh_target} init '{"all_auctions_end":"${TIME_POINT_MAX}","meta_game_end":"${TIME_POINT_MAX}"}' --force-unique -p meta.${doh_target}`) ? crashed() : null;
+
+/*
+      ACTION setplayer(const player& p);
+      ACTION setauction(const auction& a);
+      ACTION setplanet(const planet& p);
+      ACTION setregion(const region& r);
+      ACTION setfaction(const faction& f);
+      ACTION setitem(const item& i);
+
+      ACTION init(const time_point& all_auctions_end, const time_point& meta_game_end); //initialize and start the meta game
+
+      ACTION unstakeall();
+
+      //player actions
+
+      ACTION open( const name& player, const symbol& symbol, const name& ram_payer );
+      ACTION close( const name& player, const symbol& symbol );
+
+      ACTION stake(const name& owner, const asset& amount, const uint64_t region_id);
+
+      ACTION placebid(const name& owner, const asset& amount, const uint64_t auction_id);
+
+      ACTION purchase(const name& owner, const uint64_t item_id);
+
+      ACTION transfer(const uint64_t acquisition_id, const name& to, const uint32_t count);
+*/
+
+// Try to loop 1010 times (well past the 1000 limit) staking 0.0001 TCN each time with 1 second intervals (1000 < 86400)
+
+cth_cleos(`push action meta.${doh_target} stake '{"owner":"${doh_gm}","amount":"0.0001 TCN"}' --force-unique -p ${doh_gm}`) ? crashed() : null;
+
+// CLOCK +1 here
+
+
+
+// --------------------------------------------------------------------------------------------
+// Test done
+// --------------------------------------------------------------------------------------------
+
+finish();
+
+console.log("TEST: completed successfully.\n");

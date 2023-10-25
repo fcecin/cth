@@ -4,6 +4,8 @@
 # doh-coldstart install
 #
 # Downloads and compiles the DoH source code for a given target.
+#
+# NOTE: The default target is 'test' (hg3/tc3 contract suffixes)
 # ---------------------------------------------------------------------------
 
 $| = 1;
@@ -12,6 +14,8 @@ use strict;
 use warnings;
 use Cwd;
 use FindBin qw($RealBin);
+use lib "$RealBin/../../tools/doh-goodies";
+use DoHGoodies;
 use lib "$RealBin/../../tools/cth-goodies";
 use CthGoodies;
 use lib "$RealBin/../../tools/cth-utils";
@@ -20,8 +24,6 @@ use CthUtils;
 # ---------------------------------------------------------------------------
 # Global vars
 # ---------------------------------------------------------------------------
-
-my $driver = "doh-coldstart install";
 
 # default target is the test target (hg3/tc3)
 my $target = "test";
@@ -35,6 +37,8 @@ my %local_dir;
 foreach my $tg (@targets) { $local_dir{$tg} = "../../local/$tg/doh-contracts"; }
 
 my $run_build_sh = "run-build.sh";
+
+my $driver = "doh-coldstart install";
 
 # ---------------------------------------------------------------------------
 # Utils
@@ -50,22 +54,6 @@ sub chdir_target_dir {
     die "ERROR: doh-coldstart: chdir_target_dir target not defined" unless (defined $tg);
     chdir_driver_dir();    # absolute
     chdir_for_sure($local_dir{$tg});
-}
-
-# target is prod, staging, dev, test, debug
-sub copy_doh {
-    my $target = shift;
-    die "ERROR: $driver: copy target not defined" unless (defined $target);
-
-    my $destination = absolute("../../local/$target", CthUtils::ABSOLUTE_ENSURE_CREATE);
-
-    my $to_remove = absolute($destination . "/doh-contracts", CthUtils::ABSOLUTE_MUST_RECREATE);
-
-    system("cp -r $source_dir $destination");
-    if ($? != 0) {
-        print "ERROR: $driver: Failed to copy $source_dir to $destination: $!";
-        exit 1;
-    }
 }
 
 # ---------------------------------------------------------------------------
@@ -138,8 +126,8 @@ if (defined $options->{'doh'}) {
 #   a submodule. This is done by tools/get-doh/get-doh.sh.
 # ---------------------------------------------------------------------------
 
+$source_dir = absolute($source_dir, CthUtils::ABSOLUTE_MAY_NOT_EXIST);
 print "$driver: Ensuring source directory exists: $source_dir\n";
-
 $source_dir = absolute($source_dir, CthUtils::ABSOLUTE_MUST_EXIST);
 
 print "$driver: Downloading latest DoH source code to $source_dir using tools/get-doh.sh\n";
@@ -180,43 +168,58 @@ if (-e "$source_dir/$run_build_sh") {
 }
 
 # ---------------------------------------------------------------------------
-# Create a DoH source code copy for each compilation target
-#
-# Copy the tools/doh-contracts template to:
-#   local/prod/doh-contracts/
-#   local/staging/doh-contracts/
-#   local/dev/doh-contracts/
-#   local/test/doh-contracts/
-#   local/debug/doh-contracts/
+# Wipe any and all potential targets clean first to avoid confusion
+#   when people go browse the local/ directory, as not to find any
+#   stale versions of the DoH code there.
 # ---------------------------------------------------------------------------
 
-print "$driver: Copying contract templates to local/ for all DoH targets ...\n";
-
 foreach my $tg (@targets) {
-    copy_doh($tg);
+    my $destination = absolute("../../local/$target", CthUtils::ABSOLUTE_MAY_NOT_EXIST);
+    if (-d $destination) {
+        print "$driver: Deleting '$destination' ...\n";
+        system("rm -rf $destination");
+    }
 }
 
 # ---------------------------------------------------------------------------
-# Customize contract source code for each compilation target
+# Create a DoH source code copy ** for the chosen compilation target **
 #
-#   local/prod/doh-contracts/set-prod.sh
-#   local/staging/doh-contracts/set-staging.sh
-#   local/dev/doh-contracts/set-dev.sh
-#   local/test/doh-contracts/set-test.sh
-#   local/test/doh-contracts/set-debug.sh
+# Copies the tools/doh-contracts template to:
+#   local/${target}/doh-contracts/
 # ---------------------------------------------------------------------------
 
-print "$driver: Instantiating contract templates on local/ for all DoH targets ...\n";
+{
+    my $destination = absolute("../../local/$target", CthUtils::ABSOLUTE_ENSURE_CREATE);
+    my $to_remove = absolute($destination . "/doh-contracts", CthUtils::ABSOLUTE_MUST_RECREATE);
 
-foreach my $tg (@targets) {
-    chdir_target_dir($tg);
-    system("./set-$tg.sh") == 0 or die "ERROR: $driver: Failed to create '$tg' contracts: $!";
+    print "$driver: Copying contract templates to local/ for DoH target '$target' (from '$source_dir' to '$destination') ...\n";
+
+    system("cp -r $source_dir $destination");
+    if ($? != 0) {
+        print "ERROR: $driver: Failed to copy $source_dir to $destination: $!";
+        exit 1;
+    }
 }
+
+# ---------------------------------------------------------------------------
+# From now on we will be at the target dir to set it up and compile it
+# ---------------------------------------------------------------------------
+
+chdir_target_dir($target);
+
+# ---------------------------------------------------------------------------
+# Customize contract source code for the chosen compilation target
+#   local/${target}/doh-contracts/set-${target}.sh
+# ---------------------------------------------------------------------------
+
+print "$driver: Instantiating contract templates on local/ for DoH target '$target' ...\n";
+
+system("./set-${target}.sh") == 0 or die "ERROR: $driver: Failed to create '$target' contracts: $!";
 
 # ---------------------------------------------------------------------------
 # Compile DoH
 #
-# Compile just $target ('test' (hg3/tc3) is the default)
+# Compile just the selected $target
 # ---------------------------------------------------------------------------
 
 my $COMPILE_ERROR_FILE = 'COMPILE_ERROR';
@@ -227,8 +230,6 @@ print "$driver: *** Tests that try to run with any target other than the '$targe
 print "$driver: ************************************************************************************************\n";
 
 print "$driver: Building DoH for compilation target '$target' ONLY...\n";
-
-chdir_target_dir($target);
 
 # Find all subdirectories that have a CMakeLists.txt in them (meaning it's a compilable contract dir)
 opendir(my $dh, '.') or die "ERROR: $driver: Could not open the current directory: $!";

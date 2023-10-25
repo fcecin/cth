@@ -19,6 +19,8 @@ const dohTestDriver = require('DoHTestDriver');
 // map of DoH error code to DoH error message
 const dohErrorMap = new Map();
 
+const TIME_POINT_NEVER = "2106-02-07T06:28:15.000";
+
 // -----------------------------------------------------------------------
 // Management functions
 // -----------------------------------------------------------------------
