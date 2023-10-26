@@ -45,6 +45,21 @@ my $cmd;
 my $o;
 
 # --------------------------------------------------------------------------------------------
+# Go to the driver dir
+# --------------------------------------------------------------------------------------------
+
+chdir_for_sure($RealBin);
+
+# --------------------------------------------------------------------------------------------
+# Tee all output to start.log
+# --------------------------------------------------------------------------------------------
+
+my $log_file = "start.log";
+if (-e $log_file) { unlink $log_file or die "ERROR: coldstart start: Could not delete '$log_file': $!"; }
+open(STDOUT, "| tee -a $log_file") or die "ERROR: coldstart start: Can't open '$log_file': $!"; # Redirect STDOUT to tee
+open(STDERR, ">&STDOUT"); # Redirect STDERR to STDOUT
+
+# --------------------------------------------------------------------------------------------
 # The working_dir is relative to the script's directory. Make sure to create it, then find it,
 #   then change to it.
 # --------------------------------------------------------------------------------------------

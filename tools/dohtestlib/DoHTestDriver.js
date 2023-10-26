@@ -216,6 +216,48 @@ function cth_cleos_pipe(args) {
 }
 
 // -----------------------------------------------------------------------
+// cth_cleos_pipe2
+//
+// Same as cth_cleos_pipe, but returns an array with two elements:
+// - First element is the error code, or 0 if success.
+// - Second element is the entire output (erroneous or otherwise).
+// Useful for "failed successfully" tests where you want to parse the
+//   transaction error output.
+// -----------------------------------------------------------------------
+
+function cth_cleos_pipe2(args) {
+    if (args === undefined) {
+        console.log("ERROR: cth_cleos_pipe2: args argument is undefined");
+        return ["ERROR", 100000];
+    }
+
+    if (cleosProviderDriver === undefined || cleosProviderWorkingDir === undefined) {
+        console.log("ERROR: cth_cleos_pipe2: cleos provider was not set");
+        return ["ERROR", 100001];
+    }
+
+    const cmd = `cleos ${cleosUrlParam} --wallet-url unix://${cleosProviderWorkingDir}/keosd.sock --verbose ${args}`;
+
+    console.log(`cth_cleos_pipe2: run command: ${cmd}`);
+
+    try {
+        const output = child_process.execSync(cmd, { stdio: 'pipe' }).toString();
+        console.log(`cth_cleos_pipe2: command successful, output:\n${output}`);
+        return [output.trim(), 0];
+    } catch (error) {
+        console.log(`ERROR: cth_cleos_pipe2: command returned a nonzero (error) code: ${error.status}`);
+        console.log("cth_cleos_pipe2: ----- begin error dump -----");
+        console.log(error);
+        console.log("cth_cleos_pipe2: ------ end error dump ------");
+        if (error.status == 0) {
+            return [error, -1];
+        } else {
+            return [error, error.status];
+        }
+    }
+}
+
+// -----------------------------------------------------------------------
 // cth_assert
 //
 // Check if an expression evaluates to true. Returns 0 if it is true,
@@ -780,6 +822,7 @@ module.exports = {
     cth_set_cleos_url,
     cth_cleos,
     cth_cleos_pipe,
+    cth_cleos_pipe2,
     cth_assert,
     cth_standard_args_parser,
     cth_call_driver,

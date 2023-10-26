@@ -36,10 +36,11 @@ my $SLEEP_INTERVAL = 1;
 sub time_sleep() {
     my $t;
     $t = `date '+%Y-%m-%d %H:%M:%S.%3N'`;
-    print chomp($t) . ": sleeping for $SLEEP_INTERVAL second(s)...";
+    chomp($t);
+    print "$t: sleeping for $SLEEP_INTERVAL second(s)...\n";
     sleep($SLEEP_INTERVAL);
     $t = `date '+%Y-%m-%d %H:%M:%S.%3N'`;
-    print chomp($t) . ": sleeping done.";
+    print "$t: sleeping done.\n";
 }
 
 # --------------------------------------------------------------------------------------------

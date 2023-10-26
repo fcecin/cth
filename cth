@@ -105,11 +105,17 @@ my $global_test_or_installer_args = '';
 my @tests_dirs;
 
 # Total tests found (scalar(@tests))
-my $tests_total = 0;
+# This is updated after test name filtering (see @filtered_tests) to contain only the test count
+#   after the filtering;
+my $tests_size = 0;
 
 # This is a list of all tests that will be run, with the full path to them.
 # The test directory can be obtained via use basename($test), and the path via dirname($test).
+# This array is *shortened* after it is first constructed, when the test name filter is applied to it.
 my @tests;
+
+# When the @tests array is name-filtered, the filtered tests that are removed from @tests are placed here.
+my @filtered_tests;
 
 # Size of the common path prefix among all entries in @tests (to help reduce on-screen clutter)
 my $tests_prefix = 0;
@@ -122,8 +128,6 @@ my $sum_total = 0;
 my $sum_fail = 0;
 my $sum_pass = 0;
 my $sum_skip = 0;
-
-my $name_filter_skip = 0; # tests skipped because of no match for provided name filters
 
 my @sum_passed_tests;
 my @sum_failed_tests;
@@ -606,7 +610,7 @@ foreach my $tests_dir (@tests_dirs) {
     }
 }
 
-$tests_total = scalar(@tests);
+$tests_size = scalar(@tests);
 @tests = sort @tests;
 
 # --------------------------------------------------------------------------------------------
@@ -852,7 +856,7 @@ sub print_test_name {
     if (! defined $test_name) { die "FATAL ERROR: cth: print_test_name undefined test_name"; }
     $test_name = shorten_test_name($test_name);
     my $tests_done  = $sum_pass + $sum_fail + $sum_skip;
-    my $test_counter = sprintf("%3d", int(100 * (($tests_done + 1) / $tests_total))) . "%";
+    my $test_counter = sprintf("%3d", int(100 * (($tests_done + 1) / $tests_size))) . "%";
     print "  " . $test_counter . " " . $test_name . " " . ("." x (50 - length($test_name) - 1 - length($test_counter))) . " ";
 }
 
@@ -892,29 +896,54 @@ sub wait_and_process_test_result {
     }
 }
 
+#
+# First, apply the test name filter (from the command-line)
+# This actually changes the @tests array
+#
+
+if (scalar(@testspecs) != 0) {
+
+    # testspecs (test name filters) were passed in the command-line,
+    #   so we have to apply those filters now.
+
+    my @non_filtered_tests;
+
+    foreach my $test (@tests) {
+        my $shortened_test_name = shorten_test_name($test);
+        if (!grep { $_ eq $shortened_test_name } @testspecs) {
+            push @filtered_tests, $test;
+        } else {
+            push @non_filtered_tests, $test;
+        }
+    }
+
+    if ($opt_verbose) {
+        if (@filtered_tests) {
+            print "Will not run " . scalar(@filtered_tests) . " tests that did not pass the name filters:";
+            foreach my $test (@filtered_tests) {
+                $test = shorten_test_name($test);
+                print " " . $test;
+            }
+            print "\n";
+        }
+    }
+
+    @tests = @non_filtered_tests; # update @tests
+    $tests_size = scalar(@tests); # update size of tests
+}
+
+#
+# Second, actually run the test list (after the test name filter)
+#
+
 if ($opt_verbose) { print "\n"; }
-print "Running $tests_total tests (up to $opt_jobs in parallel) ...\n";
+print "Running $tests_size tests (up to $opt_jobs in parallel) ...\n";
 if ($opt_verbose) { print "The output of each test is saved to the 'run.log' file on each test directory.\n"; }
 print "\n";
 
 # NOTE: @tests now contains the full path to every test directory, e.g. '/home/username/cth/tests/combat-test'
 foreach my $test (@tests) {
 
-    # check if we will skip this test.
-    # if no test names were passed in, that actually means we run all tests without checking
-    #    if they are in the list (which is empty)
-    if (scalar(@testspecs) != 0) {
-        my $shortened_test_name = shorten_test_name($test);
-        if (!grep { $_ eq $shortened_test_name } @testspecs) {
-            # skip this test if it isn't in the list
-            #if ($opt_verbose) { print "Test '$test' doesn't match the testspecs; skipped.\n"; }
-            $name_filter_skip++;
-            next;
-        }
-    }
-
-    # run the test
-    #
     chdir $test or die "ERROR: cth: Cannot change into test directory: $!";
     my $script = "run";
     my $log_file = "run.log";
@@ -1035,6 +1064,7 @@ print "Test summary:\n";
 print "-------------\n";
 print "\n";
 
+my $name_filter_skip = scalar(@filtered_tests);
 if ($name_filter_skip > 0) {
     print "Filtered $name_filter_skip tests by name (not included in stats below).\n";
     print "\n";

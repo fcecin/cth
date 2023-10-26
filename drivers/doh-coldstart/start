@@ -46,10 +46,23 @@ my $cmd;
 my $o;
 
 # --------------------------------------------------------------------------------------------
-# Go to driver dir and resolve some relative paths
+# Go to driver dir
 # --------------------------------------------------------------------------------------------
 
 chdir_for_sure($RealBin);
+
+# --------------------------------------------------------------------------------------------
+# Tee all output to start.log
+# --------------------------------------------------------------------------------------------
+
+my $log_file = "start.log";
+if (-e $log_file) { unlink $log_file or die "ERROR: doh-coldstart start: Could not delete '$log_file': $!"; }
+open(STDOUT, "| tee -a $log_file") or die "ERROR: doh-coldstart start: Can't open '$log_file': $!"; # Redirect STDOUT to tee
+open(STDERR, ">&STDOUT"); # Redirect STDERR to STDOUT
+
+# --------------------------------------------------------------------------------------------
+# Resolve some paths to absolute
+# --------------------------------------------------------------------------------------------
 
 $coldstart_dir = absolute($coldstart_dir, CthUtils::ABSOLUTE_MUST_EXIST);
 

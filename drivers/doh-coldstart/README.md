@@ -8,5 +8,4 @@ This driver takes care of starting the coldstart reference driver (which starts 
 
 Testcases can invoke this driver directly, and it will take care of coldstart in its backend.
 
-You must call 'install' at least once (which is done by 'cth -i') to compile the doh-contracts (should be a cth submodule under tools/). The doh-contracts build script actually refreshes the doh-contracts submodules (the various contracts) so you may want to reinstall this driver manually (by calling 'install' inside this driver) from time to time to pick up and compile new doh-contracts code.
-
+You must call 'install' at least once (which is done by 'cth -i') to compile the DoH contracts.

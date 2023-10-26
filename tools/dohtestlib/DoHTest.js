@@ -9,17 +9,21 @@
 
 const fs = require('fs');
 const child_process = require('child_process');
-
 const dohTestDriver = require('DoHTestDriver');
 
 // -----------------------------------------------------------------------
-// State
+// Exported constants
+// -----------------------------------------------------------------------
+
+const TIME_POINT_MAX = "2106-02-07T06:28:15.000";
+const TIME_POINT_MIN = "1970-01-01T00:00:00.000";
+
+// -----------------------------------------------------------------------
+// Private state
 // -----------------------------------------------------------------------
 
 // map of DoH error code to DoH error message
 const dohErrorMap = new Map();
-
-const TIME_POINT_NEVER = "2106-02-07T06:28:15.000";
 
 // -----------------------------------------------------------------------
 // Management functions
@@ -194,15 +198,15 @@ function getError(errcode) {
 // To finish it up call e.g. createBasicPlayers() afterwards.
 // -----------------------------------------------------------------------
 
-function createBasicGame() {
+function createBasicGame(use_clock = true) {
 
     console.log("TEST: createBasicGame(): started.\n");
 
-    cth_cleos(`push action clock.${doh_target} useclock '{}' -p clock.${doh_target}`) ? crashed() : null;
+    if (use_clock) cth_cleos(`push action clock.${doh_target} useclock '{}' -p clock.${doh_target}`) ? crashed() : null;
 
     cth_cleos(`push action staking.${tcn_target} init '{ "epoch":"1", "distrib_contracts": [ "energy.${tcn_target}", "rep.${tcn_target}"], "drip_contracts": [ "main.${tcn_target}", "players.${tcn_target}"] }' -p staking.${tcn_target}`) ? crashed() : null;
 
-    cth_cleos(`push action clock.${doh_target} sethash '{"hash":"092ba25b75b0ee1ac79c5a1aa1df28a5129cd8d15b878fdb50dc804fda79dbc8"}' --force-unique -p clock.${doh_target}`) ? crashed() : null;
+    if (use_clock) cth_cleos(`push action clock.${doh_target} sethash '{"hash":"092ba25b75b0ee1ac79c5a1aa1df28a5129cd8d15b878fdb50dc804fda79dbc8"}' --force-unique -p clock.${doh_target}`) ? crashed() : null;
 
     cth_cleos(`push action hegemon.${doh_target} addfaction '{"id":1, "global_entity_id":52, "name":"Empire", "code":"em", "flag_asset_url":"/factions-flags/flag-empire.jpg"}' -p hegemon.${doh_target}`) ? crashed() : null;
     cth_cleos(`push action hegemon.${doh_target} addfaction '{"id":2, "global_entity_id":53, "name":"Confederacy", "code":"co", "flag_asset_url":"/factions-flags/flag-confederacy.jpg"}' -p hegemon.${doh_target}`) ? crashed() : null;
@@ -234,7 +238,7 @@ function createBasicGame() {
 // Registers dohplayer1 and dohplayer2, and three characters.
 // -----------------------------------------------------------------------
 
-function createBasicPlayers() {
+function createBasicPlayers(use_clock = true) {
 
     console.log("TEST: createBasicPlayers(): started.\n");
 
@@ -257,7 +261,7 @@ function createBasicPlayers() {
     cth_cleos(`push action hegemon.${doh_target} createchar '{"player":"dohplayer1"}' --force-unique -p dohplayer1`) ? crashed() : null;
     cth_cleos(`push action hegemon.${doh_target} createchar '{"player":"dohplayer2"}' --force-unique -p dohplayer2`) ? crashed() : null;
 
-    cth_cleos(`push action clock.${doh_target} clockaddsec '{"seconds":120}' --force-unique -p clock.${doh_target}`) ? crashed() : null;
+    if (use_clock) cth_cleos(`push action clock.${doh_target} clockaddsec '{"seconds":120}' --force-unique -p clock.${doh_target}`); // ? crashed() : null;
 
     console.log("TEST: createBasicPlayers(): finished OK.\n");
 }
@@ -281,6 +285,9 @@ function createBasicEconomy() {
     cth_cleos(`push action tokens.${tcn_target} issue '{"to":"hegemon.${doh_target}", "quantity":"100000000.0000 TCN", "memo":"initial issuance"}' -p hegemon.${doh_target}@active`) ? crashed() : null;
 
     cth_cleos(`transfer hegemon.${doh_target} reserve.${tcn_target} "100000000.0000 TCN" "" --contract tokens.${tcn_target} -p hegemon.${doh_target}@active`) ? crashed() : null;
+
+    // mint another 100 million free-floating TCN for testing purposes (e.g. give it to players etc.)
+    cth_cleos(`push action tokens.${tcn_target} issue '{"to":"hegemon.${doh_target}", "quantity":"100000000.0000 TCN", "memo":"testing allowance"}' -p hegemon.${doh_target}@active`) ? crashed() : null;
 
     console.log("TEST: createBasicEconomy(): finished OK.\n");
 }
@@ -306,4 +313,8 @@ module.exports = {
     createBasicGame,
     createBasicPlayers,
     createBasicEconomy,
+
+    // Constants
+    TIME_POINT_MAX,
+    TIME_POINT_MIN,
 };

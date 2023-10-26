@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
 // --------------------------------------------------------------------------------------------
-// spam-test
+// meta-spam
 // --------------------------------------------------------------------------------------------
-// Test the anti-spam mechanism by performing > 1,000 actions in the same day
+// Test that the meta contract's anti-spam mechanism is working
 // --------------------------------------------------------------------------------------------
 
 Object.assign(global, require('DoHTestDriver'));
@@ -40,43 +40,84 @@ cth_cleos(`push action clock.${doh_target} sethash '{"hash":"092ba25b75b0ee1ac79
 // Testcase logic
 // --------------------------------------------------------------------------------------------
 
-ACTION init(const time_point& , const time_point& meta_game_end); //initialize and start the meta game
+//  create a fragment of a meta world and init it
+
+cth_cleos(`push action meta.${doh_target} setfaction '{"f":{"id":1,"faction_name":"empire","description":"empire description","founder":"empirefd"}}' -p meta.${doh_target}`) ? crashed() : null;
+
+cth_cleos(`push action meta.${doh_target} setfaction '{"f":{"id":2,"faction_name":"confederacy","description":"confederacy description","founder":"confedfd"}}' -p meta.${doh_target}`) ? crashed() : null;
+
+cth_cleos(`push action meta.${doh_target} setfaction '{"f":{"id":3,"faction_name":"alliance","description":"alliance description","founder":"alliancefd"}}' -p meta.${doh_target}`) ? crashed() : null;
+
+cth_cleos(`push action meta.${doh_target} setfaction '{"f":{"id":4,"faction_name":"dominion","description":"dominion description","founder":"dominionfd"}}' -p meta.${doh_target}`) ? crashed() : null;
+
+cth_cleos(`push action meta.${doh_target} setplanet '{"p":{"id":1,"planet_name":"planet1"}}' -p meta.${doh_target}`) ? crashed() : null;
+
+cth_cleos(`push action meta.${doh_target} setplanet '{"p":{"id":2,"planet_name":"planet2"}}' -p meta.${doh_target}`) ? crashed() : null;
+
+cth_cleos(`push action meta.${doh_target} setregion '{"r":{"id":1,"planet_id":1,"region_name":"p1r1"}}' -p meta.${doh_target}`) ? crashed() : null;
+
+cth_cleos(`push action meta.${doh_target} setregion '{"r":{"id":2,"planet_id":1,"region_name":"p1r2"}}' -p meta.${doh_target}`) ? crashed() : null;
+
+cth_cleos(`push action meta.${doh_target} setregion '{"r":{"id":3,"planet_id":2,"region_name":"p2r1"}}' -p meta.${doh_target}`) ? crashed() : null;
+
+cth_cleos(`push action meta.${doh_target} setregion '{"r":{"id":4,"planet_id":2,"region_name":"p2r2"}}' -p meta.${doh_target}`) ? crashed() : null;
 
 cth_cleos(`push action meta.${doh_target} init '{"all_auctions_end":"${TIME_POINT_MAX}","meta_game_end":"${TIME_POINT_MAX}"}' --force-unique -p meta.${doh_target}`) ? crashed() : null;
 
-/*
-      ACTION setplayer(const player& p);
-      ACTION setauction(const auction& a);
-      ACTION setplanet(const planet& p);
-      ACTION setregion(const region& r);
-      ACTION setfaction(const faction& f);
-      ACTION setitem(const item& i);
+// Give some TCN to our players
 
-      ACTION init(const time_point& all_auctions_end, const time_point& meta_game_end); //initialize and start the meta game
+cth_cleos(`push action tokens.tc3 transfer '{"from":"hegemon.hg3", "to":"dohplayer1", "quantity":"10000.0000 TCN", "memo":""}' -p hegemon.${doh_target}\@active`) ? crashed() : null;
 
-      ACTION unstakeall();
+cth_cleos(`push action tokens.tc3 transfer '{"from":"hegemon.hg3", "to":"dohplayer2", "quantity":"10000.0000 TCN", "memo":""}' -p hegemon.${doh_target}\@active`) ? crashed() : null;
 
-      //player actions
+// *****************************************************************************************************
+// FIXME/TODO: setplayer the spam fields for dohplayer1 ($doh_gm) so dont need to loop 1000 times;
+//    After the 1st action, setplayer and rig the action counter to e.g. 995 it's a handful of
+//    iterations until it blows up.
+// *****************************************************************************************************
 
-      ACTION open( const name& player, const symbol& symbol, const name& ram_payer );
-      ACTION close( const name& player, const symbol& symbol );
+cth_cleos(`push action meta.${doh_target} setplayer '{"p":{"owner":"dohplayer1", "asset_url":"none", "referrer":"", "faction_id":1, "last_staking_action":"1970-01-01T00:00:00.000", "last_bid_action":"1970-01-01T00:00:00.000", "last_transfer_action":"1970-01-01T00:00:00.000", "last_reqinvite_action":"1970-01-01T00:00:00.000", "actions":0, "actions_reset_time":"1970-01-01T00:00:00.000"}}' -p meta.${doh_target}`) ? crashed() : null;
 
-      ACTION stake(const name& owner, const asset& amount, const uint64_t region_id);
+cth_cleos(`push action meta.${doh_target} setplayer '{"p":{"owner":"dohplayer2", "asset_url":"none", "referrer":"", "faction_id":2, "last_staking_action":"1970-01-01T00:00:00.000", "last_bid_action":"1970-01-01T00:00:00.000", "last_transfer_action":"1970-01-01T00:00:00.000", "last_reqinvite_action":"1970-01-01T00:00:00.000", "actions":0, "actions_reset_time":"1970-01-01T00:00:00.000"}}' -p meta.${doh_target}`) ? crashed() : null;
 
-      ACTION placebid(const name& owner, const asset& amount, const uint64_t auction_id);
+// deposit in contract so dohplayer1 can loop calling dostake later (which does have spam protection; a token transfer can't)
 
-      ACTION purchase(const name& owner, const uint64_t item_id);
+cth_cleos(`push action meta.hg3 open '{"player":"dohplayer1","symbol":"4,TCN","ram_payer":"dohplayer1"}' -p dohplayer1`) ? crashed() : null;
 
-      ACTION transfer(const uint64_t acquisition_id, const name& to, const uint32_t count);
-*/
+cth_cleos(`push action tokens.tc3 transfer '{"from":"dohplayer1", "to":"meta.hg3", "quantity":"1000.0000 TCN", "memo":"deposit"}' -p dohplayer1`) ? crashed() : null;
 
-// Try to loop 1010 times (well past the 1000 limit) staking 0.0001 TCN each time with 1 second intervals (1000 < 86400)
+// try to trigger spam
 
-cth_cleos(`push action meta.${doh_target} stake '{"owner":"${doh_gm}","amount":"0.0001 TCN"}' --force-unique -p ${doh_gm}`) ? crashed() : null;
+let success = false;
 
-// CLOCK +1 here
+for (let i = 0; i < 1010; i++) {
+    //console.log(`i = ${i}`);
 
+    let [output, error] = cth_cleos_pipe2(`push action meta.${doh_target} dostake '{"owner":"${doh_gm}","amount":"0.0001 TCN","region_id":1}' --force-unique -p ${doh_gm}`);
 
+    //let result = cth_cleos_pipe(`push action meta.${doh_target} dostake '{"owner":"${doh_gm}","amount":"0.0001 TCN","region_id":1}' --force-unique -p ${doh_gm}`);
+    //let output = "";
+    //if (result === undefined) {
+    if (error) {
+        let got_expected_error = /maximum 1000 player actions per day/.test(output);
+        if (i == 1001 || got_expected_error) {
+            console.log(`TEST: Anti-spam mechanism is working as expected (triggered at iteration: '${i}'; got expected error message: '${got_expected_error}').`);
+            success = true;
+            break;
+        }
+        console.log("ERROR: TEST: Anti-spam mechanism triggered an action failure, but not at the expected time.");
+        crashed();
+    }
+
+    // Debug
+    //let result = cth_cleos_pipe(`get table meta.${doh_target} meta.${doh_target} players --limit 1 --lower dohplayer1`);
+    //console.log(`PLAYER AT ${i}: ${result}`);
+}
+
+if (! success) {
+    console.log("ERROR: TEST: Anti-spam mechanism failed to trigger.");
+    crashed();
+}
 
 // --------------------------------------------------------------------------------------------
 // Test done

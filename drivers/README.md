@@ -7,7 +7,7 @@ Test drivers can also be developed in separate repositories and downloaded as su
 
 Driver implementation strategies (driver types):
 
-Drivers are named 'start' (as in 'coldstart' or 'hotstart') when they start and stop nodeos instances. 'cold' drivers start up everything from scratch (takes several seconds). 'hot' drivers start from snapshots or chainbases (which are instant) and may or may not include pre-deployed application contracts (or a version of them). A good practice is to use 'cs' as a test name prefix for coldstart, and 'hs' for hotstart.
+Drivers are named 'start' (as in 'coldstart' or 'hotstart') when they start and stop nodeos instances. 'cold' drivers start up everything from scratch (takes several seconds). 'hot' drivers start from snapshots or chainbases (which are instant) and may or may not include pre-deployed application contracts (or a version of them).
 
 Drivers are named 'chain' when the blockchain node is already running, but the application contracts aren't deployed (or, if they ARE deployed, they will be undeployed or redeployed, possibly including wiping off all tables of all contracts). Recommended test prefix is 'ch'.
 

@@ -1,6 +1,6 @@
-doh-coldstart downloads and configures the source code for all DoH targets, but it ONLY COMPILES the test target (hg3/tc3) during driver installation, since that's the only one that's going to be used for automated testing by default.
+During installation doh-coldstart downloads, configures and compiles the source code for the target selected via `-o target=TARGET_NAME`. The default target is `test`, which uses the `hg3`/`tc3` DoH contract suffixes.
 
-You can still write tests that use the other targets and enable/select those targets in your tests, but you will have to ensure the targets are properly compiled and present in the standard directories expected by the tests:
+Depending on the selected target, one of the following directories will be created under `local/` with the DoH source code and binaries that this driver will use:
 
 production:
   <cth root directory>/local/prod/doh-contracts/
