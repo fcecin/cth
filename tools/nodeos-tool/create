@@ -96,6 +96,7 @@ net-threads = 3
 wasm-runtime = eos-vm-jit
 p2p-max-nodes-per-host = 999
 http-max-response-time-ms = 5000
+max-transaction-time = 500
 ' > config.ini`;
 
 # --------------------------------------------------------------------------------------------
