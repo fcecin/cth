@@ -11,15 +11,23 @@ const child_process = require('child_process');
 const dohTestDriver = require('DoHTestDriver');
 
 // -----------------------------------------------------------------------
+// GLOBAL variables
+// -----------------------------------------------------------------------
+
+// set the current fixture name (for logging) whenever this module is loaded
+//   by anybody during the test flow and the global variable _fixtureCurrent
+//   has not been declared or has an undefined value.
+// the default value will signal in the run.log file that the current running
+//   test is not using the fixtures feature
+if (typeof _fixtureCurrent === 'undefined' || _fixtureCurrent === undefined) {
+    _fixtureCurrent = 'NO_FIXTURE';
+}
+
+// -----------------------------------------------------------------------
 // Private state
 // -----------------------------------------------------------------------
 
 const fixtureCleanupFile = 'fixtureCleanup.js';
-
-// current fixture name (for logging)
-// the default value will signal in the run.log file that the current running
-//   test is not using the fixtures feature
-let fixtureCurrent = 'NO_FIXTURE';
 
 // fixture test name --> fixture result summary string
 const fixtureResultMap = new Map();
@@ -54,6 +62,7 @@ function cleos(args) {
     let [output, error] = dohTestDriver.cth_cleos_pipe2(args);
     if (error !== 0)
         throw new Error(output);
+    return output;
 }
 
 // -----------------------------------------------------------------------
@@ -71,7 +80,7 @@ function cleosNoThrow(args) { return dohTestDriver.cth_cleos_pipe2(args); }
 // -----------------------------------------------------------------------
 
 function fixtureCrashed(msg) {
-    throw new Error(`ERROR: TEST [${fixtureCurrent}]: fixtureCrashed: ${msg}`);
+    throw new Error(`ERROR: TEST [${_fixtureCurrent}]: fixtureCrashed: ${msg}`);
 }
 
 // -----------------------------------------------------------------------
@@ -81,7 +90,7 @@ function fixtureCrashed(msg) {
 // -----------------------------------------------------------------------
 
 function fixtureFailed(msg) {
-    throw new Error(`ERROR: TEST [${fixtureCurrent}]: fixtureFailed: ${msg}`);
+    throw new Error(`ERROR: TEST [${_fixtureCurrent}]: fixtureFailed: ${msg}`);
 }
 
 // -----------------------------------------------------------------------
@@ -91,7 +100,7 @@ function fixtureFailed(msg) {
 // -----------------------------------------------------------------------
 
 function fixtureLog(msg) {
-    console.log(`TEST [${fixtureCurrent}]: ${msg}`);
+    console.log(`TEST [${_fixtureCurrent}]: ${msg}`);
 }
 
 // -----------------------------------------------------------------------
@@ -101,7 +110,7 @@ function fixtureLog(msg) {
 // -----------------------------------------------------------------------
 
 function fixtureErrorLog(msg) {
-    console.log(`ERROR: TEST [${fixtureCurrent}]: ${msg}`);
+    console.log(`ERROR: TEST [${_fixtureCurrent}]: ${msg}`);
 }
 
 // -----------------------------------------------------------------------
@@ -114,7 +123,7 @@ function fixtureErrorLog(msg) {
 // -----------------------------------------------------------------------
 
 function fixtureRun(testname) {
-    fixtureCurrent = testname;
+    _fixtureCurrent = testname;
     let result = '';
     if (fs.existsSync(fixtureCleanupFile)) {
         console.log(`TEST: fixtureRun(): loading fixture cleanup script '${fixtureCleanupFile}'...`);
@@ -211,6 +220,10 @@ function fixtureInit(gm, hg, tc) {
     // get the game constants from the readonly contract
     doh = getConstants();
 
+    // for when we are setting up the game (e.g. createBasicGame()) before the first
+    //   DoH test is run in the fixture (to differentiate from 'NO_FIXTURE').
+    _fixtureCurrent = 'FIXTURE_INIT';
+
     console.log("TEST: fixtureInit(): initialization OK.");
 }
 
@@ -229,9 +242,9 @@ function fixtureFinish() {
 
     fixturePrintSummary();
 
-    [passCount, failCount] = fixtureCount();
+    let [passCount, failCount] = fixtureCount();
     totalCount = passCount + failCount;
-    
+
     if (failCount > 0) {
         console.log(`ERROR: TEST: fixtureFinish(): failed ${failCount} tests of ${totalCount} total.`);
         process.exit(1);

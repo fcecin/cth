@@ -937,7 +937,16 @@ if (scalar(@testspecs) != 0) {
 #
 
 if ($opt_verbose) { print "\n"; }
-print "Running $tests_size tests (up to $opt_jobs in parallel) ...\n";
+print "Running $tests_size test";
+if ($tests_size > 1) {
+    print "s";
+    if ($opt_jobs > 1) {
+        print " (";
+        if ($tests_size > $opt_jobs) { print "up to $opt_jobs "; }
+        print "in parallel)";
+    }
+}
+print " ...\n";
 if ($opt_verbose) { print "The output of each test is saved to the 'run.log' file on each test directory.\n"; }
 print "\n";
 
