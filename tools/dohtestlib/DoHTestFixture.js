@@ -1,5 +1,5 @@
 // -----------------------------------------------------------------------
-// Fixture
+// DoHTestFixture.js
 //
 // The Test Fixture feature allow a single test script (cth "run" file)
 //   to define and run multiple actual tests.
@@ -7,7 +7,6 @@
 
 const fs = require('fs');
 const vm = require('vm');
-const child_process = require('child_process');
 const dohTestDriver = require('DoHTestDriver');
 
 // -----------------------------------------------------------------------
