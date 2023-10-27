@@ -3,126 +3,19 @@
 // --------------------------------------------------------------------------------------------
 // meta-spam
 // --------------------------------------------------------------------------------------------
-// Test that the meta contract's anti-spam mechanism is working
+// Test that the meta contract's anti-spam mechanism is working.
 // --------------------------------------------------------------------------------------------
 
-Object.assign(global, require('DoHTestDriver'));
-Object.assign(global, require('DoHTest'));
+Object.assign(global, require('DoHTestFixture'));
 
-// --------------------------------------------------------------------------------------------
-// Set up the test
-// --------------------------------------------------------------------------------------------
-
-// global variables required by init()
-doh_target = "hg3";
-tcn_target = "tc3";
-doh_gm     = "dohplayer1"
-
-// starts nodeos
-init();
-
-// get the game constants from the readonly contract
-let doh = doh_get_constants();
-
-// --------------------------------------------------------------------------------------------
-// Testcase setup
-// --------------------------------------------------------------------------------------------
-
-console.log("TEST: testcase started.\n");
+fixtureInit("dohplayer1", "hg3", "tc3");
 
 createBasicGame();
 createBasicPlayers();
 createBasicEconomy();
 
-cth_cleos(`push action clock.${doh_target} sethash '{"hash":"092ba25b75b0ee1ac79c5a1aa1df28a5129cd8d15b878fdb50dc804fda79dbc7"}' --force-unique -p clock.${doh_target}`) ? crashed() : null;
+fixtureRun("metaSpam.js");
 
-// --------------------------------------------------------------------------------------------
-// Testcase logic
-// --------------------------------------------------------------------------------------------
+fixtureRun("metaSpamFast.js");
 
-//  create a fragment of a meta world and init it
-
-cth_cleos(`push action meta.${doh_target} setfaction '{"f":{"id":1,"faction_name":"empire","description":"empire description","founder":"empirefd"}}' -p meta.${doh_target}`) ? crashed() : null;
-
-cth_cleos(`push action meta.${doh_target} setfaction '{"f":{"id":2,"faction_name":"confederacy","description":"confederacy description","founder":"confedfd"}}' -p meta.${doh_target}`) ? crashed() : null;
-
-cth_cleos(`push action meta.${doh_target} setfaction '{"f":{"id":3,"faction_name":"alliance","description":"alliance description","founder":"alliancefd"}}' -p meta.${doh_target}`) ? crashed() : null;
-
-cth_cleos(`push action meta.${doh_target} setfaction '{"f":{"id":4,"faction_name":"dominion","description":"dominion description","founder":"dominionfd"}}' -p meta.${doh_target}`) ? crashed() : null;
-
-cth_cleos(`push action meta.${doh_target} setplanet '{"p":{"id":1,"planet_name":"planet1"}}' -p meta.${doh_target}`) ? crashed() : null;
-
-cth_cleos(`push action meta.${doh_target} setplanet '{"p":{"id":2,"planet_name":"planet2"}}' -p meta.${doh_target}`) ? crashed() : null;
-
-cth_cleos(`push action meta.${doh_target} setregion '{"r":{"id":1,"planet_id":1,"region_name":"p1r1"}}' -p meta.${doh_target}`) ? crashed() : null;
-
-cth_cleos(`push action meta.${doh_target} setregion '{"r":{"id":2,"planet_id":1,"region_name":"p1r2"}}' -p meta.${doh_target}`) ? crashed() : null;
-
-cth_cleos(`push action meta.${doh_target} setregion '{"r":{"id":3,"planet_id":2,"region_name":"p2r1"}}' -p meta.${doh_target}`) ? crashed() : null;
-
-cth_cleos(`push action meta.${doh_target} setregion '{"r":{"id":4,"planet_id":2,"region_name":"p2r2"}}' -p meta.${doh_target}`) ? crashed() : null;
-
-cth_cleos(`push action meta.${doh_target} init '{"all_auctions_end":"${TIME_POINT_MAX}","meta_game_end":"${TIME_POINT_MAX}"}' --force-unique -p meta.${doh_target}`) ? crashed() : null;
-
-// Give some TCN to our players
-
-cth_cleos(`push action tokens.tc3 transfer '{"from":"hegemon.hg3", "to":"dohplayer1", "quantity":"10000.0000 TCN", "memo":""}' -p hegemon.${doh_target}\@active`) ? crashed() : null;
-
-cth_cleos(`push action tokens.tc3 transfer '{"from":"hegemon.hg3", "to":"dohplayer2", "quantity":"10000.0000 TCN", "memo":""}' -p hegemon.${doh_target}\@active`) ? crashed() : null;
-
-// *****************************************************************************************************
-// FIXME/TODO: setplayer the spam fields for dohplayer1 ($doh_gm) so dont need to loop 1000 times;
-//    After the 1st action, setplayer and rig the action counter to e.g. 995 it's a handful of
-//    iterations until it blows up.
-// *****************************************************************************************************
-
-cth_cleos(`push action meta.${doh_target} setplayer '{"p":{"owner":"dohplayer1", "asset_url":"none", "referrer":"", "faction_id":1, "last_staking_action":"1970-01-01T00:00:00.000", "last_bid_action":"1970-01-01T00:00:00.000", "last_transfer_action":"1970-01-01T00:00:00.000", "last_reqinvite_action":"1970-01-01T00:00:00.000", "actions":0, "actions_reset_time":"1970-01-01T00:00:00.000"}}' -p meta.${doh_target}`) ? crashed() : null;
-
-cth_cleos(`push action meta.${doh_target} setplayer '{"p":{"owner":"dohplayer2", "asset_url":"none", "referrer":"", "faction_id":2, "last_staking_action":"1970-01-01T00:00:00.000", "last_bid_action":"1970-01-01T00:00:00.000", "last_transfer_action":"1970-01-01T00:00:00.000", "last_reqinvite_action":"1970-01-01T00:00:00.000", "actions":0, "actions_reset_time":"1970-01-01T00:00:00.000"}}' -p meta.${doh_target}`) ? crashed() : null;
-
-// deposit in contract so dohplayer1 can loop calling dostake later (which does have spam protection; a token transfer can't)
-
-cth_cleos(`push action meta.hg3 open '{"player":"dohplayer1","symbol":"4,TCN","ram_payer":"dohplayer1"}' -p dohplayer1`) ? crashed() : null;
-
-cth_cleos(`push action tokens.tc3 transfer '{"from":"dohplayer1", "to":"meta.hg3", "quantity":"1000.0000 TCN", "memo":"deposit"}' -p dohplayer1`) ? crashed() : null;
-
-// try to trigger spam
-
-let success = false;
-
-for (let i = 0; i < 1010; i++) {
-    //console.log(`i = ${i}`);
-
-    let [output, error] = cth_cleos_pipe2(`push action meta.${doh_target} dostake '{"owner":"${doh_gm}","amount":"0.0001 TCN","region_id":1}' --force-unique -p ${doh_gm}`);
-
-    //let result = cth_cleos_pipe(`push action meta.${doh_target} dostake '{"owner":"${doh_gm}","amount":"0.0001 TCN","region_id":1}' --force-unique -p ${doh_gm}`);
-    //let output = "";
-    //if (result === undefined) {
-    if (error) {
-        let got_expected_error = /maximum 1000 player actions per day/.test(output);
-        if (i == 1001 || got_expected_error) {
-            console.log(`TEST: Anti-spam mechanism is working as expected (triggered at iteration: '${i}'; got expected error message: '${got_expected_error}').`);
-            success = true;
-            break;
-        }
-        console.log("ERROR: TEST: Anti-spam mechanism triggered an action failure, but not at the expected time.");
-        crashed();
-    }
-
-    // Debug
-    //let result = cth_cleos_pipe(`get table meta.${doh_target} meta.${doh_target} players --limit 1 --lower dohplayer1`);
-    //console.log(`PLAYER AT ${i}: ${result}`);
-}
-
-if (! success) {
-    console.log("ERROR: TEST: Anti-spam mechanism failed to trigger.");
-    crashed();
-}
-
-// --------------------------------------------------------------------------------------------
-// Test done
-// --------------------------------------------------------------------------------------------
-
-finish();
-
-console.log("TEST: completed successfully.\n");
+fixtureFinish();

@@ -219,8 +219,8 @@ function cth_cleos_pipe(args) {
 // cth_cleos_pipe2
 //
 // Same as cth_cleos_pipe, but returns an array with two elements:
-// - First element is the error code, or 0 if success.
-// - Second element is the entire output (erroneous or otherwise).
+// - First element is the entire output (erroneous or otherwise).
+// - Second element is the error code, or 0 if success.
 // Useful for "failed successfully" tests where you want to parse the
 //   transaction error output.
 // -----------------------------------------------------------------------
@@ -242,13 +242,24 @@ function cth_cleos_pipe2(args) {
 
     try {
         const output = child_process.execSync(cmd, { stdio: 'pipe' }).toString();
-        console.log(`cth_cleos_pipe2: command successful, output:\n${output}`);
+
+        // Since pipe2 returns the command output, we don't have to print it here.
+        // The caller can decide to print it if it wants to.
+        //
+        //console.log(`cth_cleos_pipe2: command successful, output:\n${output}`);
+
         return [output.trim(), 0];
     } catch (error) {
-        console.log(`ERROR: cth_cleos_pipe2: command returned a nonzero (error) code: ${error.status}`);
-        console.log("cth_cleos_pipe2: ----- begin error dump -----");
-        console.log(error);
-        console.log("cth_cleos_pipe2: ------ end error dump ------");
+
+        // Since pipe2 returns the error message, we don't have to print it here,
+        //  which keeps the test log clear of "ERROR" messages in case this is not
+        //  an actual error (e.g. "failed successfully", expected-error testcases).
+        //
+        //console.log(`ERROR: cth_cleos_pipe2: command returned a nonzero (error) code: ${error.status}`);
+        //console.log("cth_cleos_pipe2: ----- begin error dump -----");
+        //console.log(error);
+        //console.log("cth_cleos_pipe2: ------ end error dump ------");
+
         if (error.status == 0) {
             return [error, -1];
         } else {
