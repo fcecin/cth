@@ -17,12 +17,11 @@
 //     cleos("push action meta.${doh_target} clear '{}' --force-unique -p meta.${doh_target}");
 //
 // TODO:
-// - actual cleos call
-// - error handling
+// - validate all param types vs. the ABI before the call (not ESSENTIAL, but it would produce better diagnostic messages)
 // - proxy._getTable();
 // -----------------------------------------------------------------------
 
-const dohTestFixture = require('DoHTestFixture');
+const fx = require('DoHTestFixture');
 
 // -----------------------------------------------------------------------
 // getProxyForContract
@@ -31,65 +30,46 @@ const dohTestFixture = require('DoHTestFixture');
 // -----------------------------------------------------------------------
 
 function getProxyForContract(contractAccountName) {
-
-    const abiString = cleos(`get abi meta.${doh_target}`); // Replace with your actual command to get ABI
-
-    const abi = JSON.parse(abiString);
-    const library = {};
-
-    if (!abi || !abi.actions || !Array.isArray(abi.actions)) {
-        console.error("Invalid ABI format.");
-        return null;
+    let abi;
+    try {
+        const abiString = cleos(`get abi ${contractAccountName}`);
+        abi = JSON.parse(abiString);
+    } catch (error) {
+        fx.fixtureCrashed(`DoHTestReflect: getProxyForContract(): Error fetching and parsing ABI for ${contractAccountName}: ${error}`);
     }
-
+    const library = {};
+    if (!abi || !abi.actions || !Array.isArray(abi.actions) || !abi.structs || !Array.isArray(abi.structs)) {
+        fx.fixtureCrashed(`DoHTestReflect: getProxyForContract(${contractAccountName}): ABI format is invalid.`);
+    }
     abi.actions.forEach((action) => {
         const actionName = action.name;
         const structName = action.type;
-
         if (!structName) {
-            console.error(`No struct type defined for action "${actionName}".`);
-            return;
+            fx.fixtureCrashed(`DoHTestReflect: getProxyForContract(${contractAccountName}): No struct type defined for action "${actionName}".`);
         }
-
         const struct = abi.structs.find((s) => s.name === structName);
-
         if (!struct) {
-            console.error(`Struct "${structName}" not found for action "${actionName}".`);
-            return;
+            fx.fixtureCrashed(`DoHTestReflect: getProxyForContract(${contractAccountName}): Struct "${structName}" not found for action "${actionName}".`);
         }
-
         library[actionName] = function (...params) {
             if (params.length !== struct.fields.length) {
-                console.error(`Action "${actionName}" expects ${struct.fields.length} parameter(s).`);
+                fx.fixtureCrashed(`DoHTestReflect: [PROXY ${contractAccountName}::${actionName}]: expected ${struct.fields.length} parameter(s), got ${params.length}.`);
                 return;
             }
-
             const paramObj = {};
             for (let i = 0; i < params.length; i++) {
                 const paramName = struct.fields[i].name;
                 paramObj[paramName] = params[i];
             }
-
-            const jsonString = JSON.stringify(paramObj);
-            const outputString = `CALL FIXTURE.CLEOS() HERE with something like: push action ${actionName} '${jsonString}' -p ${library._signer}`;
-            console.log(outputString);
+            const paramString = JSON.stringify(paramObj);
+            return fx.cleos(`push action ${contractAccountName} ${actionName} '${paramString}' --force-unique -p ${library._signer}`);
         };
     });
-
-    library._setSelfSigner = function () {
-        console.log(`Custom _setSelfSigner: ${contractAccountName}`);
-        library._signer = contractAccountName;
-    };
-    library._setSigner = function (signerName) {
-        console.log(`Custom _setSigner: ${signerName}`);
-        library._signer = signerName;
-    };
-
+    library._setSelfSigner = function () { library._signer = contractAccountName; };
+    library._setSigner = function (signerName) { library._signer = signerName; };
     library._setSelfSigner();
-
     return library;
 }
-
 
 // -----------------------------------------------------------------------
 // End of library.

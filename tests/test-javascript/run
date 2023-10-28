@@ -7,232 +7,28 @@
 //   with javascript.
 // ---------------------------------------------------------------------------------------
 
-console.log(`Print arguments begin.`);
-
-// Print all command line arguments
-process.argv.slice(2).forEach((arg, index) => {
-  console.log(`Argument ${index + 1}: ${arg}`);
-});
-
-console.log(`Print arguments end.`);
-
 // Import the DoHTestLib.js library that is somewhere under cth/tools/
-const doh_tester = require('DoHTestDriver');
+const driverlib = require('DoHTestDriver');
+Object.assign(global, require('DoHTest'));
+Object.assign(global, require('DoHTestFixture'));
 
 // Call the args parser helper
 const switchesStr = 'cleos_url target';
 const optionsStr = '';
-const [switches, options] = doh_tester.cth_standard_args_parser(switchesStr, optionsStr);
+const [switches, options] = driverlib.cth_standard_args_parser(switchesStr, optionsStr);
 
 console.log('Switches:', switches);
 console.log('Options:', options);
 
-Object.assign(global, require('DoHTest'));
-
-
-
-
-Object.assign(global, require('DoHTestFixture'));
-
 fixtureInit("dohplayer1", "hg3", "tc3");
 
-//createBasicGame();
-//createBasicPlayers();
-//createBasicEconomy();
+createBasicGame();
+createBasicPlayers();
+createBasicEconomy();
 
-
-
-function func(...args) {
-    const jsonResult = JSON.stringify(args);
-    console.log(jsonResult);
-
-    //cleos(`push action meta.${doh_target} init '{"all_auctions_end":"${TIME_POINT_MAX}","meta_game_end":"${TIME_POINT_MAX}"}' --force-unique -p meta.${doh_target}`);
-
-    output = cleos(`get abi meta.${doh_target}`);  // --force-unique -p meta.${doh_target}
-
-    console.log(output);
-}
-
-func(123, "some string", ["an", 1, 2, 3, "array"], {"a":"javascript", "object":1, "of some":["sort",3,4,5]}, "etcetera", 5, 6);
-
-
-/*
-function func2(actionName, ...params) {
-
-  const abiStr = cleos(`get abi meta.${doh_target}`);  // --force-unique -p meta.${doh_target}
-
-  const abi = JSON.parse(abiStr);
-
-  if (!abi) {
-    console.error("ABI is not defined.");
-    return;
-  }
-
-  if (!abi.actions) {
-    console.error("No 'actions' property found in ABI.");
-    return;
-  }
-
-  if (!Array.isArray(abi.actions)) {
-    console.error("'actions' property is not an array in ABI.");
-    return;
-  }
-
-  // Find the action with the given name
-  const action = abi.actions.find(a => a.name === actionName);
-  if (!action) {
-    console.error(`Action "${actionName}" not found in ABI.`);
-    return;
-  }
-
-  // Validate the number of parameters
-  if (params.length !== action.type.fields.length) {
-    console.error(`Action "${actionName}" expects ${action.type.fields.length} parameter(s).`);
-    return;
-  }
-
-  // Construct the JSON object for the parameters
-  const paramObj = {};
-  for (let i = 0; i < params.length; i++) {
-    const paramName = action.type.fields[i].name;
-    paramObj[paramName] = params[i];
-  }
-
-  // Construct the final JSON string
-  const jsonString = JSON.stringify(paramObj);
-
-  // Create the desired output string
-  const outputString = `push action ${actionName} ${jsonString}`;
-  console.log(outputString);
-  }*/
-
-function func2(actionName, ...params) {
-  const abiStr = cleos(`get abi meta.${doh_target}`); // Replace with your actual command to get ABI
-  try {
-    const abi = JSON.parse(abiStr);
-
-    if (!abi) {
-      console.error("ABI is not defined.");
-      return;
-    }
-
-    if (!abi.actions) {
-      console.error("No 'actions' property found in ABI.");
-      return;
-    }
-
-    if (!Array.isArray(abi.actions)) {
-      console.error("'actions' property is not an array in ABI.");
-      return;
-    }
-
-    // Find the action with the given name
-    const action = abi.actions.find((a) => a.name === actionName);
-    if (!action) {
-      console.error(`Action "${actionName}" not found in ABI.`);
-      return;
-    }
-
-    // Find the struct for the action parameters
-    const structName = action.type;
-    const struct = abi.structs.find((s) => s.name === structName);
-
-    if (!struct) {
-      console.error(`Struct "${structName}" not found in ABI.`);
-      return;
-    }
-
-    // Validate the number of parameters
-    if (params.length !== struct.fields.length) {
-      console.error(`Action "${actionName}" expects ${struct.fields.length} parameter(s).`);
-      return;
-    }
-
-    // Construct the JSON object for the parameters
-    const paramObj = {};
-    for (let i = 0; i < params.length; i++) {
-      const paramName = struct.fields[i].name;
-      paramObj[paramName] = params[i];
-    }
-
-    // Construct the final JSON string
-    const jsonString = JSON.stringify(paramObj);
-
-    // Create the desired output string
-    const outputString = `push action meta.${doh_target} ${actionName} '${jsonString}' -p meta.${doh_target}`;
-    console.log(outputString);
-  } catch (error) {
-    console.error("Error parsing ABI:", error);
-  }
-}
-
-console.log("ACCEPTINVITE ----------------------------------");
-
-func2("acceptinvite", "account1", "account2");
-
-console.log("PLACEBID --------------------------------");
-
-func2("placebid", "account1", "100.0000 EOS", 123);
-
-console.log("--------------------------------------------");
-
-
-
-function func3(abiString) {
-  const abi = JSON.parse(abiString);
-  const library = {};
-
-  if (!abi || !abi.actions || !Array.isArray(abi.actions)) {
-    console.error("Invalid ABI format.");
-    return null;
-  }
-
-  abi.actions.forEach((action) => {
-    const actionName = action.name;
-    const structName = action.type;
-
-    if (!structName) {
-      console.error(`No struct type defined for action "${actionName}".`);
-      return;
-    }
-
-    const struct = abi.structs.find((s) => s.name === structName);
-
-    if (!struct) {
-      console.error(`Struct "${structName}" not found for action "${actionName}".`);
-      return;
-    }
-
-    library[actionName] = function (...params) {
-      if (params.length !== struct.fields.length) {
-        console.error(`Action "${actionName}" expects ${struct.fields.length} parameter(s).`);
-        return;
-      }
-
-      const paramObj = {};
-      for (let i = 0; i < params.length; i++) {
-        const paramName = struct.fields[i].name;
-        paramObj[paramName] = params[i];
-      }
-
-      const jsonString = JSON.stringify(paramObj);
-      const outputString = `push action ${actionName} ${jsonString}`;
-      console.log(outputString);
-    };
-  });
-
-  return library;
-}
-
-const abiString = cleos(`get abi meta.${doh_target}`); // Replace with your actual command to get ABI
-
-const myfs = func3(abiString);
-
-// Now you can use the generated functions
-myfs.acceptinvite("account1", "account2");
-myfs.cancelreq("account3");
-
-
+// --------------------------------------------------------------------------
+// getProxyForContract POC
+// --------------------------------------------------------------------------
 
 console.log("**************************************************************************************************");
 console.log("**************************************************************************************************");
@@ -241,12 +37,27 @@ console.log("*******************************************************************
 
 const reflect = require('DoHTestReflect');
 
-const proxy = reflect.getProxyForContract(`meta.${doh_target}`);
-proxy._setSigner("dohplayer1");
-proxy.acceptinvite("invitersname", "inviteesname");
-proxy._setSelfSigner();
-proxy.clear();
+const tokens = reflect.getProxyForContract(`tokens.${tcn_target}`);
+const meta = reflect.getProxyForContract(`meta.${doh_target}`);
 
+meta.setregion( {"id":1, "planet_id":1, "region_name":"region_1"} );
+meta.init(TIME_POINT_MAX, TIME_POINT_MAX);
+
+meta.setplayer( {"owner":"dohplayer1", "asset_url":"none", "referrer":"", "faction_id":1, "last_staking_action":TIME_POINT_MIN, "last_bid_action":TIME_POINT_MIN, "last_transfer_action":TIME_POINT_MIN, "last_reqinvite_action":TIME_POINT_MIN, "actions":0, "actions_reset_time":TIME_POINT_MIN} );
+
+meta._setSigner("dohplayer1");
+meta.open("dohplayer1", "4,TCN", "dohplayer1");
+
+tokens._setSigner(`hegemon.${doh_target}`);
+tokens.transfer(`hegemon.${doh_target}`, "dohplayer1", "100000.0000 TCN", "");
+
+tokens._setSigner("dohplayer1");
+tokens.transfer("dohplayer1",`meta.${doh_target}`, "10000.0000 TCN", "deposit");
+
+meta.dostake("dohplayer1", "0.0001 TCN", 1);
+
+meta._setSelfSigner();
+meta.clear();
 
 console.log("**************************************************************************************************");
 console.log("**************************************************************************************************");
