@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 
 // ---------------------------------------------------------------------------------------
-// Minimal demonstration that the DoHTestLib can be found, loaded and invoked.
-// Doesn't actually run nodeos or anything.
 // This file is just a lab that I'm using to test random client-side blockchain stuff
 //   with javascript.
 // ---------------------------------------------------------------------------------------
@@ -55,6 +53,9 @@ tokens._setSigner("dohplayer1");
 tokens.transfer("dohplayer1",`meta.${doh_target}`, "10000.0000 TCN", "deposit");
 
 meta.dostake("dohplayer1", "0.0001 TCN", 1);
+
+console.log(meta._accounts( { "scope": "dohplayer1"} ));
+console.log(meta._players( { "scope": "CONTRACT" } ));
 
 meta._setSelfSigner();
 meta.clear();
