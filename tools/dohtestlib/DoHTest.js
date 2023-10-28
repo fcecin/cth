@@ -197,6 +197,20 @@ function getError(errcode) {
 //   doh_gm: game master account for hegemon::setgm()
 // -----------------------------------------------------------------------
 
+// Private helper function for testcase logic functions that can fail/crash
+function handleError(error) {
+
+    // If inside a fixture test, just rethrow the error and this fixture test will
+    //   fail and the test will continue to the next fixture test.
+    if (fx.fixtureRunning())
+        throw error;
+
+    // Not inside fixture test: this is a regular, fatal failure at the top context
+    console.log(error);
+    finish();
+    process.exit(1);
+}
+
 // -----------------------------------------------------------------------
 // createBasicGame
 //
@@ -209,37 +223,39 @@ function getError(errcode) {
 // -----------------------------------------------------------------------
 
 function createBasicGame(use_clock = true) {
-
     fx.fixtureLog("createBasicGame(): started.");
+    try {
+        if (use_clock) {
+            fx.cleos(`push action clock.${doh_target} useclock '{}' -p clock.${doh_target}`);
+            fx.cleos(`push action clock.${doh_target} sethash '{"hash":"092ba25b75b0ee1ac79c5a1aa1df28a5129cd8d15b878fdb50dc804fda79dbc8"}' --force-unique -p clock.${doh_target}`);
+        }
 
-    if (use_clock) {
-        fx.cleos(`push action clock.${doh_target} useclock '{}' -p clock.${doh_target}`);
-        fx.cleos(`push action clock.${doh_target} sethash '{"hash":"092ba25b75b0ee1ac79c5a1aa1df28a5129cd8d15b878fdb50dc804fda79dbc8"}' --force-unique -p clock.${doh_target}`);
+        fx.cleos(`push action staking.${tcn_target} init '{ "epoch":"1", "distrib_contracts": [ "energy.${tcn_target}", "rep.${tcn_target}"], "drip_contracts": [ "main.${tcn_target}", "players.${tcn_target}"] }' -p staking.${tcn_target}`);
+
+        fx.cleos(`push action hegemon.${doh_target} addfaction '{"id":1, "global_entity_id":52, "name":"Empire", "code":"em", "flag_asset_url":"/factions-flags/flag-empire.jpg"}' -p hegemon.${doh_target}`);
+        fx.cleos(`push action hegemon.${doh_target} addfaction '{"id":2, "global_entity_id":53, "name":"Confederacy", "code":"co", "flag_asset_url":"/factions-flags/flag-confederacy.jpg"}' -p hegemon.${doh_target}`);
+        fx.cleos(`push action hegemon.${doh_target} addfaction '{"id":3, "global_entity_id":54, "name":"Alliance", "code":"al", "flag_asset_url":"/factions-flags/flag-alliance.jpg"}' -p hegemon.${doh_target}`);
+        fx.cleos(`push action hegemon.${doh_target} addfaction '{"id":4, "global_entity_id":55, "name":"Dominion", "code":"do", "flag_asset_url":"/factions-flags/flag-dominion.jpg"}' -p hegemon.${doh_target}`);
+
+        fx.cleos(`push action crafting.${doh_target} addeffect '{"id":1, "name":"Plains", "description":"Farming production output increased by 50%. Mining production output decreased by 50%", "modifiers":[{ "modified_stat" : 3, "modifier_operator": 1, "condition": { "target":2, "filter":null, "value": 3 }, "value": 50 }, { "modified_stat" : 3, "modifier_operator": 1, "condition": { "target":2, "filter":null, "value": 1 }, "value": -50 }], "duration":-1 }' -p crafting.${doh_target} `);
+
+        fx.cleos(`push action hegemon.${doh_target} addplanet '{"id":1, "area_map":"tulon", "q_coord":0, "r_coord":0, "name":"Tulon", "code":"tu", "asset_url":"/planets/tulon.png", "r_color":255, "g_color":255, "b_color":255}' -p hegemon.${doh_target}`);
+
+        fx.cleos(`push action hegemon.${doh_target} addregion '{"id":1, "area_map":"tulon", "name":"Nefari", "code":"ne"}' -p hegemon.${doh_target}`);
+
+        fx.cleos(`push action hegemon.${doh_target} addterrain '{"id":1, "type":"Plains", "map_asset_urls":["/tiles/tile-plains.jpg"], "background_asset_url":"/character-backgrounds/character-background-plains.png", "building_slots":6, "effects":[1]}' -p hegemon.${doh_target}`);
+
+        fx.cleos(`push action hegemon.${doh_target} addtile '{"id":1,"area_map":"tulon","region_id":1,"q_coord":0,"r_coord":0,"terrain_type":1}' -p hegemon.${doh_target}`);
+        fx.cleos(`push action hegemon.${doh_target} addtile '{"id":2,"area_map":"tulon","region_id":1,"q_coord":0,"r_coord":1,"terrain_type":1}' -p hegemon.${doh_target}`);
+
+        fx.cleos(`push action staking.${tcn_target} enable '{}' -p staking.${tcn_target}`);
+
+        // must set GM before first regplayer
+        fx.cleos(`push action hegemon.${doh_target} setgm '{"player":"${doh_gm}"}' -p hegemon.${doh_target}`);
+
+    } catch (error) {
+        handleError(error);
     }
-
-    fx.cleos(`push action staking.${tcn_target} init '{ "epoch":"1", "distrib_contracts": [ "energy.${tcn_target}", "rep.${tcn_target}"], "drip_contracts": [ "main.${tcn_target}", "players.${tcn_target}"] }' -p staking.${tcn_target}`);
-
-    fx.cleos(`push action hegemon.${doh_target} addfaction '{"id":1, "global_entity_id":52, "name":"Empire", "code":"em", "flag_asset_url":"/factions-flags/flag-empire.jpg"}' -p hegemon.${doh_target}`);
-    fx.cleos(`push action hegemon.${doh_target} addfaction '{"id":2, "global_entity_id":53, "name":"Confederacy", "code":"co", "flag_asset_url":"/factions-flags/flag-confederacy.jpg"}' -p hegemon.${doh_target}`);
-    fx.cleos(`push action hegemon.${doh_target} addfaction '{"id":3, "global_entity_id":54, "name":"Alliance", "code":"al", "flag_asset_url":"/factions-flags/flag-alliance.jpg"}' -p hegemon.${doh_target}`);
-    fx.cleos(`push action hegemon.${doh_target} addfaction '{"id":4, "global_entity_id":55, "name":"Dominion", "code":"do", "flag_asset_url":"/factions-flags/flag-dominion.jpg"}' -p hegemon.${doh_target}`);
-
-    fx.cleos(`push action crafting.${doh_target} addeffect '{"id":1, "name":"Plains", "description":"Farming production output increased by 50%. Mining production output decreased by 50%", "modifiers":[{ "modified_stat" : 3, "modifier_operator": 1, "condition": { "target":2, "filter":null, "value": 3 }, "value": 50 }, { "modified_stat" : 3, "modifier_operator": 1, "condition": { "target":2, "filter":null, "value": 1 }, "value": -50 }], "duration":-1 }' -p crafting.${doh_target} `);
-
-    fx.cleos(`push action hegemon.${doh_target} addplanet '{"id":1, "area_map":"tulon", "q_coord":0, "r_coord":0, "name":"Tulon", "code":"tu", "asset_url":"/planets/tulon.png", "r_color":255, "g_color":255, "b_color":255}' -p hegemon.${doh_target}`);
-
-    fx.cleos(`push action hegemon.${doh_target} addregion '{"id":1, "area_map":"tulon", "name":"Nefari", "code":"ne"}' -p hegemon.${doh_target}`);
-
-    fx.cleos(`push action hegemon.${doh_target} addterrain '{"id":1, "type":"Plains", "map_asset_urls":["/tiles/tile-plains.jpg"], "background_asset_url":"/character-backgrounds/character-background-plains.png", "building_slots":6, "effects":[1]}' -p hegemon.${doh_target}`);
-
-    fx.cleos(`push action hegemon.${doh_target} addtile '{"id":1,"area_map":"tulon","region_id":1,"q_coord":0,"r_coord":0,"terrain_type":1}' -p hegemon.${doh_target}`);
-    fx.cleos(`push action hegemon.${doh_target} addtile '{"id":2,"area_map":"tulon","region_id":1,"q_coord":0,"r_coord":1,"terrain_type":1}' -p hegemon.${doh_target}`);
-
-    fx.cleos(`push action staking.${tcn_target} enable '{}' -p staking.${tcn_target}`);
-
-    // must set GM before first regplayer
-    fx.cleos(`push action hegemon.${doh_target} setgm '{"player":"${doh_gm}"}' -p hegemon.${doh_target}`);
-
     fx.fixtureLog("createBasicGame(): finished OK.");
 }
 
@@ -250,31 +266,30 @@ function createBasicGame(use_clock = true) {
 // -----------------------------------------------------------------------
 
 function createBasicPlayers(use_clock = true) {
-
     fx.fixtureLog("createBasicPlayers(): started.");
+    try {
+        fx.cleos(`system newaccount eosio dohplayer1 EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV --stake-cpu '10000.0000 EOS' --stake-net '10000.0000 EOS' --buy-ram-kbytes 1000 --transfer`);
+        fx.cleos(`system newaccount eosio dohplayer2 EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV --stake-cpu '10000.0000 EOS' --stake-net '10000.0000 EOS' --buy-ram-kbytes 1000 --transfer`);
 
-    fx.cleos(`system newaccount eosio dohplayer1 EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV --stake-cpu '10000.0000 EOS' --stake-net '10000.0000 EOS' --buy-ram-kbytes 1000 --transfer`);
+        fx.cleos(`push action names.${doh_target} addcname '{"id":1, "first_name":"Jimmy", "middle_name":"", "last_name":"Page", "asset_url":"/characters/character-jimmy-page-neutral.png", "faction_id":2}' -p names.${doh_target}`);
+        fx.cleos(`push action names.${doh_target} addcname '{"id":2, "first_name":"Robert", "middle_name":"", "last_name":"Plant", "asset_url":"/characters/character-robert-plant-neutral.png", "faction_id":2}' -p names.${doh_target}`);
+        fx.cleos(`push action names.${doh_target} addcname '{"id":3, "first_name":"Jimi", "middle_name":"", "last_name":"Hendrix", "asset_url":"/characters/character-jimi-hendrix-neutral.png", "faction_id":4}' -p names.${doh_target}`);
 
-    fx.cleos(`system newaccount eosio dohplayer2 EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV --stake-cpu '10000.0000 EOS' --stake-net '10000.0000 EOS' --buy-ram-kbytes 1000 --transfer`);
+        fx.cleos(`push action dejavu.${doh_target} setplayer '{"p":{"owner":"dohplayer1", "asset_url":"/players/dominion/player-confederacy-01.png", "count":0, "reputation":0, "faction_id":2, "location_tile_id":1}}' -p hegemon.${doh_target}`);
+        fx.cleos(`push action dejavu.${doh_target} setplayer '{"p":{"owner":"dohplayer2", "asset_url":"/players/dominion/player-dominion-02.png", "count":0, "reputation":0, "faction_id":4, "location_tile_id":1}}' -p hegemon.${doh_target}`);
 
-    fx.cleos(`push action names.${doh_target} addcname '{"id":1, "first_name":"Jimmy", "middle_name":"", "last_name":"Page", "asset_url":"/characters/character-jimmy-page-neutral.png", "faction_id":2}' -p names.${doh_target}`);
-    fx.cleos(`push action names.${doh_target} addcname '{"id":2, "first_name":"Robert", "middle_name":"", "last_name":"Plant", "asset_url":"/characters/character-robert-plant-neutral.png", "faction_id":2}' -p names.${doh_target}`);
-    fx.cleos(`push action names.${doh_target} addcname '{"id":3, "first_name":"Jimi", "middle_name":"", "last_name":"Hendrix", "asset_url":"/characters/character-jimi-hendrix-neutral.png", "faction_id":4}' -p names.${doh_target}`);
+        fx.cleos(`push action hegemon.${doh_target} regplayer '{"player":"dohplayer1", "opt_out_of_politics":false}' --force-unique -p dohplayer1`);
+        fx.cleos(`push action hegemon.${doh_target} regplayer '{"player":"dohplayer2", "opt_out_of_politics":false}' --force-unique -p dohplayer2`);
 
-    fx.cleos(`push action dejavu.${doh_target} setplayer '{"p":{"owner":"dohplayer1", "asset_url":"/players/dominion/player-confederacy-01.png", "count":0, "reputation":0, "faction_id":2, "location_tile_id":1}}' -p hegemon.${doh_target}`);
-    fx.cleos(`push action dejavu.${doh_target} setplayer '{"p":{"owner":"dohplayer2", "asset_url":"/players/dominion/player-dominion-02.png", "count":0, "reputation":0, "faction_id":4, "location_tile_id":1}}' -p hegemon.${doh_target}`);
+        fx.cleos(`push action hegemon.${doh_target} createchar '{"player":"dohplayer1"}' --force-unique -p dohplayer1`);
+        fx.cleos(`push action hegemon.${doh_target} createchar '{"player":"dohplayer1"}' --force-unique -p dohplayer1`);
+        fx.cleos(`push action hegemon.${doh_target} createchar '{"player":"dohplayer2"}' --force-unique -p dohplayer2`);
 
-    fx.cleos(`push action hegemon.${doh_target} regplayer '{"player":"dohplayer1", "opt_out_of_politics":false}' --force-unique -p dohplayer1`);
-
-    fx.cleos(`push action hegemon.${doh_target} regplayer '{"player":"dohplayer2", "opt_out_of_politics":false}' --force-unique -p dohplayer2`);
-
-    fx.cleos(`push action hegemon.${doh_target} createchar '{"player":"dohplayer1"}' --force-unique -p dohplayer1`);
-    fx.cleos(`push action hegemon.${doh_target} createchar '{"player":"dohplayer1"}' --force-unique -p dohplayer1`);
-    fx.cleos(`push action hegemon.${doh_target} createchar '{"player":"dohplayer2"}' --force-unique -p dohplayer2`);
-
-    // FIXME: Should have a check clock initialized thing that looks at the blockchain to figure it out
-    if (use_clock) fx.cleos(`push action clock.${doh_target} clockaddsec '{"seconds":120}' --force-unique -p clock.${doh_target}`); //;
-
+        // FIXME: Should have a check clock initialized thing that looks at the blockchain to figure it out
+        if (use_clock) fx.cleos(`push action clock.${doh_target} clockaddsec '{"seconds":120}' --force-unique -p clock.${doh_target}`); //;
+    } catch (error) {
+        handleError(error);
+    }
     fx.fixtureLog("createBasicPlayers(): finished OK.");
 }
 
@@ -285,22 +300,19 @@ function createBasicPlayers(use_clock = true) {
 // -----------------------------------------------------------------------
 
 function createBasicEconomy() {
-
     fx.fixtureLog("createBasicEconomy(): started.");
+    try {
+        fx.cleos(`push action main.${tcn_target} adddrip '{"symbol":"4,TCN", "contract":"tokens.${tcn_target}", "buckets":["players.${tcn_target}"], "shares":[10000]}' --force-unique -p main.${tcn_target}@active`);
+        fx.cleos(`push action players.${tcn_target} adddrip '{"symbol":"4,TCN", "contract":"tokens.${tcn_target}", "buckets":["energy.${tcn_target}","rep.${tcn_target}"], "shares":[7000, 3000]}' --force-unique -p players.${tcn_target}@active`);
+        fx.cleos(`push action tokens.${tcn_target} create '{"issuer":"hegemon.${doh_target}", "maximum_supply":"100000000000.0000 TCN"}' -p tokens.${tcn_target}@active`);
+        fx.cleos(`push action tokens.${tcn_target} issue '{"to":"hegemon.${doh_target}", "quantity":"100000000.0000 TCN", "memo":"initial issuance"}' -p hegemon.${doh_target}@active`);
+        fx.cleos(`transfer hegemon.${doh_target} reserve.${tcn_target} "100000000.0000 TCN" "" --contract tokens.${tcn_target} -p hegemon.${doh_target}@active`);
+        // mint another 100 million free-floating TCN for testing purposes (e.g. give it to players etc.)
+        fx.cleos(`push action tokens.${tcn_target} issue '{"to":"hegemon.${doh_target}", "quantity":"100000000.0000 TCN", "memo":"testing allowance"}' -p hegemon.${doh_target}@active`);
 
-    fx.cleos(`push action main.${tcn_target} adddrip '{"symbol":"4,TCN", "contract":"tokens.${tcn_target}", "buckets":["players.${tcn_target}"], "shares":[10000]}' --force-unique -p main.${tcn_target}@active`);
-
-    fx.cleos(`push action players.${tcn_target} adddrip '{"symbol":"4,TCN", "contract":"tokens.${tcn_target}", "buckets":["energy.${tcn_target}","rep.${tcn_target}"], "shares":[7000, 3000]}' --force-unique -p players.${tcn_target}@active`);
-
-    fx.cleos(`push action tokens.${tcn_target} create '{"issuer":"hegemon.${doh_target}", "maximum_supply":"100000000000.0000 TCN"}' -p tokens.${tcn_target}@active`);
-
-    fx.cleos(`push action tokens.${tcn_target} issue '{"to":"hegemon.${doh_target}", "quantity":"100000000.0000 TCN", "memo":"initial issuance"}' -p hegemon.${doh_target}@active`);
-
-    fx.cleos(`transfer hegemon.${doh_target} reserve.${tcn_target} "100000000.0000 TCN" "" --contract tokens.${tcn_target} -p hegemon.${doh_target}@active`);
-
-    // mint another 100 million free-floating TCN for testing purposes (e.g. give it to players etc.)
-    fx.cleos(`push action tokens.${tcn_target} issue '{"to":"hegemon.${doh_target}", "quantity":"100000000.0000 TCN", "memo":"testing allowance"}' -p hegemon.${doh_target}@active`);
-
+    } catch (error) {
+        handleError(error);
+    }
     fx.fixtureLog("createBasicEconomy(): finished OK.");
 }
 

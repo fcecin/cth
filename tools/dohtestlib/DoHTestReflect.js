@@ -182,7 +182,6 @@ function getProxyForContract(contractAccountName) {
                         configWasSet = true;
                     }
                 }
-
                 // apply tableConfig
                 let tableConfig = library._tableIndexInfo.get(tableName)[i];
                 if (tableConfig !== undefined) {

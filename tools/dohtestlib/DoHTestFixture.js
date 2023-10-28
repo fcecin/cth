@@ -113,6 +113,16 @@ function fixtureErrorLog(msg) {
 }
 
 // -----------------------------------------------------------------------
+// fixtureRunning
+//
+// Returns true if inside of fixtureRun(), false otherwise.
+// -----------------------------------------------------------------------
+
+function fixtureRunning() {
+    return (_fixtureCurrent !== 'NO_FIXTURE' && _fixtureCurrent !== 'FIXTURE_INIT' && _fixtureCurrent !== 'FIXTURE_FINISH');
+}
+
+// -----------------------------------------------------------------------
 // fixtureRun
 //
 // Marks the start of a new test. If the test name ends with '.js', it
@@ -154,6 +164,7 @@ function fixtureRun(testname) {
     }
     fixtureResultMap.set(testname, result);
     console.log(`TEST: fixtureRun(): ${testname}: ${result}`);
+    _fixtureCurrent = "FIXTURE_FINISH";
 }
 
 // -----------------------------------------------------------------------
@@ -265,6 +276,7 @@ module.exports = {
     fixtureErrorLog,
     fixtureCrashed,
     fixtureFailed,
+    fixtureRunning,
     fixtureRun,
     fixtureCount,
     fixturePrintSummary,
