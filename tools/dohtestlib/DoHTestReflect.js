@@ -37,10 +37,10 @@ function getProxyForContract(contractAccountName) {
     } catch (error) {
         fx.fixtureCrashed(`DoHTestReflect: getProxyForContract(): Error fetching and parsing ABI for ${contractAccountName}: ${error}`);
     }
-    const library = {};
     if (!abi || !abi.actions || !Array.isArray(abi.actions) || !abi.structs || !Array.isArray(abi.structs)) {
         fx.fixtureCrashed(`DoHTestReflect: getProxyForContract(${contractAccountName}): ABI format is invalid.`);
     }
+    const library = {};
     abi.actions.forEach((action) => {
         const actionName = action.name;
         const structName = action.type;
@@ -53,8 +53,35 @@ function getProxyForContract(contractAccountName) {
         }
         library[actionName] = function (...params) {
             if (params.length !== struct.fields.length) {
-                fx.fixtureCrashed(`DoHTestReflect: [PROXY ${contractAccountName}::${actionName}]: expected ${struct.fields.length} parameter(s), got ${params.length}.`);
+                const paramList = params.map(element => JSON.stringify(element)).join(',');
+                fx.fixtureCrashed(`DoHTestReflect: [PROXY ${contractAccountName}::${actionName}(${paramList})]: expected ${struct.fields.length} parameter(s), got ${params.length}.`);
                 return;
+            }
+            // For each parameter, if it is one of the structs defined in the ABI, check if it's a JSON object
+            //   whose field names match the ABI struct's fields. This should catch most errors.
+            for (let i = 0; i < params.length; i++) {
+                const paramNum = i + 1;
+                const paramName = struct.fields[i].name;
+                const paramType = struct.fields[i].type;
+                if (abi.structs.some((struct) => struct.name === paramType)) {
+                    if (typeof params[i] !== 'object') {
+                        const paramList = params.map(element => JSON.stringify(element)).join(',');
+                        fx.fixtureCrashed(`DoHTestReflect: [PROXY ${contractAccountName}::${actionName}(${paramList})]: Parameter #${paramNum} expected JSON object matching ABI type '${paramType}', instead got '${params[i]}'.`);
+                    }
+                    const matchingStruct = abi.structs.find((s) => s.name === paramType);
+                    if (matchingStruct) {
+                        matchingStruct.fields.forEach((field) => {
+                            // Check if the field exists in the parameter object
+                            if (!(field.name in params[i])) {
+                                const paramList = params.map(element => JSON.stringify(element)).join(',');
+                                fx.fixtureCrashed(`DoHTestReflect: [PROXY ${contractAccountName}::${actionName}(${paramList})]: Parameter #${paramNum} JSON object is missing field '${field.name}' to match ABI type '${paramType}'.`);
+                            }
+                            // TODO: actually check the type of each field;
+                            //       if it's also an ABI struct, should call a recursive function from here to do further type checking.
+                            //       eventually could end up checking on all ABI types, including arrays of primitives, of structs, etc.
+                        });
+                    }
+                }
             }
             const paramObj = {};
             for (let i = 0; i < params.length; i++) {
