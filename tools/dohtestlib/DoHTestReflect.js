@@ -107,12 +107,12 @@ function getProxyForContract(contractAccountName) {
         library._tableScope.set(tableName, contractAccountName);
         // Generate table query methods for up to 9 indices
         for (let i = 1; i < 9; i++) {
-            let si = "";
-            if (i > 1) { si = "$i" };
+            let si = '';
+            if (i > 1) { si = `${i}` };
             library[`_${tableName}${si}`] = function (...params) {
                 let configWasSet = false;
                 let q = '';
-                if (i > 1) { q += ` --index $i`; }
+                if (i > 1) { q += ` --index ${i}`; }
                 // apply all params to construct an options[0] object
                 let posnum = 1;
                 let options = [];  // all option objects found
