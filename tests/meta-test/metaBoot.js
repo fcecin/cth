@@ -30,33 +30,38 @@ meta.setfaction( {"id":4, "faction_name":"dominion", "description":"dominion des
 // should look good
 fixtureLog( "Should contain the four factions: " + JSON.stringify( meta.factions() ) );
 
+//-------------------------------------------------------------------------------------
+// Here we will compute the timeframes that we will be using for the meta contract
+//-------------------------------------------------------------------------------------
+
+metaTestStartTime = getContractTime();
+
+fixtureLog("metaTestStartTime = " + metaTestStartTime);
+
+metaTestAuctionEndTime = addSecondsToTime(metaTestStartTime, 86400 * 30); // 30 days
+
+//-------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------
+
+meta._struct("planet", ["id", "planet_name"]);
+
+meta.setplanet( [1, "planet1"] );
+meta.setplanet( [2, "planet2"] );
+
+meta._struct("region", ["id", "planet_id", "region_name"]);
+
+meta.setregion( [1, 1, "p1r1"] );
+meta.setregion( [2, 1, "p1r2"] );
+meta.setregion( [3, 2, "p2r1"] );
+meta.setregion( [4, 2, "p2r2"] );
+
+meta._struct("auction", ["id", "name", "description", "category", "asset_url", "rarity", "level", "count", "reserve", "type", "auction_end", "faction_id"] );
+
+meta.setauction( [1, "waitlist", "waitlist auction", "faction invites auction", "none", 0, 0, 999999999, "0.0000 TCN", 2, metaTestAuctionEndTime, 0 ] );
+
+fixtureLog("Auction #1: " + JSON.stringify( meta.auctions() ) );
+
 /*
-
-
-// TODO, create some 10 players, we'll spend them
-
-
-  test plan:
-
-  all of these are in different fixtures for the tally, but there's no clearing because that would be (a) slow and (b) unnecessary
-  the fixture will just tell which sections of the test have been successful
-
-
-- set various things (init a shop)
-- set the test players, open, deposit balances for them
-
-
-cleos -u http://ux5.goldenplatform.com push action meta.hg3 setplanet '{"p":{"id":1,"planet_name":"planet1"}}' -p meta.hg3
-
-cleos -u http://ux5.goldenplatform.com push action meta.hg3 setplanet '{"p":{"id":2,"planet_name":"planet2"}}' -p meta.hg3
-
-cleos -u http://ux5.goldenplatform.com push action meta.hg3 setregion '{"r":{"id":1,"planet_id":1,"region_name":"p1r1"}}' -p meta.hg3
-
-cleos -u http://ux5.goldenplatform.com push action meta.hg3 setregion '{"r":{"id":2,"planet_id":1,"region_name":"p1r2"}}' -p meta.hg3
-
-cleos -u http://ux5.goldenplatform.com push action meta.hg3 setregion '{"r":{"id":3,"planet_id":2,"region_name":"p2r1"}}' -p meta.hg3
-
-cleos -u http://ux5.goldenplatform.com push action meta.hg3 setregion '{"r":{"id":4,"planet_id":2,"region_name":"p2r2"}}' -p meta.hg3
 
 cleos -u http://ux5.goldenplatform.com push action meta.hg3 setauction '{"a":{"id":1,"name":"waitlist","description":"waitlist auction","category":"faction invites auction","asset_url":"none","rarity":0,"level":0,"count":999999999,"reserve":"0.0000 TCN","type":2,"auction_end":"2023-11-30T00:00:00.000","faction_id":0}}' -p meta.hg3
 

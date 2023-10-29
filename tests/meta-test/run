@@ -43,6 +43,7 @@ createBasicEconomy();
 
 tokens = getProxyForContract(`tokens.${tcn_target}`);
 meta = getProxyForContract(`meta.${doh_target}`);
+clock = getProxyForContract(`clock.${doh_target}`);
 
 // --------------------------------------------------------------------------------------------
 // Tests run inside the test fixture (fixture tests)

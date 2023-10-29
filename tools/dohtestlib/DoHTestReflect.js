@@ -155,7 +155,7 @@ function getProxyForContract(contractAccountName) {
                 paramObj[paramName] = params[i];
             }
             const paramString = JSON.stringify(paramObj);
-            return cleos(`push action ${contractAccountName} ${actionName} '${paramString}' --force-unique -p ${library.__signer}`);
+            return cleos(`push action ${contractAccountName} ${actionName} '${paramString}' --force-unique -p ${library.__auth}`);
         };
     });
     // generate get-table functions
@@ -309,7 +309,7 @@ function getProxyForContract(contractAccountName) {
                             return undefined;
                         }
                         ro.cleos_calls.push(cleos_cmd);
-                        ro.rows.push(o.rows);
+                        ro.rows.push(...o.rows);
                         // check if we are done
                         if (!o.more || (page >= PAGES_LIMIT-1))
                             return ro;
@@ -337,9 +337,9 @@ function getProxyForContract(contractAccountName) {
         // special values that conveniently set the signer to the contract account name.
         // if you need anything other than active permission send it in explicitly.
         if (value === undefined || value === 'CONTRACT' || value === 'SELF' || value === '') {
-            library.__signer = contractAccountName;
+            library.__auth = contractAccountName;
         } else {
-            library.__signer = value;
+            library.__auth = value;
         }
     };
     library._auth();

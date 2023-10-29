@@ -193,6 +193,38 @@ function getError(errcode) {
 }
 
 // -----------------------------------------------------------------------
+// Functions that deal with the DoH clock and contract time
+// These will use a global variable "clock" that should be a
+//   DoHTestReflect.js proxy object to the clock contract.
+// -----------------------------------------------------------------------
+
+function getContractTime() {
+    if (typeof clock !== 'undefined') {
+        // global proxy var "clock" to clock.hg? contract is defined
+        let o = clock.clockinfo();
+        if (o !== undefined && o.rows !== undefined && Array.isArray(o.rows) && o.rows.length) {
+            // found clock singleton and it is created, so replace date with the clock contract's time
+            return o.rows[0].current_time;
+        }
+    }
+    // default that will be used if no proxy to the clock contract defined by the caller or clock
+    //   singleton wasn't created. in either case, we will return current system time, which should
+    //   sufficiently correlate with or track the time that contracts are using.
+    let s = new Date().toISOString();
+    if (s.endsWith("Z")) s = s.slice(0, -1); // strip UTC timezone char (last non-digit char if it's there)
+    return s;
+}
+
+function addSecondsToTime(timeISOStr, secondsToAdd) {
+    if (!timeISOStr.endsWith("Z")) timeISOStr += 'Z'; // add the UTC char if it's not there before doing time math
+    let date = new Date(timeISOStr);
+    date.setSeconds(date.getSeconds() + secondsToAdd);
+    let s = date.toISOString();
+    if (s.endsWith("Z")) s = s.slice(0, -1); // strip UTC timezone char (last non-digit char if it's there)
+    return s;
+}
+
+// -----------------------------------------------------------------------
 // DoH high-level testcase logic functions
 //
 // All of these functions expect the following global variables to be set:
@@ -336,6 +368,8 @@ module.exports = {
     check,
     epochSecsFromDateString,
     getError,
+    getContractTime,
+    addSecondsToTime,
 
     // Testcase building blocks
     createBasicGame,
