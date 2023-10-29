@@ -1,0 +1,2 @@
+- transfer a purchased item to another player of wrong faction, check it is prevented
+- transfer a purchased item to another player of right faction, check it is alloed

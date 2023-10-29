@@ -240,26 +240,40 @@ function fixtureInit(gm, hg, tc) {
 // -----------------------------------------------------------------------
 // fixtureFinish
 //
-// Helper function that provides a standard way to finish a test process
+// Helper function that provides a standard way to finish a test process.
+//
+// This function exits the process either in success (0) or failure (1).
 // -----------------------------------------------------------------------
 
-function fixtureFinish() {
+function fixtureFinish(error) {
 
     console.log("TEST: fixtureFinish(): finishing test...");
 
     // clean up the test driver
     finish();
 
-    fixturePrintSummary();
-
-    let [passCount, failCount] = fixtureCount();
-    totalCount = passCount + failCount;
-
-    if (failCount > 0) {
-        console.log(`ERROR: TEST: fixtureFinish(): failed ${failCount} tests of ${totalCount} total.`);
+    if (error !== undefined) {
+        // If given an error parameter, the summary is NOT printed.
+        // Instead, it is assumed that the testcase run file failed entirely.
+        console.log(`ERROR: TEST: fixtureFinish(): testcase was aborted by a fatal error: ${error}`);
+        console.log("ERROR: TEST: fixtureFinish(): process.exit(1)");
         process.exit(1);
     } else {
-        console.log(`TEST: fixtureFinish(): completed all (${totalCount}) tests successfully.`);
+
+        fixturePrintSummary();
+
+        let [passCount, failCount] = fixtureCount();
+        totalCount = passCount + failCount;
+
+        if (failCount > 0) {
+            console.log(`ERROR: TEST: fixtureFinish(): failed ${failCount} tests of ${totalCount} total.`);
+            process.exit(1);
+        } else {
+            console.log(`TEST: fixtureFinish(): completed all (${totalCount}) tests successfully.`);
+        }
+
+        console.log("TEST: fixtureFinish(): process.exit(0)");
+        process.exit(0);
     }
 }
 

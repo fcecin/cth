@@ -45,21 +45,21 @@ try {
 
     meta.setplayer( {"owner":"dohplayer1", "asset_url":"none", "referrer":"", "faction_id":1, "last_staking_action":TIME_POINT_MIN, "last_bid_action":TIME_POINT_MIN, "last_transfer_action":TIME_POINT_MIN, "last_reqinvite_action":TIME_POINT_MIN, "actions":0, "actions_reset_time":TIME_POINT_MIN} );
 
-    meta._setSigner("dohplayer1");
+    meta._auth("dohplayer1");
     meta.open("dohplayer1", "4,TCN", "dohplayer1");
 
-    tokens._setSigner(`hegemon.${doh_target}`);
+    tokens._auth(`hegemon.${doh_target}`);
     tokens.transfer(`hegemon.${doh_target}`, "dohplayer1", "100000.0000 TCN", "");
 
-    tokens._setSigner("dohplayer1");
+    tokens._auth("dohplayer1");
     tokens.transfer("dohplayer1",`meta.${doh_target}`, "10000.0000 TCN", "deposit");
 
     meta.dostake("dohplayer1", "0.0001 TCN", 1);
 
-    console.log(meta._accounts( { "scope": "dohplayer1"} ));
-    console.log(meta._players( { "scope": "CONTRACT" } ));
+    console.log(meta.accounts( { "scope": "dohplayer1"} ));
+    console.log(meta.players( { "scope": "CONTRACT" } ));
 
-    meta._setSelfSigner();
+    meta._auth();
     meta.clear();
 
 } catch (error) {
@@ -67,9 +67,7 @@ try {
     // interesting note: when you use fixtureRun(), instead of doing that blob of javascript in the try block above,
     //  you get exception handling for free. since we didn't, here we have to catch() otherwise we get a dangling
     //  nodeos (because dohTest.js::finish() or dohTestFixture.js::fixtureFinish() must always be called before exiting).
-
-    console.log("**** EXCEPTION CAUGHT ****");
-    console.log(error);
+    fixtureFinish(error);
 }
 
 console.log("**************************************************************************************************");

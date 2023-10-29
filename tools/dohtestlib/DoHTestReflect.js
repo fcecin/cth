@@ -1,14 +1,14 @@
 // -----------------------------------------------------------------------
-// DoHTestReflect.js -- *** PROTOTYPE / WORK IN PROGRESS ***
+// DoHTestReflect.js
 //
 // This module provides a reflection proxy to DoHTestFixture.js's cleos()
 //   function, so that you can do things like this (instead of composing
 //   giant string arguments to cleos() calls yourself):
 //
 //     const proxy = getProxyForContract(`meta.${doh_target}`);
-//     proxy._setSigner("inviteesname");
+//     proxy._auth("inviteesname");
 //     proxy.acceptinvite("invitersname", "inviteesname");
-//     proxy._setSelfSigner();
+//     proxy._auth(SELF); // CONTRACT, SELF, '', (), (undefined):  all work the same
 //     proxy.clear();
 //
 // Which is equivalent to the following DoHTestFixture.js cleos() calls:
@@ -18,14 +18,19 @@
 //
 // Getting tables is accomplished via a _<tablename> function:
 //
-//     console.log(proxy._accounts( { "scope": "dohplayer1"} ));
-//     console.log(proxy._players( { "scope": "CONTRACT" } ));
+//     console.log(proxy.accounts( { "scope": "dohplayer1"} ));
+//     console.log(proxy.players( { "scope": CONTRACT } )); // CONTRACT, SELF, '', null: all work the same
 //
-// TODO:
-// - validate all param types vs. the ABI before the call (not ESSENTIAL, but it would produce better diagnostic messages)
 // -----------------------------------------------------------------------
 
 const fx = require('DoHTestFixture');
+
+// -----------------------------------------------------------------------
+// Exported constants
+// -----------------------------------------------------------------------
+
+const CONTRACT = 'CONTRACT';
+const SELF     = 'SELF';
 
 // -----------------------------------------------------------------------
 // getProxyForContract
@@ -80,9 +85,11 @@ function getProxyForContract(contractAccountName) {
                                 const paramList = params.map(element => JSON.stringify(element)).join(',');
                                 fx.fixtureCrashed(`DoHTestReflect: [PROXY ${contractAccountName}::${actionName}(${paramList})]: Parameter #${paramNum} JSON object is missing field '${field.name}' to match ABI type '${paramType}'.`);
                             }
-                            // TODO: actually check the type of each field;
-                            //       if it's also an ABI struct, should call a recursive function from here to do further type checking.
-                            //       eventually could end up checking on all ABI types, including arrays of primitives, of structs, etc.
+                            // Here we could actually check the type of each field, and if it's also an ABI struct, we could call a
+                            //   recursive function from here to do further type checking. Eventually could end up checking on all
+                            //   ABI types, including arrays of primitives, of structs, etc.
+                            // This is probably overkill; if there's an error in the way the test writer calls the proxy, it will blow
+                            //   up in the cleos call, and it's not too much work to map that to the bug location in the proxy call.
                         });
                     }
                 }
@@ -93,23 +100,31 @@ function getProxyForContract(contractAccountName) {
                 paramObj[paramName] = params[i];
             }
             const paramString = JSON.stringify(paramObj);
-            return fx.cleos(`push action ${contractAccountName} ${actionName} '${paramString}' --force-unique -p ${library._signer}`);
+            return fx.cleos(`push action ${contractAccountName} ${actionName} '${paramString}' --force-unique -p ${library.__signer}`);
         };
     });
-    library._tableIndexInfo = new Map();
-    library._tableScope = new Map();
+    library.__tableIndexInfo = new Map();
+    library.__tableScope = new Map();
     abi.tables.forEach((table) => {
         const tableName = table.name;
-        library._tableIndexInfo.set(tableName, []);
+        library.__tableIndexInfo.set(tableName, []);
         // config object for each index 1-9: [index type, encode type]
-        for (let i = 1; i < 9; i++) { library._tableIndexInfo.get(tableName).push([]); }
+        for (let i = 1; i < 9; i++) { library.__tableIndexInfo.get(tableName).push([]); }
         // scope is saved, can be set via "scope":"" option; default is the account name
-        library._tableScope.set(tableName, contractAccountName);
+        library.__tableScope.set(tableName, contractAccountName);
         // Generate table query methods for up to 9 indices
         for (let i = 1; i < 9; i++) {
             let si = '';
-            if (i > 1) { si = `${i}` };
-            library[`_${tableName}${si}`] = function (...params) {
+
+            // The table function name can be the plain table name, since you cannot have
+            //   actions declared with the same name as the table -- that doesn't work.
+            //   So for the primary index/key, the function name is the plain table name.
+            // However, when adding indices, we need an e.g. "_" to differentiate, because
+            //   a "players2" action could exist together with a "players" table. When
+            //   using indices > 1 (the primary index/key), it becomes e.g. "players_2".
+            if (i > 1) { si = `_${i}` };
+            library[`${tableName}${si}`] = function (...params) {
+
                 let configWasSet = false;
                 let q = '';
                 if (i > 1) { q += ` --index ${i}`; }
@@ -157,12 +172,12 @@ function getProxyForContract(contractAccountName) {
                     } else if (key == "limit") {
                         q += ` --limit ${value}`;
                     } else if (key == "scope") {
-                        // special value that conveniently resets to the contract account name
+                        // special values that conveniently reset to the contract account name
                         //   without having to name it explicitly e.g. {"scope":`meta.${doh_target}`}
-                        if (value === 'CONTRACT') {
-                            library._tableScope.set(tableName, contractAccountName);
+                        if (value === undefined || value === 'CONTRACT' || value === 'SELF' || value === '') {
+                            library.__tableScope.set(tableName, contractAccountName);
                         } else {
-                            library._tableScope.set(tableName, value);
+                            library.__tableScope.set(tableName, value);
                         }
                     } else if (key == "binary") {
                         q += " --binary";
@@ -174,16 +189,16 @@ function getProxyForContract(contractAccountName) {
                         q += ` --time-limit ${value}`;
                     } else if (key == "key-type") {
                         // save the key-type for (current and) future use
-                        library._tableIndexInfo.get(tableName)[i][0] = value;
+                        library.__tableIndexInfo.get(tableName)[i][0] = value;
                         configWasSet = true;
                     } else if (key == "encode-type") {
                         // save the encode-type for (current and) future use
-                        library._tableIndexInfo.get(tableName)[i][1] = value;
+                        library.__tableIndexInfo.get(tableName)[i][1] = value;
                         configWasSet = true;
                     }
                 }
                 // apply tableConfig
-                let tableConfig = library._tableIndexInfo.get(tableName)[i];
+                let tableConfig = library.__tableIndexInfo.get(tableName)[i];
                 if (tableConfig !== undefined) {
                     if (tableConfig.length > 0 && tableConfig[0] !== undefined && tableConfig[0] !== '') {
                         q += ` --key-type ${tableConfig[0]}`;
@@ -193,7 +208,7 @@ function getProxyForContract(contractAccountName) {
                     }
                 }
                 // apply scope
-                let scope = library._tableScope.get(tableName);
+                let scope = library.__tableScope.get(tableName);
                 // if no lower but set config, will NOT make a query; we are just configuring the proxy
                 if (configWasSet && posnum == 1) {
                     return undefined;
@@ -204,9 +219,17 @@ function getProxyForContract(contractAccountName) {
             };
         }
     });
-    library._setSelfSigner = function () { library._signer = contractAccountName; };
-    library._setSigner = function (signerName) { library._signer = signerName; };
-    library._setSelfSigner();
+    // Internal function names must avoid name collision with ABI names ("a-z1-5.", 12 chars)
+    library._auth = function (value) {
+        // special values that conveniently set the signer to the contract account name.
+        // if you need anything other than active permission send it in explicitly.
+        if (value === undefined || value === 'CONTRACT' || value === 'SELF' || value === '') {
+            library.__signer = contractAccountName;
+        } else {
+            library.__signer = value;
+        }
+    };
+    library._auth();
     return library;
 }
 
@@ -216,4 +239,6 @@ function getProxyForContract(contractAccountName) {
 
 module.exports = {
     getProxyForContract,
+    CONTRACT,
+    SELF,
 };
