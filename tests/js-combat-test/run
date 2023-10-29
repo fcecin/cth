@@ -9,7 +9,6 @@
 //   to be updated with the new values.
 // --------------------------------------------------------------------------------------------
 
-Object.assign(global, require('DoHTestDriver'));
 Object.assign(global, require('DoHTest'));
 
 // --------------------------------------------------------------------------------------------

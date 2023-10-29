@@ -7,7 +7,6 @@
 // This test is a port of cryptomechanics/doh-unit-tests/drip-distrib.sh from August, 2023.
 // --------------------------------------------------------------------------------------------
 
-Object.assign(global, require('DoHTestDriver'));
 Object.assign(global, require('DoHTest'));
 
 // --------------------------------------------------------------------------------------------

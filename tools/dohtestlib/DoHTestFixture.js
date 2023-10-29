@@ -4,10 +4,22 @@
 // The Test Fixture feature allow a single test script (cth "run" file)
 //   to define and run multiple actual tests.
 // -----------------------------------------------------------------------
+// This library assumes it is unpacked in the global object.
+// This library requires its dependencies to be already unpacked in
+//   the global object: DoHTestDriver.js
+//
+// NOTE: fixtureInit() loads DoHTest.js as a convenience to the test
+//   script. It's not a dependency of this module per se.
+// -----------------------------------------------------------------------
 
 const fs = require('fs');
 const vm = require('vm');
-const dohTestDriver = require('DoHTestDriver');
+
+// -----------------------------------------------------------------------
+// Load required modules in the global scope if can't find them there
+// -----------------------------------------------------------------------
+
+if (typeof doh_init === 'undefined') { Object.assign(global, require('DoHTestDriver')); }
 
 // -----------------------------------------------------------------------
 // GLOBAL variables
@@ -58,7 +70,7 @@ let doh;
 // -----------------------------------------------------------------------
 
 function cleos(args) {
-    let [output, error] = dohTestDriver.cth_cleos_pipe2(args);
+    let [output, error] = cth_cleos_pipe2(args);
     if (error !== 0)
         throw new Error(output);
     return output;
@@ -70,7 +82,7 @@ function cleos(args) {
 // To avoid loading the driver library just for cth_cleos_pipe2.
 // -----------------------------------------------------------------------
 
-function cleosNoThrow(args) { return dohTestDriver.cth_cleos_pipe2(args); }
+function cleosNoThrow(args) { return cth_cleos_pipe2(args); }
 
 // -----------------------------------------------------------------------
 // fixtureCrashed
@@ -213,7 +225,10 @@ function fixtureInit(gm, hg, tc) {
     }
 
     // Load DoHTest.js in the global scope of the test script
-    Object.assign(global, require('DoHTest'));
+    if (typeof init === 'undefined') {
+        console.log("TEST: fixtureInit(): loading DoHTest.js ...");
+        Object.assign(global, require('DoHTest'));
+    }
 
     // default target is the 'test' target (hg3/tc3)
     hg === undefined ? hg = "hg3" : null;
@@ -228,7 +243,7 @@ function fixtureInit(gm, hg, tc) {
     init();
 
     // get the game constants from the readonly contract
-    doh = getConstants();
+    doh = doh_get_constants();
 
     // for when we are setting up the game (e.g. createBasicGame()) before the first
     //   DoH test is run in the fixture (to differentiate from 'NO_FIXTURE').

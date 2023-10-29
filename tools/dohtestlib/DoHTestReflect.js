@@ -22,8 +22,16 @@
 //     console.log(proxy.players( { "scope": CONTRACT } )); // CONTRACT, SELF, '', null: all work the same
 //
 // -----------------------------------------------------------------------
+// This library requires its dependencies to be already unpacked in
+//   the global object: DoHTestFixture.js
+// -----------------------------------------------------------------------
 
-const fx = require('DoHTestFixture');
+// -----------------------------------------------------------------------
+// Load required modules in the global scope if can't find them there
+// -----------------------------------------------------------------------
+
+// pulls DohTestDriver
+if (typeof fixtureRun === 'undefined') { Object.assign(global, require('DoHTestFixture')); }
 
 // -----------------------------------------------------------------------
 // Exported constants
@@ -44,26 +52,26 @@ function getProxyForContract(contractAccountName) {
         const abiString = cleos(`get abi ${contractAccountName}`);
         abi = JSON.parse(abiString);
     } catch (error) {
-        fx.fixtureCrashed(`DoHTestReflect: getProxyForContract(): Error fetching and parsing ABI for ${contractAccountName}: ${error}`);
+        fixtureCrashed(`DoHTestReflect: getProxyForContract(): Error fetching and parsing ABI for ${contractAccountName}: ${error}`);
     }
     if (!abi || !abi.actions || !Array.isArray(abi.actions) || !abi.structs || !Array.isArray(abi.structs)) {
-        fx.fixtureCrashed(`DoHTestReflect: getProxyForContract(${contractAccountName}): ABI format is invalid.`);
+        fixtureCrashed(`DoHTestReflect: getProxyForContract(${contractAccountName}): ABI format is invalid.`);
     }
     const library = {};
     abi.actions.forEach((action) => {
         const actionName = action.name;
         const structName = action.type;
         if (!structName) {
-            fx.fixtureCrashed(`DoHTestReflect: getProxyForContract(${contractAccountName}): No struct type defined for action "${actionName}".`);
+            fixtureCrashed(`DoHTestReflect: getProxyForContract(${contractAccountName}): No struct type defined for action "${actionName}".`);
         }
         const struct = abi.structs.find((s) => s.name === structName);
         if (!struct) {
-            fx.fixtureCrashed(`DoHTestReflect: getProxyForContract(${contractAccountName}): Struct "${structName}" not found for action "${actionName}".`);
+            fixtureCrashed(`DoHTestReflect: getProxyForContract(${contractAccountName}): Struct "${structName}" not found for action "${actionName}".`);
         }
         library[actionName] = function (...params) {
             if (params.length !== struct.fields.length) {
                 const paramList = params.map(element => JSON.stringify(element)).join(',');
-                fx.fixtureCrashed(`DoHTestReflect: [PROXY ${contractAccountName}::${actionName}(${paramList})]: expected ${struct.fields.length} parameter(s), got ${params.length}.`);
+                fixtureCrashed(`DoHTestReflect: [PROXY ${contractAccountName}::${actionName}(${paramList})]: expected ${struct.fields.length} parameter(s), got ${params.length}.`);
                 return;
             }
             // For each parameter, if it is one of the structs defined in the ABI, check if it's a JSON object
@@ -75,7 +83,7 @@ function getProxyForContract(contractAccountName) {
                 if (abi.structs.some((struct) => struct.name === paramType)) {
                     if (typeof params[i] !== 'object') {
                         const paramList = params.map(element => JSON.stringify(element)).join(',');
-                        fx.fixtureCrashed(`DoHTestReflect: [PROXY ${contractAccountName}::${actionName}(${paramList})]: Parameter #${paramNum} expected JSON object matching ABI type '${paramType}', instead got '${params[i]}'.`);
+                        fixtureCrashed(`DoHTestReflect: [PROXY ${contractAccountName}::${actionName}(${paramList})]: Parameter #${paramNum} expected JSON object matching ABI type '${paramType}', instead got '${params[i]}'.`);
                     }
                     const matchingStruct = abi.structs.find((s) => s.name === paramType);
                     if (matchingStruct) {
@@ -83,7 +91,7 @@ function getProxyForContract(contractAccountName) {
                             // Check if the field exists in the parameter object
                             if (!(field.name in params[i])) {
                                 const paramList = params.map(element => JSON.stringify(element)).join(',');
-                                fx.fixtureCrashed(`DoHTestReflect: [PROXY ${contractAccountName}::${actionName}(${paramList})]: Parameter #${paramNum} JSON object is missing field '${field.name}' to match ABI type '${paramType}'.`);
+                                fixtureCrashed(`DoHTestReflect: [PROXY ${contractAccountName}::${actionName}(${paramList})]: Parameter #${paramNum} JSON object is missing field '${field.name}' to match ABI type '${paramType}'.`);
                             }
                             // Here we could actually check the type of each field, and if it's also an ABI struct, we could call a
                             //   recursive function from here to do further type checking. Eventually could end up checking on all
@@ -100,7 +108,7 @@ function getProxyForContract(contractAccountName) {
                 paramObj[paramName] = params[i];
             }
             const paramString = JSON.stringify(paramObj);
-            return fx.cleos(`push action ${contractAccountName} ${actionName} '${paramString}' --force-unique -p ${library.__signer}`);
+            return cleos(`push action ${contractAccountName} ${actionName} '${paramString}' --force-unique -p ${library.__signer}`);
         };
     });
     library.__tableIndexInfo = new Map();
@@ -123,9 +131,15 @@ function getProxyForContract(contractAccountName) {
             //   a "players2" action could exist together with a "players" table. When
             //   using indices > 1 (the primary index/key), it becomes e.g. "players_2".
             if (i > 1) { si = `_${i}` };
-            library[`${tableName}${si}`] = function (...params) {
+
+            const tableFunctionName = `${tableName}${si}`;
+
+            library[tableFunctionName] = function (...params) {
 
                 let configWasSet = false;
+                let reverse = false;
+                let MAX_PAGES_LIMIT = 10000; // absolute maximum to avoid "infinite" loops
+                let PAGES_LIMIT = MAX_PAGES_LIMIT; // selected pages limit, if any
                 let q = '';
                 if (i > 1) { q += ` --index ${i}`; }
                 // apply all params to construct an options[0] object
@@ -146,12 +160,14 @@ function getProxyForContract(contractAccountName) {
                         } else if (posnum == 4) {
                             options[0]["scope"] = param;
                         } else if (posnum == 5) {
-                            options[0]["binary"] = param;
+                            options[0]["pages"] = param;
                         } else if (posnum == 6) {
-                            options[0]["reverse"] = param;
+                            options[0]["binary"] = param;
                         } else if (posnum == 7) {
-                            options[0]["show-payer"] = param;
+                            options[0]["reverse"] = param;
                         } else if (posnum == 8) {
+                            options[0]["show-payer"] = param;
+                        } else if (posnum == 9) {
                             options[0]["time-limit"] = param;
                         }
                         posnum += 1;
@@ -179,10 +195,13 @@ function getProxyForContract(contractAccountName) {
                         } else {
                             library.__tableScope.set(tableName, value);
                         }
+                    } else if (key == "pages") {
+                        PAGES_LIMIT = value;
                     } else if (key == "binary") {
                         q += " --binary";
                     } else if (key == "reverse") {
                         q += " --reverse";
+                        reverse = true;
                     } else if (key == "show-payer") {
                         q += " --show-payer";
                     } else if (key == "time-limit") {
@@ -213,8 +232,53 @@ function getProxyForContract(contractAccountName) {
                 if (configWasSet && posnum == 1) {
                     return undefined;
                 } else {
-                    // caller deals with extracting rows: , more/next key etc.
-                    return fx.cleos(`get table ${contractAccountName} ${scope} ${tableName} ${q}`);
+                    // The javascript/JSON object that we are going to return from our table querier
+                    //   will deal automatically with more/nextKey, because in a testing environment
+                    //   there are no bandwidth costs. The query IS what you want, and there is no
+                    //   concept of query pagination in our definition of an automated test system.
+                    //
+                    // As a result, the returned object does not conform to (rows, more, next_key),
+                    //   and instead it has (rows, query_options, cleos_calls). The new "rows" array is
+                    //   exactly like the one returned by cleos, but it pieces together, in the
+                    //   order the various paginating cleos calls return it, all javascript
+                    //   objects (smart contract multi-index table rows) that answer the query
+                    //   that was made to the table.
+                    let ro = {
+                        rows: [],
+                        cleos_calls: [],
+                        query_options: options[0]
+                    };
+                    let page = 0;
+                    for (page = 0; page < MAX_PAGES_LIMIT; page++) {
+                        let cleos_cmd = `get table ${contractAccountName} ${scope} ${tableName} ${q}`.trim();
+                        let str = cleos(cleos_cmd);
+                        let o = JSON.parse(str);
+                        // if we don't get a well-formed result object in the first place for whatever reason,
+                        //   that's an error. Notify it by returning undefined (maybe should throw new Error?)
+                        if (o === undefined  || o.more === undefined || o.next_key === undefined || o.rows === undefined || !Array.isArray(o.rows) || typeof o.more !== 'boolean') {
+                            const paramList = params.map(element => JSON.stringify(element)).join(',');
+                            fixtureCrashed(`DoHTestReflect: [PROXY ${contractAccountName}::${tableFunctionName}(${paramList})]: cleos get table call returned a malformed object:\n${o}`);
+                            return undefined;
+                        }
+                        ro.cleos_calls.push(cleos_cmd);
+                        ro.rows.push(o.rows);
+                        // check if we are done
+                        if (!o.more || (page >= PAGES_LIMIT-1))
+                            return ro;
+                        // there's more and the easiest way to assemble the next cleos call is to
+                        //   just hack the q variable here.
+                        if (reverse) {
+                            // in reverse mode the next key should be the next upper
+                            q = q.replace(/--upper\s+\S+/g, `--upper ${o.next_key}`);
+                        } else {
+                            // in non-reverse mode the next key should be the next lower
+                            q = q.replace(/--lower\s+\S+/g, `--lower ${o.next_key}`);
+                        }
+                    }
+                    // if loop exited, we reached the limit without reaaching the end of the query
+                    const paramList = params.map(element => JSON.stringify(element)).join(',');
+                    fixtureLog(`*** WARNING: *** DoHTestReflect: [PROXY ${contractAccountName}::${tableFunctionName}(${paramList})]: Table query reached the limit of ${MAX_QUERY_PAGES} cleos calls.`);
+                    return ro;
                 }
             };
         }

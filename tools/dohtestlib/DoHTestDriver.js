@@ -7,6 +7,8 @@
 // This was ported from the DoHGoodies and CthGoodies Perl libraries to
 //   javascript and, at least at that point, they were equivalent.
 // -----------------------------------------------------------------------
+// This library assumes it is unpacked in the global object.
+// -----------------------------------------------------------------------
 
 const fs = require('fs');
 const path = require('path');
@@ -15,6 +17,9 @@ const child_process = require('child_process');
 // -----------------------------------------------------------------------
 // Global state
 // -----------------------------------------------------------------------
+
+// if true, dumps a lot of information to the test output
+let DEBUG_TRACE = false;
 
 // ----- CthGoodies state -----
 
@@ -35,6 +40,16 @@ let default_signer;
 
 // doh_hotstart_start() fills it with all DoH readonly constants
 const doh_constants = {};
+
+// -----------------------------------------------------------------------
+// cth_debug_trace
+//
+// Enable or disable debug trace in the driver library
+// -----------------------------------------------------------------------
+
+function cth_debug_trace(value) {
+    DEBUG_TRACE = value;
+}
 
 // -----------------------------------------------------------------------
 // cth_get_root_dir
@@ -148,17 +163,24 @@ function cth_cleos(args) {
 
     const cmd = `cleos ${cleosUrlParam} --wallet-url unix://${cleosProviderWorkingDir}/keosd.sock --verbose ${args}`;
 
-    console.log(`cth_cleos: run command: ${cmd}`);
+    if (DEBUG_TRACE)
+        console.log(`cth_cleos: run command: ${cmd}`);
 
     try {
         const output = child_process.execSync(cmd, { stdio: 'pipe' }).toString();
-        console.log(`cth_cleos: command successful, output:\n${output}`);
+
+        if (DEBUG_TRACE)
+            console.log(`cth_cleos: command successful, output:\n${output}`);
+
         return 0;
     } catch (error) {
+
+        // Have to print anyway, since this function doesn't return the output
         console.log(`ERROR: cth_cleos: command returned a nonzero (error) code: ${error.status}`);
         console.log("cth_cleos: ----- begin error dump -----");
         console.log(error);
         console.log("cth_cleos: ------ end error dump ------");
+
         if (error.status == 0)
             return -1;
         else
@@ -200,17 +222,24 @@ function cth_cleos_pipe(args) {
 
     const cmd = `cleos ${cleosUrlParam} --wallet-url unix://${cleosProviderWorkingDir}/keosd.sock --verbose ${args}`;
 
-    console.log(`cth_cleos_pipe: run command: ${cmd}`);
+    if (DEBUG_TRACE)
+        console.log(`cth_cleos_pipe: run command: ${cmd}`);
 
     try {
         const output = child_process.execSync(cmd, { stdio: 'pipe' }).toString();
-        console.log(`cth_cleos_pipe: command successful, output:\n${output}`);
+
+        if (DEBUG_TRACE)
+            console.log(`cth_cleos_pipe: command successful, output:\n${output}`);
+
         return output.trim(); // Trimming output should be benign
     } catch (error) {
+
+        // Have to print anyway, since this function doesn't return the output
         console.log(`ERROR: cth_cleos_pipe: command returned a nonzero (error) code: ${error.status}`);
         console.log("cth_cleos_pipe: ----- begin error dump -----");
         console.log(error);
         console.log("cth_cleos_pipe: ------ end error dump ------");
+
         return undefined;
     }
 }
@@ -238,27 +267,24 @@ function cth_cleos_pipe2(args) {
 
     const cmd = `cleos ${cleosUrlParam} --wallet-url unix://${cleosProviderWorkingDir}/keosd.sock --verbose ${args}`;
 
-    console.log(`cth_cleos_pipe2: run command: ${cmd}`);
+    if (DEBUG_TRACE)
+        console.log(`cth_cleos_pipe2: run command: ${cmd}`);
 
     try {
         const output = child_process.execSync(cmd, { stdio: 'pipe' }).toString();
 
-        // Since pipe2 returns the command output, we don't have to print it here.
-        // The caller can decide to print it if it wants to.
-        //
-        //console.log(`cth_cleos_pipe2: command successful, output:\n${output}`);
+        if (DEBUG_TRACE)
+            console.log(`cth_cleos_pipe2: command successful, output:\n${output}`);
 
         return [output.trim(), 0];
     } catch (error) {
 
-        // Since pipe2 returns the error message, we don't have to print it here,
-        //  which keeps the test log clear of "ERROR" messages in case this is not
-        //  an actual error (e.g. "failed successfully", expected-error testcases).
-        //
-        //console.log(`ERROR: cth_cleos_pipe2: command returned a nonzero (error) code: ${error.status}`);
-        //console.log("cth_cleos_pipe2: ----- begin error dump -----");
-        //console.log(error);
-        //console.log("cth_cleos_pipe2: ------ end error dump ------");
+        if (DEBUG_TRACE) {
+            console.log(`ERROR: cth_cleos_pipe2: command returned a nonzero (error) code: ${error.status}`);
+            console.log("cth_cleos_pipe2: ----- begin error dump -----");
+            console.log(error);
+            console.log("cth_cleos_pipe2: ------ end error dump ------");
+        }
 
         if (error.status == 0) {
             return [error, -1];
@@ -304,18 +330,27 @@ function cth_assert(desc, expr, orig) {
     try {
         const result = eval(expr);
         if (result) {
-            console.log(`cth_assert: '${desc}': '${expr}' is true ${orig ? ` ('${orig}')` : ''}.`);
+
+            if (DEBUG_TRACE)
+                console.log(`cth_assert: '${desc}': '${expr}' is true ${orig ? ` ('${orig}')` : ''}.`);
+
             return 0;
         } else {
-            console.log(`cth_assert: '${desc}': '${expr}' is false ${orig ? ` ('${orig}')` : ''}.`);
+
+            if (DEBUG_TRACE)
+                console.log(`cth_assert: '${desc}': '${expr}' is false ${orig ? ` ('${orig}')` : ''}.`);
+
             return 1;
         }
     } catch (error) {
+
+        // Have to print anyway, since this function doesn't return the output
         console.log(`ERROR: cth_assert: expression evaluation has thrown a ${error.constructor.name}: '${error.message}'`);
         console.log(`  expr: ${expr}`);
         console.log(`  desc: ${desc}`);
         if (orig !== undefined)
             console.log(`  orig:  '${expr}'`);
+
         return 1;
     }
 }
@@ -454,17 +489,25 @@ function cth_call_driver(driver, command) {
 
     const commandPath = path.join(cth_get_root_dir(), 'drivers', driver, command);
 
-    console.log(`cth_call_driver: run command: ${commandPath}`);
+    if (DEBUG_TRACE)
+        console.log(`cth_call_driver: run command: ${commandPath}`);
 
     try {
         const output = child_process.execSync(commandPath, { stdio: 'pipe' }).toString();
-        console.log(`cth_call_driver: command successful, output:\n${output}`);
+
+        if (DEBUG_TRACE)
+            console.log(`cth_call_driver: command successful, output:\n${output}`);
+
         return [output, 0];
     } catch (error) {
-        console.log(`ERROR: cth_call_driver: command returned a nonzero (error) code: ${error.status}`);
-        console.log("cth_call_driver: ----- begin error dump -----");
-        console.log(error);
-        console.log("cth_call_driver: ------ end error dump ------");
+
+        if (DEBUG_TRACE) {
+            console.log(`ERROR: cth_call_driver: command returned a nonzero (error) code: ${error.status}`);
+            console.log("cth_call_driver: ----- begin error dump -----");
+            console.log(error);
+            console.log("cth_call_driver: ------ end error dump ------");
+        }
+
         if (error.status == 0) {
             return [error, -1];
         } else {
@@ -569,7 +612,9 @@ function doh_hotstart_start() {
 
     // Assemble a label for the new instance
     const instance_uid = process.pid + "_" + require.main.filename;
-    console.log("doh_hotstart start: generated instance UID (doh-hotstart --label): " + instance_uid);
+
+    if (DEBUG_TRACE)
+        console.log("doh_hotstart start: generated instance UID (doh-hotstart --label): " + instance_uid);
 
     // run doh-hotstart start
     const args = "start --target " + doh_target + " --label '" + instance_uid + "'";
@@ -599,36 +644,35 @@ function doh_hotstart_start() {
     // attempt to read the readonly contract to fill in %doh_constants
     try {
         const jsonConstants = cth_cleos_pipe(`--verbose push action readonly.${doh_target} getconstants '{}' --read --json`);
-
         if (!jsonConstants) {
             console.log("WARNING: doh_hotstart_start : error trying to fetch constants from readonly.${doh_target} (cleos readonly query error). '%doh_constants' hash will be empty.");
         } else {
             const data = JSON.parse(jsonConstants);
-
             if (data && data.processed && data.processed.action_traces && data.processed.action_traces.length > 0) {
                 const return_value_data = data.processed.action_traces[0].return_value_data;
-
                 if (return_value_data) {
                     for (const constant_key in return_value_data) {
                         if (return_value_data.hasOwnProperty(constant_key)) {
                             Object.assign(doh_constants, return_value_data[constant_key]);
                         }
                     }
-
-                    if (Object.keys(doh_constants).length) {
-                        console.log("doh_hotstart_start: successfully loaded and parsed the following DoH constants from readonly contract: " + Object.keys(doh_constants).join(' '));
+                    let numConstants = Object.keys(doh_constants).length;
+                    if (numConstants > 0) {
+                        if (DEBUG_TRACE)
+                            console.log("doh_hotstart_start: successfully loaded and parsed the following DoH constants from readonly contract: " + Object.keys(doh_constants).join(' '));
+                        console.log(`doh_hotstart_start: successfully loaded and parsed ${numConstants} DoH constants from readonly contract`);
                     } else {
-                        console.log("WARNING: doh_hotstart_start: No constants found in the JSON data. '%doh_constants' hash will be empty.");
+                        console.log("WARNING: doh_hotstart_start: No constants found in the JSON data. 'doh_constants' will be empty.");
                     }
                 } else {
-                    console.log("WARNING: doh_hotstart_start: No return_value_data found. '%doh_constants' hash will be empty.");
+                    console.log("WARNING: doh_hotstart_start: No return_value_data found. 'doh_constants' will be empty.");
                 }
             } else {
-                console.log("WARNING: doh_hotstart_start: error trying to fetch constants from readonly.${doh_target} (parse error). '%doh_constants' hash will be empty.");
+                console.log("WARNING: doh_hotstart_start: error trying to fetch constants from readonly.${doh_target} (parse error). 'doh_constants' will be empty.");
             }
         }
     } catch (error) {
-        console.error("ERROR: doh_hotstart_start: error while obtaining and/or parsing readonly constants: ", error);
+        console.log("ERROR: doh_hotstart_start: error while obtaining and/or parsing readonly constants: ", error);
     }
 
     console.log("doh_hotstart_start: successfully started at P2P port " + instancePort + " (HTTP port: " + instancePortHttp + ")");
@@ -827,6 +871,7 @@ function doh_get_target_from_suffix(suffix) {
 // -----------------------------------------------------------------------
 
 module.exports = {
+    cth_debug_trace,
     cth_get_root_dir,
     cth_skip_test,
     cth_set_cleos_provider,

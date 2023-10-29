@@ -5,18 +5,36 @@
 //   with javascript.
 // ---------------------------------------------------------------------------------------
 
-// Import the DoHTestLib.js library that is somewhere under cth/tools/
-const driverlib = require('DoHTestDriver');
-Object.assign(global, require('DoHTest'));
-Object.assign(global, require('DoHTestFixture'));
+
+// import all DoH JS test libraries in the standard way
+require('DoHTestLib');
+
+
+// ---------------------------------------------------------------------------------------
+// ---------------------------------------------------------------------------------------
+
+
+// Enabling this will print everything that's going on at the DoHTestDriver library
+// for example, this, will log all cleos calls and all cleos output
+//cth_debug_trace(true);
+
+
+// ---------------------------------------------------------------------------------------
+// ---------------------------------------------------------------------------------------
+
 
 // Call the args parser helper
 const switchesStr = 'cleos_url target';
 const optionsStr = '';
-const [switches, options] = driverlib.cth_standard_args_parser(switchesStr, optionsStr);
+const [switches, options] = cth_standard_args_parser(switchesStr, optionsStr);
 
 console.log('Switches:', switches);
 console.log('Options:', options);
+
+
+// ---------------------------------------------------------------------------------------
+// ---------------------------------------------------------------------------------------
+
 
 fixtureInit("dohplayer1", "hg3", "tc3");
 
@@ -24,9 +42,11 @@ createBasicGame();
 createBasicPlayers();
 createBasicEconomy();
 
+
 // --------------------------------------------------------------------------
 // getProxyForContract POC
 // --------------------------------------------------------------------------
+
 
 console.log("**************************************************************************************************");
 console.log("**************************************************************************************************");
@@ -35,10 +55,8 @@ console.log("*******************************************************************
 
 try {
 
-    const reflect = require('DoHTestReflect');
-
-    const tokens = reflect.getProxyForContract(`tokens.${tcn_target}`);
-    const meta = reflect.getProxyForContract(`meta.${doh_target}`);
+    const tokens = getProxyForContract(`tokens.${tcn_target}`);
+    const meta = getProxyForContract(`meta.${doh_target}`);
 
     meta.setregion( {"id":1, "planet_id":1, "region_name":"region_1"} );
     meta.init(TIME_POINT_MAX, TIME_POINT_MAX);
@@ -56,8 +74,8 @@ try {
 
     meta.dostake("dohplayer1", "0.0001 TCN", 1);
 
-    console.log(meta.accounts( { "scope": "dohplayer1"} ));
-    console.log(meta.players( { "scope": "CONTRACT" } ));
+    console.log( JSON.stringify( meta.accounts( { "scope": "dohplayer1"} )));
+    console.log( JSON.stringify( meta.players( { "scope": "CONTRACT" } )));
 
     meta._auth();
     meta.clear();
@@ -74,5 +92,10 @@ console.log("*******************************************************************
 console.log("**************************************************************************************************");
 console.log("**************************************************************************************************");
 console.log("**************************************************************************************************");
+
+
+// ---------------------------------------------------------------------------------------
+// ---------------------------------------------------------------------------------------
+
 
 fixtureFinish();

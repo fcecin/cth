@@ -6,8 +6,9 @@
 // Test various functions of the metagame contract
 // --------------------------------------------------------------------------------------------
 
-Object.assign(global, require('DoHTestFixture'));
-const reflect = require('DoHTestReflect');
+// This is the recommended way to pull in the entire test library.
+// Everything is dumped in the global object.
+require('DoHTestLib');
 
 // --------------------------------------------------------------------------------------------
 // Init
@@ -19,8 +20,8 @@ createBasicGame();
 createBasicPlayers();
 createBasicEconomy();
 
-const tokens = reflect.getProxyForContract(`tokens.${tcn_target}`);
-const meta = reflect.getProxyForContract(`meta.${doh_target}`);
+const tokens = getProxyForContract(`tokens.${tcn_target}`);
+const meta = getProxyForContract(`meta.${doh_target}`);
 
 // --------------------------------------------------------------------------------------------
 // Tests
