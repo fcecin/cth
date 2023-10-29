@@ -153,7 +153,7 @@ function fixtureRun(testname) {
         try {
             vm.runInThisContext(fixtureCleanupScript);
         } catch (error) {
-            console.log(`fixtureRun: error clearing fixture before running '${testname}': ${error}`);
+            console.log(`ERROR: TEST: fixtureRun(): error clearing fixture before running '${testname}':\n${error.stack}\n`);
             result = `Failed (can't clean up the fixture with '${fixtureCleanupScript}')`;
             fixtureFailedCount++;
         }
@@ -166,7 +166,7 @@ function fixtureRun(testname) {
             result = "Passed.";
             fixturePassedCount++;
         } catch (error) {
-            console.log(`TEST: fixtureRun(): error running '${testname}': ${error}`);
+            console.log(`ERROR: TEST: fixtureRun(): error running '${testname}':\n${error.stack}\n`);
 
             // TODO: extract DoH error string (or code if can't translate) here and add to the result string
 

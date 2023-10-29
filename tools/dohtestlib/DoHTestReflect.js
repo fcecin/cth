@@ -58,6 +58,30 @@ function getProxyForContract(contractAccountName) {
         fixtureCrashed(`DoHTestReflect: getProxyForContract(${contractAccountName}): ABI format is invalid.`);
     }
     const library = {};
+    // configure the default field ordering for a struct
+    // this allows the caller of a push-action function to instead pass an array where a struct would be expected
+    // all of the struct's fields must be specified, with no extraneous, non-existent fields specified
+    library.__structMap = new Map(); // struct name --> array of string field names which dictates their order
+    library._struct = function (structName, fieldNamesArray) {
+        if (fieldNamesArray === undefined || !Array.isArray(fieldNamesArray)) {
+            fixtureCrashed(`DoHTestReflect: [PROXY ${contractAccountName}::_struct(${structName}, ???): received an invalid fieldNamesArray.`);
+        }
+        const struct = abi.structs.find((s) => s.name === structName);
+        if (!struct) {
+            fixtureCrashed(`DoHTestReflect: [PROXY ${contractAccountName}::_struct(${structName}, ${fieldNamesArray}): struct not found.`);
+        }
+        if (fieldNamesArray.length !== struct.fields.length) {
+            fixtureCrashed(`DoHTestReflect: [PROXY ${contractAccountName}::_struct(${structName}, ${fieldNamesArray}): struct defines ${struct.fields.length} fields, not ${fieldNamesArray.length}.`);
+        }
+        struct.fields.forEach((field) => {
+            // Check if the field exists in the given fieldNamesArray
+            if (!fieldNamesArray.includes(field.name)) {
+                fixtureCrashed(`DoHTestReflect: [PROXY ${contractAccountName}::_struct(${structName}, ${fieldNamesArray}): missing struct field '${field.name}'.`);
+            }
+        });
+        library.__structMap.set(structName, fieldNamesArray);
+    }
+    // generate push-action functions
     abi.actions.forEach((action) => {
         const actionName = action.name;
         const structName = action.type;
@@ -81,7 +105,30 @@ function getProxyForContract(contractAccountName) {
                 const paramName = struct.fields[i].name;
                 const paramType = struct.fields[i].type;
                 if (abi.structs.some((struct) => struct.name === paramType)) {
-                    if (typeof params[i] !== 'object') {
+                    // An object is expected here for params[i], BUT:
+                    // Special case: we CAN give an array in place of an object if we have called proxy._struct()
+                    //   to configure a default ordering for the struct's fields, in which case we will just
+                    //   hack params[i] here to substitute it for an object, and the rest of the method continues
+                    //   unmodified.
+                    if (Array.isArray(params[i]) && library.__structMap.has(paramType)) {
+                        let fieldNamesArray = library.__structMap.get(paramType);
+                        if (fieldNamesArray.length == params[i].length) { // element in given array must match in count the elements in the configured field names array for the struct
+                            let translatedParam = {};
+                            for (let j = 0; j < fieldNamesArray.length; j++) {
+                                let fieldName = fieldNamesArray[j];
+                                translatedParam[fieldName] = params[i][j];
+                            }
+                            params[i] = translatedParam; // replace the array e.g. [a,b,c] with object e.g. {"field1":"a","field2":"b","field3":"c"}
+                        }// else refuse to translate []->{} and let it blow up "naturally"
+                    }
+                    // Here either it was an object with fields or should be an object with fields now (NOT an array), else we error out.
+                    // The reason this is correct and actually works, I believe, is that there are no ABI types that ARE arrays or are defined
+                    //   as arrays; but if that happens, the proxy won't work and this will blow up somewhere. We are assuming that when a
+                    //   param's type name appears ipsis literis as a field name in the structs array, that type is not an array itself, and
+                    //   there's no situation where both match textually and both are array types, at which point the Array.isArray logic / is
+                    //   typeof object logic below would break. But if it does break, it's not the end of the world, and we can figure out
+                    //   what to do from there (meanwhile, just don't use the proxy and call cleos() directly).
+                    if (typeof params[i] !== 'object' || Array.isArray(params[i])) {
                         const paramList = params.map(element => JSON.stringify(element)).join(',');
                         fixtureCrashed(`DoHTestReflect: [PROXY ${contractAccountName}::${actionName}(${paramList})]: Parameter #${paramNum} expected JSON object matching ABI type '${paramType}', instead got '${params[i]}'.`);
                     }
@@ -111,6 +158,7 @@ function getProxyForContract(contractAccountName) {
             return cleos(`push action ${contractAccountName} ${actionName} '${paramString}' --force-unique -p ${library.__signer}`);
         };
     });
+    // generate get-table functions
     library.__tableIndexInfo = new Map();
     library.__tableScope = new Map();
     abi.tables.forEach((table) => {
@@ -283,6 +331,7 @@ function getProxyForContract(contractAccountName) {
             };
         }
     });
+    // define the _auth function, which sets the parameter for subsequent push-action "-p" action-function calls
     // Internal function names must avoid name collision with ABI names ("a-z1-5.", 12 chars)
     library._auth = function (value) {
         // special values that conveniently set the signer to the contract account name.

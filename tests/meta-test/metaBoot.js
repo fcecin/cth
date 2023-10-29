@@ -1,4 +1,38 @@
 
+//-------------------------------------------------------------------------------------
+// Define the first faction and demo the _struct() feature ...
+//-------------------------------------------------------------------------------------
+
+// Instead of doing this ...
+
+//meta.setfaction( {"id":1, "faction_name":"empire", "description":"empire description", "founder":"empirefd" } );
+
+// ...we can do this once: ...
+
+meta._struct("faction", ["id", "faction_name", "description", "founder"]);
+
+// ...and then this to define each faction without having to name the fields all the time:
+// (i.e. after you order the fields of an ABI struct type via _struct(), you can give an
+//  array where you'd normally have to give a named-parameters JSON object {"id":1, ..etc..}
+
+meta.setfaction( [1, "empire", "empire description", "empirefd"] );
+
+//-------------------------------------------------------------------------------------
+// ... and then define the other three factions.
+//-------------------------------------------------------------------------------------
+
+meta.setfaction( [2, "confederacy", "confederacy description", "confedfd"] );
+meta.setfaction( [3, "alliance", "alliance description", "alliancefd"] );
+
+// Old way still works, of course
+meta.setfaction( {"id":4, "faction_name":"dominion", "description":"dominion description", "founder":"dominionfd"} );
+
+// should look good
+fixtureLog( "Should contain the four factions: " + JSON.stringify( meta.factions() ) );
+
+/*
+
+
 // TODO, create some 10 players, we'll spend them
 
 
@@ -7,22 +41,10 @@
   all of these are in different fixtures for the tally, but there's no clearing because that would be (a) slow and (b) unnecessary
   the fixture will just tell which sections of the test have been successful
 
-  
+
 - set various things (init a shop)
 - set the test players, open, deposit balances for them
 
-
-
-
-
-
-cleos -u http://ux5.goldenplatform.com push action meta.hg3 setfaction '{"f":{"id":1,"faction_name":"empire","description":"empire description","founder":"empirefd"}}' -p meta.hg3
-
-cleos -u http://ux5.goldenplatform.com push action meta.hg3 setfaction '{"f":{"id":2,"faction_name":"confederacy","description":"confederacy description","founder":"confedfd"}}' -p meta.hg3
-
-cleos -u http://ux5.goldenplatform.com push action meta.hg3 setfaction '{"f":{"id":3,"faction_name":"alliance","description":"alliance description","founder":"alliancefd"}}' -p meta.hg3
-
-cleos -u http://ux5.goldenplatform.com push action meta.hg3 setfaction '{"f":{"id":4,"faction_name":"dominion","description":"dominion description","founder":"dominionfd"}}' -p meta.hg3
 
 cleos -u http://ux5.goldenplatform.com push action meta.hg3 setplanet '{"p":{"id":1,"planet_name":"planet1"}}' -p meta.hg3
 
@@ -66,3 +88,4 @@ cleos -u http://ux5.goldenplatform.com push action meta.hg3 setplayer '{"p":{"ow
 
 cleos -u http://ux5.goldenplatform.com push action meta.hg3 init '{"all_auctions_end":"2023-12-02T00:00:00.000","meta_game_end":"2023-12-04T00:00:00.000"}' -p meta.hg3
 
+*/

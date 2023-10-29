@@ -3,7 +3,21 @@
 // --------------------------------------------------------------------------------------------
 // meta-test
 // --------------------------------------------------------------------------------------------
-// Test various functions of the metagame contract
+// Test various functions of the metagame contract.
+//
+// This test is an example of a cth/DoH test that contains multiple "fixture tests", which are
+//   a collection of actual test routines performed by this cth/DoH testcase file/directory.
+//
+// The idea is that there's a single table, bench, or "fixture" where you place a routine to
+//   be tested, and when you are done with that, you remove that routine, optionally perform a
+//   fixtureCleanup.js routine, and then place the next routine to be tested in the fixture.
+//   We'll be calling those test routines "fixture tests" to disambiguate from "tests", which
+//   are the "run" files (this file) and the directory they are in, which is the test's
+//   directory (which names the top-level cth/DoH testcase to the harness).
+//
+// After all the fixture tests are run, if everything went well, then fixtureFinish() will
+//   call fixturePrintSummary() internally to present a tally of how many fixture tests
+//   passed and how many failed. If anything fails anywhere, the whole testcase fails.
 // --------------------------------------------------------------------------------------------
 
 // This is the recommended way to pull in the entire test library.
@@ -20,18 +34,26 @@ createBasicGame();
 createBasicPlayers();
 createBasicEconomy();
 
-const tokens = getProxyForContract(`tokens.${tcn_target}`);
-const meta = getProxyForContract(`meta.${doh_target}`);
+// NOTE:
+//
+// fixtureRun() will not see let/const variables outside of this scope for some reason,
+//   so we need to use global variables to access these from the fixture tests.
+// The "meta" and "tokens" variables can be accessed from inside the fixture .js files
+//   run with fixtureRun() below.
+
+tokens = getProxyForContract(`tokens.${tcn_target}`);
+meta = getProxyForContract(`meta.${doh_target}`);
 
 // --------------------------------------------------------------------------------------------
-// Tests
+// Tests run inside the test fixture (fixture tests)
 // --------------------------------------------------------------------------------------------
+
+fixtureRun("metaBoot.js");
 
 /*
 
   TODO:
 
-fixtureRun("metaBoot.js");
 
 fixtureRun("metaStake.js");
 
