@@ -48,6 +48,7 @@ const SELF     = 'SELF';
 
 function getProxyForContract(contractAccountName) {
     const library = {};
+    library.__contractAccountName = contractAccountName;
     let abi;
     try {
         const abiString = cleos(`get abi ${contractAccountName}`);
@@ -342,8 +343,15 @@ function getProxyForContract(contractAccountName) {
         } else {
             library.__auth = value;
         }
+        return this; // supports chaining
     };
+    // "_()" is a shorthand to "_auth()" (closest thing to a functor/operator overloading in JS apparently)
+    library._ = function (value) { library._auth(value); return this; } // supports chaining
+    // get the contract name
+    library._contract = function () { return library.__contractAccountName; }
+    // default to contract authority
     library._auth();
+    // return the proxy
     return library;
 }
 

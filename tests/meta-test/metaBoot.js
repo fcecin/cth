@@ -115,7 +115,8 @@ if (new Date(clockObjCurrentTime) < new Date(metaGlobal.rows[0].meta_game_end)) 
 }
 
 //-------------------------------------------------------------------------------------
-// Create some players for the tests, give them money, each open/deposit in meta
+// Create some players for the tests, give them money, each open/deposit in meta.
+//   (also demo'ing _() as an alternative name to _auth(), and auth chaining)
 //-------------------------------------------------------------------------------------
 
 meta._struct("player", ["owner", "asset_url", "referrer", "faction_id", "last_staking_action", "last_bid_action", "last_transfer_action", "last_reqinvite_action", "actions", "actions_reset_time"] );
@@ -131,16 +132,14 @@ for (let i = 1; i <= 5; i++) {
 
         cleos(`system newaccount eosio ${player} ${DEVELOPER_PUBLIC_KEY} --buy-ram-kbytes 20 --stake-net "10000.0000 EOS" --stake-cpu "10000.0000 EOS" --transfer`);
 
-        meta._auth();
-        meta.setplayer( [player, "none", "", faction, TIME_POINT_MIN, TIME_POINT_MIN, TIME_POINT_MIN, TIME_POINT_MIN, 0, TIME_POINT_MIN] );
+        meta._().setplayer( [player, "none", "", faction, TIME_POINT_MIN, TIME_POINT_MIN, TIME_POINT_MIN, TIME_POINT_MIN, 0, TIME_POINT_MIN] );
 
-        tokens._auth(`hegemon.${doh_target}`);
-        tokens.transfer(`hegemon.${doh_target}`, player, "10000.0000 TCN", "");
+        let hegemon = `hegemon.${doh_target}`;
+        tokens._auth(hegemon);
+        tokens.transfer(hegemon, player, "10000.0000 TCN", "");
 
-        meta._auth(player);
-        meta.open(player, "4,TCN", player);
+        meta._(player).open(player, "4,TCN", player);
 
-        tokens._auth(player);
-        tokens.transfer(player, `meta.${doh_target}`, "1000.0000 TCN", "deposit");
+        tokens._auth(player).transfer(player, meta._contract(), "1000.0000 TCN", "deposit");
     }
 }
