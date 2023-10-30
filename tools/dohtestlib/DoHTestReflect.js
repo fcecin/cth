@@ -47,9 +47,11 @@ const SELF     = 'SELF';
 // -----------------------------------------------------------------------
 
 function getProxyForContract(contractAccountName) {
+    const library = {};
     let abi;
     try {
         const abiString = cleos(`get abi ${contractAccountName}`);
+        library.__abiString = abiString;
         abi = JSON.parse(abiString);
     } catch (error) {
         fixtureCrashed(`DoHTestReflect: getProxyForContract(): Error fetching and parsing ABI for ${contractAccountName}: ${error}`);
@@ -57,7 +59,6 @@ function getProxyForContract(contractAccountName) {
     if (!abi || !abi.actions || !Array.isArray(abi.actions) || !abi.structs || !Array.isArray(abi.structs)) {
         fixtureCrashed(`DoHTestReflect: getProxyForContract(${contractAccountName}): ABI format is invalid.`);
     }
-    const library = {};
     // configure the default field ordering for a struct
     // this allows the caller of a push-action function to instead pass an array where a struct would be expected
     // all of the struct's fields must be specified, with no extraneous, non-existent fields specified

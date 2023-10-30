@@ -131,6 +131,7 @@ for (let i = 1; i <= 5; i++) {
 
         cleos(`system newaccount eosio ${player} ${DEVELOPER_PUBLIC_KEY} --buy-ram-kbytes 20 --stake-net "10000.0000 EOS" --stake-cpu "10000.0000 EOS" --transfer`);
 
+        meta._auth();
         meta.setplayer( [player, "none", "", faction, TIME_POINT_MIN, TIME_POINT_MIN, TIME_POINT_MIN, TIME_POINT_MIN, 0, TIME_POINT_MIN] );
 
         tokens._auth(`hegemon.${doh_target}`);
