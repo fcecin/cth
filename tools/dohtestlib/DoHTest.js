@@ -32,6 +32,8 @@ if (typeof fixtureRun === 'undefined') { Object.assign(global, require('DoHTestF
 const TIME_POINT_MAX = "2106-02-07T06:28:15.000";
 const TIME_POINT_MIN = "1970-01-01T00:00:00.000";
 
+const DEVELOPER_PUBLIC_KEY = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV";
+
 // -----------------------------------------------------------------------
 // Private state
 // -----------------------------------------------------------------------
@@ -379,4 +381,5 @@ module.exports = {
     // Constants
     TIME_POINT_MAX,
     TIME_POINT_MIN,
+    DEVELOPER_PUBLIC_KEY,
 };

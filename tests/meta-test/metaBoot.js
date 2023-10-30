@@ -35,10 +35,14 @@ fixtureLog( "Should contain the four factions: " + JSON.stringify( meta.factions
 //-------------------------------------------------------------------------------------
 
 metaTestStartTime = getContractTime();
-
-fixtureLog("metaTestStartTime = " + metaTestStartTime);
-
 metaTestAuctionEndTime = addSecondsToTime(metaTestStartTime, 86400 * 30); // 30 days
+metaTestAllAuctionsEndTime = addSecondsToTime(metaTestAuctionEndTime, 86400 * 2); // 30 + 2 days = 32
+metaTestMetaGameEndTime = addSecondsToTime(metaTestAllAuctionsEndTime, 86400 * 2); // 32 + 2 days = 34
+
+fixtureLog("metaTestStartTime          = " + metaTestStartTime);
+fixtureLog("metaTestAuctionEndTime     = " + metaTestAuctionEndTime);
+fixtureLog("metaTestAllAuctionsEndTime = " + metaTestAllAuctionsEndTime);
+fixtureLog("metaTestMetaGameEndTime    = " + metaTestMetaGameEndTime);
 
 //-------------------------------------------------------------------------------------
 // Planets & regions
@@ -81,24 +85,61 @@ meta.setauction( [5, "dominion invites", "faction invites auction", "dominion in
 meta._struct("item", ["id", "name", "description", "category", "asset_url", "rarity", "level", "count", "faction_id", "cost", "dutch_cost_end", "dutch_step_amount", "dutch_step_secs", "dutch_cost_start", "dutch_steps", "dutch_start"] );
 
 meta.setitem( [1000000, "item1", "faction-free item 60s dutch step", "some item category", "none", 0, 0, 1000, 0, "100.0000 TCN", "1.0000 TCN", "0.0100 TCN", 60, "100.0000 TCN", 0, metaTestStartTime] );
+meta.setitem( [1000001, "item2", "faction-free item 1h dutch step", "some item category", "none", 1, 2, 1000, 0, "180.0000 TCN", "30.0000 TCN", "0.1000 TCN", 3600, "180.0000 TCN", 0, metaTestStartTime] );
+meta.setitem( [1000002, "item3", "faction-free fixed cost", "some item category", "none", 2, 0, 1000, 0, "12.0000 TCN", "12.0000 TCN", "0.0000 TCN", 0, "12.0000 TCN", 0, metaTestStartTime] );
+meta.setitem( [1000003, "item4", "empire item fixed cost", "some item category", "none", 1, 1, 250, 1, "25.0000 TCN", "25.0000 TCN", "0.0000 TCN", 0, "25.0000 TCN", 0, metaTestStartTime] );
+meta.setitem( [1000004, "item5", "confederacy item fixed cost", "some item category", "none", 1, 1, 250, 2, "25.0000 TCN", "25.0000 TCN", "0.0000 TCN", 0, "25.0000 TCN", 0, metaTestStartTime] );
+meta.setitem( [1000005, "item6", "alliance item fixed cost", "some item category", "none", 1, 1, 250, 3, "25.0000 TCN", "25.0000 TCN", "0.0000 TCN", 0, "25.0000 TCN", 0, metaTestStartTime] );
+meta.setitem( [1000006, "item7", "dominion item fixed cost", "some item category", "none", 1, 1, 250, 4, "25.0000 TCN", "25.0000 TCN", "0.0000 TCN", 0, "25.0000 TCN", 0, metaTestStartTime] );
 
-/*
-cleos -u http://ux5.goldenplatform.com push action meta.hg3 setitem '{"i":{"id":1000001,"name":"item2","description":"faction-free item 1h dutch step","category":"some item category","asset_url":"none","rarity":1,"level":2,"count":1000,"faction_id":0,"cost":"180.0000 TCN","dutch_cost_end":"30.0000 TCN","dutch_step_amount":"0.1000 TCN","dutch_step_secs":3600,"dutch_cost_start":"180.0000 TCN","dutch_steps":0,"dutch_start":"2023-10-22T00:00:00.000"}}' -p meta.hg3
+//-------------------------------------------------------------------------------------
+// Start metagame
+//-------------------------------------------------------------------------------------
 
-cleos -u http://ux5.goldenplatform.com push action meta.hg3 setitem '{"i":{"id":1000002,"name":"item3","description":"faction-free fixed cost","category":"some item category","asset_url":"none","rarity":2,"level":0,"count":1000,"faction_id":0,"cost":"12.0000 TCN","dutch_cost_end":"12.0000 TCN","dutch_step_amount":"0.0000 TCN","dutch_step_secs":0,"dutch_cost_start":"12.0000 TCN","dutch_steps":0,"dutch_start":"2023-10-22T00:00:00.000"}}' -p meta.hg3
+meta.init(metaTestAllAuctionsEndTime, metaTestMetaGameEndTime);
 
-cleos -u http://ux5.goldenplatform.com push action meta.hg3 setitem '{"i":{"id":1000003,"name":"item4","description":"empire item fixed cost","category":"some item category","asset_url":"none","rarity":1,"level":1,"count":250,"faction_id":1,"cost":"25.0000 TCN","dutch_cost_end":"25.0000 TCN","dutch_step_amount":"0.0000 TCN","dutch_step_secs":0,"dutch_cost_start":"25.0000 TCN","dutch_steps":0,"dutch_start":"2023-10-22T00:00:00.000"}}' -p meta.hg3
+let metaGlobal = meta.global();
+fixtureLog("meta contract global object after init: " + JSON.stringify(metaGlobal) );
 
-cleos -u http://ux5.goldenplatform.com push action meta.hg3 setitem '{"i":{"id":1000004,"name":"item5","description":"confederacy item fixed cost","category":"some item category","asset_url":"none","rarity":1,"level":1,"count":250,"faction_id":2,"cost":"25.0000 TCN","dutch_cost_end":"25.0000 TCN","dutch_step_amount":"0.0000 TCN","dutch_step_secs":0,"dutch_cost_start":"25.0000 TCN","dutch_steps":0,"dutch_start":"2023-10-22T00:00:00.000"}}' -p meta.hg3
+let clockObjCurrentTime = clock.clockinfo().rows[0].current_time;
 
-cleos -u http://ux5.goldenplatform.com push action meta.hg3 setitem '{"i":{"id":1000005,"name":"item6","description":"alliance item fixed cost","category":"some item category","asset_url":"none","rarity":1,"level":1,"count":250,"faction_id":3,"cost":"25.0000 TCN","dutch_cost_end":"25.0000 TCN","dutch_step_amount":"0.0000 TCN","dutch_step_secs":0,"dutch_cost_start":"25.0000 TCN","dutch_steps":0,"dutch_start":"2023-10-22T00:00:00.000"}}' -p meta.hg3
+fixtureLog("current system time (irrelevant)  = " + new Date().toISOString());
+fixtureLog("current clock contract value      = " + clockObjCurrentTime);
+fixtureLog("meta global all_auctions_end      = " + metaGlobal.rows[0].all_auctions_end);
+fixtureLog("meta global meta_game_end         = " + metaGlobal.rows[0].meta_game_end);
 
-cleos -u http://ux5.goldenplatform.com push action meta.hg3 setitem '{"i":{"id":1000006,"name":"item7","description":"dominion item fixed cost","category":"some item category","asset_url":"none","rarity":1,"level":1,"count":250,"faction_id":4,"cost":"25.0000 TCN","dutch_cost_end":"25.0000 TCN","dutch_step_amount":"0.0000 TCN","dutch_step_secs":0,"dutch_cost_start":"25.0000 TCN","dutch_steps":0,"dutch_start":"2023-10-22T00:00:00.000"}}' -p meta.hg3
+if (new Date(clockObjCurrentTime) < new Date(metaGlobal.rows[0].meta_game_end)) {
+    fixtureLog("Metagame has NOT ended. This is expected.");
+} else {
+    fixtureError("Metagame HAS ended. This is bad.");
+}
 
-cleos -u http://ux5.goldenplatform.com push action meta.hg3 setplayer '{"p":{"owner":"shaq", "asset_url":"none", "referrer":"", "faction_id":2, "last_staking_action":"1970-01-01T00:00:00.000", "last_bid_action":"1970-01-01T00:00:00.000", "last_transfer_action":"1970-01-01T00:00:00.000", "last_reqinvite_action":"1970-01-01T00:00:00.000", "actions":0, "actions_reset_time":"1970-01-01T00:00:00.000"}}' -p meta.hg3
+//-------------------------------------------------------------------------------------
+// Create some players for the tests, give them money, each open/deposit in meta
+//-------------------------------------------------------------------------------------
 
-cleos -u http://ux5.goldenplatform.com push action meta.hg3 setplayer '{"p":{"owner":"shaq2", "asset_url":"none", "referrer":"shaq", "faction_id":1, "last_staking_action":"1970-01-01T00:00:00.000", "last_bid_action":"1970-01-01T00:00:00.000", "last_transfer_action":"1970-01-01T00:00:00.000", "last_reqinvite_action":"1970-01-01T00:00:00.000", "actions":0, "actions_reset_time":"1970-01-01T00:00:00.000"}}' -p meta.hg3
+meta._struct("player", ["owner", "asset_url", "referrer", "faction_id", "last_staking_action", "last_bid_action", "last_transfer_action", "last_reqinvite_action", "actions", "actions_reset_time"] );
 
-cleos -u http://ux5.goldenplatform.com push action meta.hg3 init '{"all_auctions_end":"2023-12-02T00:00:00.000","meta_game_end":"2023-12-04T00:00:00.000"}' -p meta.hg3
+// players  1 -  5 : faction 0  (metaplayer1, metaplayer2 ...)
+// players 11 - 15 : faction 1  (metaplayer11, metaplayer12 ...)
+// etc.
+for (let i = 1; i <= 5; i++) {
+    for (let faction = 0; faction <= 4; faction++) {
 
-*/
+        let n = (faction * 10) + i;
+        let player  = `metaplayer${n}`;
+
+        cleos(`system newaccount eosio ${player} ${DEVELOPER_PUBLIC_KEY} --buy-ram-kbytes 20 --stake-net "10000.0000 EOS" --stake-cpu "10000.0000 EOS" --transfer`);
+
+        meta.setplayer( [player, "none", "", faction, TIME_POINT_MIN, TIME_POINT_MIN, TIME_POINT_MIN, TIME_POINT_MIN, 0, TIME_POINT_MIN] );
+
+        tokens._auth(`hegemon.${doh_target}`);
+        tokens.transfer(`hegemon.${doh_target}`, player, "10000.0000 TCN", "");
+
+        meta._auth(player);
+        meta.open(player, "4,TCN", player);
+
+        tokens._auth(player);
+        tokens.transfer(player, `meta.${doh_target}`, "1000.0000 TCN", "deposit");
+    }
+}

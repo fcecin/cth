@@ -1088,9 +1088,9 @@ if ($sum_fail > 0 && open(my $failed_log, '>', $failed_summary_log_file)) {
         my $testrunlog = "${tests_prefix}${test}/run.log";
 
         print $failed_log "\n${GRN}";
-        print $failed_log "---------------------------------------------------------------------\n";
+        print $failed_log "------------------------------------------------------------------------------\n";
         print $failed_log "$testrunlog ($count/$sum_fail)\n";
-        print $failed_log "---------------------------------------------------------------------\n";
+        print $failed_log "------------------------------------------------------------------------------\n";
         print $failed_log "${DEF}\n";
 
         my $r = open(my $run_log, '<', $testrunlog);
