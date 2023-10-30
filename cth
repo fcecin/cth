@@ -74,6 +74,7 @@ use File::Spec::Functions;
 
 my $RED = "\e[31m";
 my $GRN = "\e[32m";
+my $YEL = "\e[33m";
 my $DEF = "\e[0m";
 
 # --------------------------------------------------------------------------------------------
@@ -88,6 +89,8 @@ open(STDERR, ">&STDOUT"); # Redirect STDERR to STDOUT
 # --------------------------------------------------------------------------------------------
 # Variables
 # --------------------------------------------------------------------------------------------
+
+my $failed_summary_log_file = "failed.log";
 
 my $cth_exit_code_skipped_test = 32;
 
@@ -117,8 +120,8 @@ my @tests;
 # When the @tests array is name-filtered, the filtered tests that are removed from @tests are placed here.
 my @filtered_tests;
 
-# Size of the common path prefix among all entries in @tests (to help reduce on-screen clutter)
-my $tests_prefix = 0;
+# Common path prefix among all entries in @tests (to help reduce on-screen clutter)
+my $tests_prefix;
 
 my @drivers;         # All subdirectories under drivers/
 
@@ -619,26 +622,25 @@ $tests_size = scalar(@tests);
 # --------------------------------------------------------------------------------------------
 
 if (@tests) {
-    my $common_prefix = $tests[0];
+    $tests_prefix = $tests[0];
     foreach my $test (@tests) {
         my @test_parts = File::Spec->splitdir($test);
-        my @common_parts = File::Spec->splitdir($common_prefix);
+        my @common_parts = File::Spec->splitdir($tests_prefix);
         my $min_parts = @test_parts < @common_parts ? @test_parts : @common_parts;
         my $match_parts = 0;
         for my $i (0 .. $min_parts - 1) {
             last if $test_parts[$i] ne $common_parts[$i];
             $match_parts++;
         }
-        $common_prefix = File::Spec->catdir(@test_parts[0 .. $match_parts - 1]);
+        $tests_prefix = File::Spec->catdir(@test_parts[0 .. $match_parts - 1]);
     }
     # include a last slash into the common prefix if it's there
-    if (length($common_prefix) < length($tests[0])) {
-        my $index = length($common_prefix);
+    if (length($tests_prefix) < length($tests[0])) {
+        my $index = length($tests_prefix);
         my $char = substr($tests[0], $index, 1);
-        if ($char eq '/') { $common_prefix .= '/'; }
+        if ($char eq '/') { $tests_prefix .= '/'; }
     }
-    $tests_prefix = length($common_prefix);
-    if ($opt_verbose) { print "Common test name prefix (omitted) is: '$common_prefix'\n"; }
+    if ($opt_verbose) { print "Common test name prefix (omitted) is: '$tests_prefix'\n"; }
 }
 
 # utility that returns the shortest name a test can have in this run that would be disambiguated
@@ -648,7 +650,7 @@ if (@tests) {
 sub shorten_test_name {
     my $test_name = shift;
     if (! defined $test_name) { die "FATAL ERROR: cth: shorten_test_name undefined test_name"; }
-    if (length($test_name) >= $tests_prefix) { $test_name = substr($test_name, $tests_prefix); }
+    if (length($test_name) >= length($tests_prefix)) { $test_name = substr($test_name, length($tests_prefix)); }
     return $test_name;
 }
 
@@ -933,7 +935,13 @@ if (scalar(@testspecs) != 0) {
 }
 
 #
-# Second, actually run the test list (after the test name filter)
+# Second, make sure failed.log is gone
+#
+
+unlink($failed_summary_log_file);
+
+#
+# Third, actually run the test list (after the test name filter)
 #
 
 if ($opt_verbose) { print "\n"; }
@@ -953,7 +961,17 @@ print "\n";
 # NOTE: @tests now contains the full path to every test directory, e.g. '/home/username/cth/tests/combat-test'
 foreach my $test (@tests) {
 
-    chdir $test or die "ERROR: cth: Cannot change into test directory: $!";
+    my $short_test_name = shorten_test_name($test);
+
+    my $chdir_result = chdir $test;
+    if (! $chdir_result) {
+        print_test_name($test);
+        print "${RED}Failed${DEF} ($test: $!)\n";
+        $sum_fail++;
+        push @sum_failed_tests, $short_test_name;
+        next;
+    }
+
     my $script = "run";
     my $log_file = "run.log";
     unlink $log_file;
@@ -981,12 +999,12 @@ foreach my $test (@tests) {
     # tally and/or run test
     if ($auto_switch_filter_skip_test) {
         $sum_skip++;
-        push @sum_skipped_tests, $test;
+        push @sum_skipped_tests, $short_test_name;
     } elsif (! -e $script) {
         print_test_name($test);
         print "${RED}Failed${DEF} (no 'run' file)\n";
         $sum_fail++;
-        push @sum_failed_tests, $test;
+        push @sum_failed_tests, $short_test_name;
     } else {
         if ($active_jobs >= $opt_jobs) {
             if ($opt_verbose) { print_test_name($test); }
@@ -1010,7 +1028,7 @@ foreach my $test (@tests) {
                     if (!defined $pid) {
                         print "${RED}Failed${DEF} (system call: $ret)\n";
                         $sum_fail++;
-                        push @sum_failed_tests, $test;
+                        push @sum_failed_tests, $short_test_name;
                     } else {
                         exit(255);
                     }
@@ -1050,6 +1068,86 @@ foreach my $test (@tests) {
 while ($active_jobs > 0) {
     if ($opt_verbose) { print_test_name(''); }
     wait_and_process_test_result();
+}
+
+# --------------------------------------------------------------------------------------------
+# Output failed tests summary to failed.log
+# --------------------------------------------------------------------------------------------
+
+if ($sum_fail > 0 && open(my $failed_log, '>', $failed_summary_log_file)) {
+
+    print $failed_log "cth error summary file for ${sum_fail} failed tests:\n";
+    foreach my $test (@sum_failed_tests) {
+        print $failed_log "  ${tests_prefix}${test}\n";
+    }
+
+    my $failure_context_size = 7; # number of lines before and after an error line to include
+    my $count = 0;
+    foreach my $test (@sum_failed_tests) {
+        $count++;
+        my $testrunlog = "${tests_prefix}${test}/run.log";
+
+        print $failed_log "\n${GRN}";
+        print $failed_log "---------------------------------------------------------------------\n";
+        print $failed_log "$testrunlog ($count/$sum_fail)\n";
+        print $failed_log "---------------------------------------------------------------------\n";
+        print $failed_log "${DEF}\n";
+
+        my $r = open(my $run_log, '<', $testrunlog);
+        if (! $r) {
+            print $failed_log "${RED}[Failed to open '$testrunlog': $!]${DEF}\n";
+            next;
+        }
+        my @run_log_lines = <$run_log>;
+        close($run_log);
+
+        my %lines_to_print;
+        for (my $i = 0; $i < scalar(@run_log_lines); $i++) {
+            $lines_to_print{$i} = 0;
+        }
+
+        for (my $i = 0; $i < scalar(@run_log_lines); $i++) {
+            my $line = $run_log_lines[$i];
+            if ($line =~ /error:|warning:/i) {
+                $line =~ s/(error:|warning:)/${RED}${1}${DEF}/gi;
+                $run_log_lines[$i] = $line;
+                $lines_to_print{$i} = 1;
+                for my $j (reverse 0..$i) {
+                    last if $j < $i - $failure_context_size;
+                    $lines_to_print{$j} = 1;
+                }
+                for my $j ($i + 1..$i + $failure_context_size) {
+                    last if $j >= scalar(@run_log_lines);
+                    $lines_to_print{$j} = 1;
+                }
+            }
+        }
+
+        my $output = "";
+        my $omit_start = -1;
+        for (my $i = 0; $i < scalar(@run_log_lines); $i++) {
+        if ($lines_to_print{$i} == 0) {
+            if ($omit_start == -1) {
+                $omit_start = $i;
+            }
+            next;
+        }
+        if ($omit_start != -1) {
+            $output .= "${YEL}[$omit_start ... " . ($i - 1) . "]$DEF\n";
+            $omit_start = -1;
+        }
+        $output .= $YEL . sprintf("%4d", $i) . "|" . $DEF . $run_log_lines[$i];
+        }
+        if ($omit_start != -1) {
+            $output .= "${YEL}[$omit_start ... " . scalar(@run_log_lines) . "]$DEF\n";
+        }
+        print $failed_log $output;
+    }
+    close($failed_log);
+    if ($opt_verbose) { print "\nSummary of all failed tests written to '$root_dir/$failed_summary_log_file'.\n"; }
+
+} elsif ($sum_fail > 0) {
+    print "ERROR: Failed to open '$failed_summary_log_file': $!\n";
 }
 
 # --------------------------------------------------------------------------------------------

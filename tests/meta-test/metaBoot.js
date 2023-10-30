@@ -41,6 +41,7 @@ fixtureLog("metaTestStartTime = " + metaTestStartTime);
 metaTestAuctionEndTime = addSecondsToTime(metaTestStartTime, 86400 * 30); // 30 days
 
 //-------------------------------------------------------------------------------------
+// Planets & regions
 //-------------------------------------------------------------------------------------
 
 meta._struct("planet", ["id", "planet_name"]);
@@ -55,26 +56,33 @@ meta.setregion( [2, 1, "p1r2"] );
 meta.setregion( [3, 2, "p2r1"] );
 meta.setregion( [4, 2, "p2r2"] );
 
+//-------------------------------------------------------------------------------------
+// Auctions
+//-------------------------------------------------------------------------------------
+
 meta._struct("auction", ["id", "name", "description", "category", "asset_url", "rarity", "level", "count", "reserve", "type", "auction_end", "faction_id"] );
 
 meta.setauction( [1, "waitlist", "waitlist auction", "faction invites auction", "none", 0, 0, 999999999, "0.0000 TCN", 2, metaTestAuctionEndTime, 0 ] );
 
 fixtureLog("Auction #1: " + JSON.stringify( meta.auctions() ) );
 
+meta.setauction( [2, "empire invites", "faction invites auction", "empire invites auction", "none", 0, 0, 30, "0.0000 TCN", 2, metaTestAuctionEndTime, 0 ] );
+
+meta.setauction( [3, "confederacy invites", "faction invites auction", "confederacy invites auction", "none", 0, 0, 30, "0.0000 TCN", 2, metaTestAuctionEndTime, 0 ] );
+
+meta.setauction( [4, "alliance invites", "faction invites auction", "alliance invites auction", "none", 0, 0, 30, "0.0000 TCN", 2, metaTestAuctionEndTime, 0 ] );
+
+meta.setauction( [5, "dominion invites", "faction invites auction", "dominion invites auction", "none", 0, 0, 30, "0.0000 TCN", 2, metaTestAuctionEndTime, 0 ] );
+
+//-------------------------------------------------------------------------------------
+// Items (id must be >= 1000000)
+//-------------------------------------------------------------------------------------
+
+meta._struct("item", ["id", "name", "description", "category", "asset_url", "rarity", "level", "count", "faction_id", "cost", "dutch_cost_end", "dutch_step_amount", "dutch_step_secs", "dutch_cost_start", "dutch_steps", "dutch_start"] );
+
+meta.setitem( [1000000, "item1", "faction-free item 60s dutch step", "some item category", "none", 0, 0, 1000, 0, "100.0000 TCN", "1.0000 TCN", "0.0100 TCN", 60, "100.0000 TCN", 0, metaTestStartTime] );
+
 /*
-
-cleos -u http://ux5.goldenplatform.com push action meta.hg3 setauction '{"a":{"id":1,"name":"waitlist","description":"waitlist auction","category":"faction invites auction","asset_url":"none","rarity":0,"level":0,"count":999999999,"reserve":"0.0000 TCN","type":2,"auction_end":"2023-11-30T00:00:00.000","faction_id":0}}' -p meta.hg3
-
-cleos -u http://ux5.goldenplatform.com push action meta.hg3 setauction '{"a":{"id":2,"name":"empire invites","description":"empire invites auction","category":"faction invites auction","asset_url":"none","rarity":0,"level":0,"count":30,"reserve":"0.0000 TCN","type":2,"auction_end":"2023-11-30T00:00:00.000","faction_id":0}}' -p meta.hg3
-
-cleos -u http://ux5.goldenplatform.com push action meta.hg3 setauction '{"a":{"id":3,"name":"confederacy invites","description":"confederacy invites auction","category":"faction invites auction","asset_url":"none","rarity":0,"level":0,"count":60,"reserve":"0.0000 TCN","type":2,"auction_end":"2023-11-30T00:00:00.000","faction_id":0}}' -p meta.hg3
-
-cleos -u http://ux5.goldenplatform.com push action meta.hg3 setauction '{"a":{"id":4,"name":"alliance invites","description":"alliance invites auction","category":"alliance invites auction","asset_url":"none","rarity":0,"level":0,"count":120,"reserve":"0.0000 TCN","type":2,"auction_end":"2023-11-30T00:00:00.000","faction_id":0}}' -p meta.hg3
-
-cleos -u http://ux5.goldenplatform.com push action meta.hg3 setauction '{"a":{"id":5,"name":"dominion invites","description":"dominion invites auction","category":"dominion invites auction","asset_url":"none","rarity":0,"level":0,"count":240,"reserve":"0.0000 TCN","type":2,"auction_end":"2023-11-30T00:00:00.000","faction_id":0}}' -p meta.hg3
-
-cleos -u http://ux5.goldenplatform.com push action meta.hg3 setitem '{"i":{"id":1000000,"name":"item1","description":"faction-free item 60s dutch step","category":"some item category","asset_url":"none","rarity":0,"level":0,"count":1000,"faction_id":0,"cost":"100.0000 TCN","dutch_cost_end":"1.0000 TCN","dutch_step_amount":"0.0100 TCN","dutch_step_secs":60,"dutch_cost_start":"100.0000 TCN","dutch_steps":0,"dutch_start":"2023-10-22T00:00:00.000"}}' -p meta.hg3
-
 cleos -u http://ux5.goldenplatform.com push action meta.hg3 setitem '{"i":{"id":1000001,"name":"item2","description":"faction-free item 1h dutch step","category":"some item category","asset_url":"none","rarity":1,"level":2,"count":1000,"faction_id":0,"cost":"180.0000 TCN","dutch_cost_end":"30.0000 TCN","dutch_step_amount":"0.1000 TCN","dutch_step_secs":3600,"dutch_cost_start":"180.0000 TCN","dutch_steps":0,"dutch_start":"2023-10-22T00:00:00.000"}}' -p meta.hg3
 
 cleos -u http://ux5.goldenplatform.com push action meta.hg3 setitem '{"i":{"id":1000002,"name":"item3","description":"faction-free fixed cost","category":"some item category","asset_url":"none","rarity":2,"level":0,"count":1000,"faction_id":0,"cost":"12.0000 TCN","dutch_cost_end":"12.0000 TCN","dutch_step_amount":"0.0000 TCN","dutch_step_secs":0,"dutch_cost_start":"12.0000 TCN","dutch_steps":0,"dutch_start":"2023-10-22T00:00:00.000"}}' -p meta.hg3
