@@ -82,4 +82,9 @@
 
     assert(`${origBal} - ${withdrawalAmount} - ${newTotalStakeExpected} == ${internalAccountBal}`, `${metaplayer11}'s balance in the contract checks out`);
 
+    // Regression test: attempt to stake to nonexistent region ID
+
+    let success = false;
+    try { meta._("metaplayer11").dostake(metaplayer11, "42.0000 TCN", 987654321); } catch (error) { success = true; }
+    assert(`${success}`, `successfully failed to stake to non-existent region`);
 }

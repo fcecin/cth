@@ -96,7 +96,7 @@ function cleosNoThrow(args) { return cth_cleos_pipe2(args); }
 
 function assert(expr, desc) {
     if (expr === undefined) {
-        throw new Error("ERROR: assert(): expr argument is undefined");
+        throw new Error("assert(): expr argument is undefined");
     }
     if (desc === undefined) {
         desc = '';
@@ -109,10 +109,10 @@ function assert(expr, desc) {
         if (result) {
             fixtureLog(`assert(): ${desc}'${expr}' is true.`);
         } else {
-            throw new Error(`ERROR: assert(): ${desc}'${expr}' is false.`);
+            throw new Error(`assert(): ${desc}'${expr}' is false.`);
         }
     } catch (error) {
-        throw new Error(`ERROR: assert(): expression evaluation has thrown ${error.constructor.name}: '${error.message}\nexpr: ${expr}\ndesc: ${desc}\n${error.stack}\n`);
+        throw new Error(`assert(): expression evaluation has thrown ${error.constructor.name}: '${error.message}\nexpr: ${expr}\ndesc: ${desc}\n${error.stack}\n`);
     }
 }
 
