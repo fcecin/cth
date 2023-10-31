@@ -34,6 +34,8 @@ const TIME_POINT_MIN = "1970-01-01T00:00:00.000";
 
 const DEVELOPER_PUBLIC_KEY = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV";
 
+const TCN_SYMBOL = "4,TCN";
+
 // -----------------------------------------------------------------------
 // Private state
 // -----------------------------------------------------------------------
@@ -227,6 +229,28 @@ function addSecondsToTime(timeISOStr, secondsToAdd) {
 }
 
 // -----------------------------------------------------------------------
+// From/to TCN amount helpers
+// -----------------------------------------------------------------------
+
+function fromTCN(val) {
+    if (typeof val !== 'string')
+      throw new Error('ERROR: fromTCN(): input must be a string in the format "0.0000 TCN"');
+    const tcnRegex = /^(\d+(\.\d{4})?)\sTCN$/;
+    const match = val.match(tcnRegex);
+    if (!match)
+        throw new Error('ERROR: fromTCN(): Invalid TCN format. Use "0.0000 TCN".');
+    return parseFloat(match[1]);
+}
+
+function toTCN(val) {
+    if (typeof val !== 'number')
+        throw new Error('ERROR: toTCN(): input must be a number.');
+    if (isNaN(val))
+        throw new Error('ERRORL toTCN(): invalid number input.');
+    return val.toFixed(4) + ' TCN';
+}
+
+// -----------------------------------------------------------------------
 // DoH high-level testcase logic functions
 //
 // All of these functions expect the following global variables to be set:
@@ -372,6 +396,8 @@ module.exports = {
     getError,
     getContractTime,
     addSecondsToTime,
+    fromTCN,
+    toTCN,
 
     // Testcase building blocks
     createBasicGame,
@@ -382,4 +408,5 @@ module.exports = {
     TIME_POINT_MAX,
     TIME_POINT_MIN,
     DEVELOPER_PUBLIC_KEY,
+    TCN_SYMBOL,
 };

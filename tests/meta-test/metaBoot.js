@@ -1,3 +1,9 @@
+//-------------------------------------------------------------------------------------
+// metaBoot.js
+//
+// Creates the test environment for all fixture tests in the meta-test suite.
+// (NOTE: meta::clear() is NOT called in-between fixture tests).
+//-------------------------------------------------------------------------------------
 
 //-------------------------------------------------------------------------------------
 // Define the first faction and demo the _struct() feature ...
@@ -130,7 +136,7 @@ for (let i = 1; i <= 5; i++) {
         let n = (faction * 10) + i;
         let player  = `metaplayer${n}`;
 
-        cleos(`system newaccount eosio ${player} ${DEVELOPER_PUBLIC_KEY} --buy-ram-kbytes 20 --stake-net "10000.0000 EOS" --stake-cpu "10000.0000 EOS" --transfer`);
+        cleos(`system newaccount eosio ${player} ${DEVELOPER_PUBLIC_KEY} --buy-ram-kbytes 50 --stake-net "10000.0000 EOS" --stake-cpu "10000.0000 EOS" --transfer`);
 
         meta._().setplayer( [player, "none", "", faction, TIME_POINT_MIN, TIME_POINT_MIN, TIME_POINT_MIN, TIME_POINT_MIN, 0, TIME_POINT_MIN] );
 
@@ -138,7 +144,7 @@ for (let i = 1; i <= 5; i++) {
         tokens._auth(hegemon);
         tokens.transfer(hegemon, player, "10000.0000 TCN", "");
 
-        meta._(player).open(player, "4,TCN", player);
+        meta._(player).open(player, TCN_SYMBOL, player);
 
         tokens._auth(player).transfer(player, meta._contract(), "1000.0000 TCN", "deposit");
     }

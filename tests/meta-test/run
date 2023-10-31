@@ -18,6 +18,19 @@
 // After all the fixture tests are run, if everything went well, then fixtureFinish() will
 //   call fixturePrintSummary() internally to present a tally of how many fixture tests
 //   passed and how many failed. If anything fails anywhere, the whole testcase fails.
+//
+// NOTE:
+//
+// fixtureRun() uses vm.runInThisContext(), which has no access to let/const variables
+//   declared outside of the script to be run, so we need to use global variables to access
+//   these from the fixture tests.
+// As a rule of thumb, any variable that's going to be accessed by more than one test file
+//   is going to be a global variable (including all of DoHTestLib's exported functions
+//   and variables). This should not be a problem unless people are trying to create
+//   test functions/variables that are named e.g. "init", "cleos", "CONTRACT", etc.
+//   (I guess we could create a global object named 'test' and put everything into *that*,
+//    but i'd rather use the shorter names for writing tests and instead be creative when
+//    naming test variables/functions...)
 // --------------------------------------------------------------------------------------------
 
 // This is the recommended way to pull in the entire test library.
@@ -34,13 +47,6 @@ createBasicGame();
 createBasicPlayers();
 createBasicEconomy();
 
-// NOTE:
-//
-// fixtureRun() will not see let/const variables outside of this scope for some reason,
-//   so we need to use global variables to access these from the fixture tests.
-// The "meta" and "tokens" variables can be accessed from inside the fixture .js files
-//   run with fixtureRun() below.
-
 tokens = getProxyForContract(`tokens.${tcn_target}`);
 meta = getProxyForContract(`meta.${doh_target}`);
 clock = getProxyForContract(`clock.${doh_target}`);
@@ -51,12 +57,13 @@ clock = getProxyForContract(`clock.${doh_target}`);
 
 fixtureRun("metaBoot.js");
 
+fixtureRun("metaStake.js");
+
 /*
 
   TODO:
 
 
-fixtureRun("metaStake.js");
 
 fixtureRun("metaBuy.js");
 

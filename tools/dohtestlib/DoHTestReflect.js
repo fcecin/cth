@@ -172,21 +172,18 @@ function getProxyForContract(contractAccountName) {
         library.__tableScope.set(tableName, contractAccountName);
         // Generate table query methods for up to 9 indices
         for (let i = 1; i < 9; i++) {
-            let si = '';
-
             // The table function name can be the plain table name, since you cannot have
             //   actions declared with the same name as the table -- that doesn't work.
             //   So for the primary index/key, the function name is the plain table name.
             // However, when adding indices, we need an e.g. "_" to differentiate, because
             //   a "players2" action could exist together with a "players" table. When
             //   using indices > 1 (the primary index/key), it becomes e.g. "players_2".
+            let si = '';
             if (i > 1) { si = `_${i}` };
-
             const tableFunctionName = `${tableName}${si}`;
-
             library[tableFunctionName] = function (...params) {
-
                 let configWasSet = false;
+                let keyTypeWasSet = false;
                 let reverse = false;
                 let MAX_PAGES_LIMIT = 10000; // absolute maximum to avoid "infinite" loops
                 let PAGES_LIMIT = MAX_PAGES_LIMIT; // selected pages limit, if any
@@ -271,10 +268,17 @@ function getProxyForContract(contractAccountName) {
                 if (tableConfig !== undefined) {
                     if (tableConfig.length > 0 && tableConfig[0] !== undefined && tableConfig[0] !== '') {
                         q += ` --key-type ${tableConfig[0]}`;
+                        keyTypeWasSet = true;
                     }
                     if (tableConfig.length > 1 && tableConfig[1] !== undefined && tableConfig[1] !== '') {
                         q += ` --encode-type ${tableConfig[1]}`;
                     }
+                }
+                // for non-primary indices, cleos requires that the key type be provided
+                // if it wasn't filled in yet, then set it to the default
+                // if the type is incorrect, it's the proxy user's fault -- should have passed it in
+                if (i > 1 && !keyTypeWasSet) {
+                    q += ` --key-type i64`;
                 }
                 // apply scope
                 let scope = library.__tableScope.get(tableName);

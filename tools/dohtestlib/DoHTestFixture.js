@@ -58,7 +58,7 @@ let doh;
 // cleos
 //
 // Wrapper to cth_cleos_pipe2 that throws a Javascript exception (error)
-//   with the output as the error message., instead of returning the error
+//   with the output as the error message, instead of returning the error
 //   codes to the caller for crashing/failing the entire process.
 //
 // Since fixture testing runs multiple tests in the same process, an
@@ -83,6 +83,38 @@ function cleos(args) {
 // -----------------------------------------------------------------------
 
 function cleosNoThrow(args) { return cth_cleos_pipe2(args); }
+
+// -----------------------------------------------------------------------
+// assert
+//
+// cth_assert() is actually kind of garbage, so we are going to just
+//   reimplement it here for Javascript & the DoHTestFixture.js way.
+//   Throws Error on any failure. Companion to cleos(), above.
+//
+// NOTE: expr comes first, then the descriptive string, which is optional.
+// -----------------------------------------------------------------------
+
+function assert(expr, desc) {
+    if (expr === undefined) {
+        throw new Error("ERROR: assert(): expr argument is undefined");
+    }
+    if (desc === undefined) {
+        desc = '';
+    } else if (desc.length > 0) {
+        desc = "'" + desc + "': ";
+    }
+    expr = expr.trim();
+    try {
+        const result = eval(expr);
+        if (result) {
+            fixtureLog(`assert(): ${desc}'${expr}' is true.`);
+        } else {
+            throw new Error(`ERROR: assert(): ${desc}'${expr}' is false.`);
+        }
+    } catch (error) {
+        throw new Error(`ERROR: assert(): expression evaluation has thrown ${error.constructor.name}: '${error.message}\nexpr: ${expr}\ndesc: ${desc}\n${error.stack}\n`);
+    }
+}
 
 // -----------------------------------------------------------------------
 // fixtureCrashed
@@ -301,6 +333,7 @@ module.exports = {
     // Functions
     cleos,
     cleosNoThrow,
+    assert,
     fixtureLog,
     fixtureErrorLog,
     fixtureCrashed,

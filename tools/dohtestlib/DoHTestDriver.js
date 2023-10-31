@@ -349,7 +349,7 @@ function cth_assert(desc, expr, orig) {
         console.log(`  expr: ${expr}`);
         console.log(`  desc: ${desc}`);
         if (orig !== undefined)
-            console.log(`  orig:  '${expr}'`);
+            console.log(`  orig:  '${orig}`);
 
         return 1;
     }
