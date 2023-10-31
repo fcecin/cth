@@ -59,13 +59,14 @@ fixtureRun("metaBoot.js");
 
 fixtureRun("metaStake.js");
 
+fixtureRun("metaBuy.js");
+
 /*
 
   TODO:
 
 
 
-fixtureRun("metaBuy.js");
 
 fixtureRun("metaDutch.js");
 

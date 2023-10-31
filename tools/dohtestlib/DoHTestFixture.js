@@ -147,6 +147,16 @@ function fixtureLog(msg) {
 }
 
 // -----------------------------------------------------------------------
+// fixtureWarningLog
+//
+// Print warning msg with the current fixture name as prefix
+// -----------------------------------------------------------------------
+
+function fixtureWarningLog(msg) {
+    console.log(`WARNING: TEST [${_fixtureCurrent}]: ${msg}`);
+}
+
+// -----------------------------------------------------------------------
 // fixtureErrorLog
 //
 // Print error msg with the current fixture name as prefix
@@ -335,6 +345,7 @@ module.exports = {
     cleosNoThrow,
     assert,
     fixtureLog,
+    fixtureWarningLog,
     fixtureErrorLog,
     fixtureCrashed,
     fixtureFailed,
