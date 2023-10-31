@@ -65,6 +65,8 @@ fixtureRun("metaTransfer.js");
 
 fixtureRun("metaDutch.js");
 
+fixtureRun("metaWaitlist.js");
+
 /*
 
   TODO:
@@ -72,7 +74,6 @@ fixtureRun("metaDutch.js");
 
 
 
-fixtureRun("metaWaitlist.js");
 
 fixtureRun("metaBid.js");
 

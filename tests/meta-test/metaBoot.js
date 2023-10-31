@@ -76,13 +76,13 @@ meta.setauction( [1, "waitlist", "waitlist auction", "faction invites auction", 
 
 fixtureLog("Auction #1: " + JSON.stringify( meta.auctions() ) );
 
-meta.setauction( [2, "empire invites", "faction invites auction", "empire invites auction", "none", 0, 0, 30, "0.0000 TCN", 2, metaTestAuctionEndTime, 0 ] );
+meta.setauction( [2, "empire invites", "faction invites auction", "empire invites auction", "none", 0, 0, 30, "0.0000 TCN", 1, metaTestAuctionEndTime, 0 ] );
 
-meta.setauction( [3, "confederacy invites", "faction invites auction", "confederacy invites auction", "none", 0, 0, 30, "0.0000 TCN", 2, metaTestAuctionEndTime, 0 ] );
+meta.setauction( [3, "confederacy invites", "faction invites auction", "confederacy invites auction", "none", 0, 0, 30, "0.0000 TCN", 1, metaTestAuctionEndTime, 0 ] );
 
-meta.setauction( [4, "alliance invites", "faction invites auction", "alliance invites auction", "none", 0, 0, 30, "0.0000 TCN", 2, metaTestAuctionEndTime, 0 ] );
+meta.setauction( [4, "alliance invites", "faction invites auction", "alliance invites auction", "none", 0, 0, 30, "0.0000 TCN", 1, metaTestAuctionEndTime, 0 ] );
 
-meta.setauction( [5, "dominion invites", "faction invites auction", "dominion invites auction", "none", 0, 0, 30, "0.0000 TCN", 2, metaTestAuctionEndTime, 0 ] );
+meta.setauction( [5, "dominion invites", "faction invites auction", "dominion invites auction", "none", 0, 0, 30, "0.0000 TCN", 1, metaTestAuctionEndTime, 0 ] );
 
 //-------------------------------------------------------------------------------------
 // Items (id must be >= 1000000)
