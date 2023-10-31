@@ -20,6 +20,22 @@
 
     assert(`${newBal} == ${origBal} - ${theItemPrice}`, `${metaplayer1}'s purchase subtracted the correct amount from the deposited balance in the contract`);
 
+    fixtureLog("Going to build a 128-bit key [owner.value, item-id] for index 3 of acquisitions table (by_owner_item)");
+
+    let playerValuei64    = fromName( metaplayer1 );
+    let ownerItemKeyi128  = to128( fromName( metaplayer1 ), theItemId );
+
+    fixtureLog("  Player name                 = " + metaplayer1);
+    fixtureLog("  Player name.value (low 64)  = " + playerValuei64);
+    fixtureLog("  Item id (high 64)           = " + theItemId);
+    fixtureLog("  Resulting 128-bit key       = " + ownerItemKeyi128);
+
+    let acquisition = meta.acquisitions_3(ownerItemKeyi128, {"key-type": "i128"});
+
+    fixtureLog("Item purchased as an owner_item-fetched cquisition: " + JSON.stringify( acquisition ) );
+
+    assert(`${acquisition.rows[0].external_id} === ${theItemId} && '${acquisition.rows[0].owner}' === '${metaplayer1}' && '${acquisition.rows[0].paid}' == '${theItemPriceStr}'`, `the acquisiton with the external_id ${theItemId} was found in the hands of player ${metaplayer1}`);
+
     let success = true;
     try {
         meta.purchase(metaplayer1, theItemId);
