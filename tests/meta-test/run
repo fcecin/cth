@@ -63,14 +63,14 @@ fixtureRun("metaBuy.js");
 
 fixtureRun("metaTransfer.js");
 
+fixtureRun("metaDutch.js");
+
 /*
 
   TODO:
 
 
 
-
-fixtureRun("metaDutch.js");
 
 fixtureRun("metaWaitlist.js");
 
