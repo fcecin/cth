@@ -35,4 +35,28 @@
     assert(`${newAcquisition.rows.length} > 0`, "faction-bound acquisition landed in the destination player successfully");
 
     assert(`${newAcquisition.rows[0].external_id} === ${theFaction1ItemId} && '${newAcquisition.rows[0].owner}' === '${metaplayer12}'`, `an acquisiton with the external_id ${theFaction1ItemId} was found in the hands of the destination player ${metaplayer12} so transfer() works`);
+
+    // check cannot transfer item when limit reached
+    let metaplayer41 = "metaplayer41";
+    let metaplayer42 = "metaplayer42";
+    let metaplayer43 = "metaplayer43";
+    let metaplayer44 = "metaplayer44";
+    let anotherItemId = 1000000;
+    meta._(metaplayer41).purchase(metaplayer41, anotherItemId);
+    meta._(metaplayer42).purchase(metaplayer42, anotherItemId);
+    meta._(metaplayer43).purchase(metaplayer43, anotherItemId);
+    meta._(metaplayer41).transfer(meta.acquisitions_3(to128(fromName(metaplayer41), anotherItemId)).rows[0].id, metaplayer44);
+    meta._(metaplayer42).transfer(meta.acquisitions_3(to128(fromName(metaplayer42), anotherItemId)).rows[0].id, metaplayer44);
+    success = true;
+    try {
+        meta._(metaplayer43).transfer(meta.acquisitions_3(to128(fromName(metaplayer43), anotherItemId)).rows[0].id, metaplayer44);
+        success = false;
+    } catch (error) {
+        if (error.message.includes('receiver cannot hold any more of this item')) {
+            fixtureLog("Correctly got an error from trying to transfer more than the per_player_limit of an item to the same player");
+        } else {
+            fixtureWarningLog("Correctly got an error from trying to transfer more than the per_player_limit of an item to the same player, but it's not the expected error message: " + error);
+        }
+    }
+    assert(`${success}`, `successfully failed to send more than ${ITEM_LIMIT} of an item to ${metaplayer44}`);
 }

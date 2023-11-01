@@ -71,6 +71,8 @@ fixtureRun("metaBid.js");
 
 fixtureRun("metaInvite.js");
 
+fixtureRun("metaAuctionLimit.js");
+
 fixtureRun("metaFinal.js");
 
 // --------------------------------------------------------------------------------------------
