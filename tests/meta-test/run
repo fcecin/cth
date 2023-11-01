@@ -69,11 +69,12 @@ fixtureRun("metaWaitlist.js");
 
 fixtureRun("metaBid.js");
 
+fixtureRun("metaInvite.js");
+
 /*
 
   TODO:
 
-fixtureRun("metaInvite.js");
 
 fixtureRun("metaFinal.js");
 
