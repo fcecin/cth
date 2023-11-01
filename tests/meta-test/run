@@ -71,65 +71,10 @@ fixtureRun("metaBid.js");
 
 fixtureRun("metaInvite.js");
 
-/*
-
-  TODO:
-
-
 fixtureRun("metaFinal.js");
-
-*/
 
 // --------------------------------------------------------------------------------------------
 // Done
 // --------------------------------------------------------------------------------------------
 
 fixtureFinish();
-
-
-/*
-      //admin actions
-
-      ACTION setplayer(const player& p);
-      ACTION setauction(const auction& a);
-      ACTION setplanet(const planet& p);
-      ACTION setregion(const region& r);
-      ACTION setfaction(const faction& f);
-      ACTION setitem(const item& i);
-
-      ACTION init(const time_point& all_auctions_end, const time_point& meta_game_end); //initialize and start the meta game
-
-      ACTION unstakeall();
-
-      //player actions
-
-      ACTION open( const name& player, const symbol& symbol, const name& ram_payer );
-      ACTION close( const name& player, const symbol& symbol );
-
-      ACTION dostake(const name& owner, const asset& amount, const uint64_t region_id);
-
-      ACTION placebid(const name& owner, const asset& amount, const uint64_t auction_id);
-
-      ACTION purchase(const name& owner, const uint64_t item_id);
-
-      ACTION transfer(const uint64_t acquisition_id, const name& to);
-
-      ACTION invite(const name& inviter, const name& invitee); //invite invitee to join inviter's faction
-
-      ACTION reqinvite(const name& invitee, const asset& bid, const uint64_t faction_id); //request a faction invite to a faction, offering an optional bid
-
-      ACTION acceptinvite(const name& inviter, const name& invitee);
-
-      ACTION cancelinv(const name& inviter, const name& invitee);
-      ACTION cancelallinv(const name& inviter);
-      ACTION cancelreq(const name& owner);
-
-      ACTION withdraw(const name& owner, const asset& amount);
-
-      ACTION update(const uint32_t count);
-
-      //clear action
-
-      ACTION clear();
-
-*/
