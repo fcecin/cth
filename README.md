@@ -45,6 +45,16 @@ Replace `YOUR_DOH_DIR` with the absolute path to the directory where you have yo
 
 What `-o doh=YOUR_DOH_DIR -o target=test` does is ensure that the installation pipeline will know to copy your fully-assembled and compiled DoH working directory into the test system to be tested, specifically into the `cth/local/test/` target directory, to run tests configured for the 'hg3/tc3' (i.e. `test`) target. Make sure that the given directory contains DoH source code that is compiled for the `test` ('hg3/tc3') target, or at least any target that isn't `prod` ('hgm/tcn'), since the latter doesn't work with the test system, as it doesn't have test clock and test RNG support.
 
+## Refresh a previous DoH installation faster
+
+If you want to update and recompile the current internal copy of the DoH code, but recompile only the contracts that have changed (which is much faster than recompiling the whole thing) you can use `-o fast=1`:
+
+```
+cth -f -i -o target=test -o fast=1
+```
+
+This causes the `doh-coldstart` driver's installation script to try and update its current local copy of DoH (by pulling updates from the DoH git repositories) and then only recompile the contracts that have changed. If you use `-o fast=1` then you should not use the `-o doh=...` option as that does not cause the `doh-coldstart` install script to download or compile the code, but instead it instructs the driver to pick up and use your own precompiled DoH copy.
+
 ## Workflow trick (dangerous! not recommended)
 
 If you know what you're doing (does anybody? I don't think so), you can develop DoH directly inside of `/cth/local/test/doh-contracts/` after a, say, `cth -i`. After you recompile the contracts that need to be recompiled in there, you can run tests with `cth --run doh-hotstart install '' -f`. This regenerates the `doh-hotstart` chainbase template from the newest `doh-coldstart` wasm/abi tree (which you just illegally doctored) and after that it will run all the tests. This is dangerous because if you accidentally run `--clear`, `--reset`, etc. on the `doh-coldstart` driver, your "working" directory will vanish. It's better to use the previous recipe, above, that copies your DoH work tree into the test system for use.

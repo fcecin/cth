@@ -20,6 +20,7 @@ use lib "$RealBin/../../tools/cth-utils";
 use CthUtils;
 use lib "$RealBin/../../tools/doh-goodies";
 use DoHGoodies;
+use Digest::MD5;
 
 # ---------------------------------------------------------------------------
 # Global vars
@@ -60,7 +61,7 @@ sub chdir_target_dir {
 # First, we need to parse arguments passed to this install script.
 # ---------------------------------------------------------------------------
 
-my ($switches, $options) = cth_standard_args_parser("", "target doh");
+my ($switches, $options) = cth_standard_args_parser("", "target doh fast");
 
 # ---------------------------------------------------------------------------
 # Take a -o target=xxx option that will tell which one we want to compile
@@ -173,12 +174,20 @@ if (-e "$source_dir/$run_build_sh") {
 #   stale versions of the DoH code there.
 # ---------------------------------------------------------------------------
 
-foreach my $tg (@targets) {
-    my $destination = absolute("../../local/$target", CthUtils::ABSOLUTE_MAY_NOT_EXIST);
-    if (-d $destination) {
-        print "$driver: Deleting '$destination' ...\n";
-        system("rm -rf $destination");
+if (defined $options->{'fast'} && $options->{'fast'}) {
+    print "$driver: option 'fast' detected; will attempt to reuse existing 'local/$target' DoH source code directory...\n";
+}
+
+if (!defined $options->{'fast'} || !$options->{'fast'}) {
+
+    foreach my $tg (@targets) {
+        my $destination = absolute("../../local/$target", CthUtils::ABSOLUTE_MAY_NOT_EXIST);
+        if (-d $destination) {
+            print "$driver: Deleting '$destination' ...\n";
+            system("rm -rf $destination");
+        }
     }
+
 }
 
 # ---------------------------------------------------------------------------
@@ -190,14 +199,21 @@ foreach my $tg (@targets) {
 
 {
     my $destination = absolute("../../local/$target", CthUtils::ABSOLUTE_ENSURE_CREATE);
-    my $to_remove = absolute($destination . "/doh-contracts", CthUtils::ABSOLUTE_MUST_RECREATE);
+
+    if (!defined $options->{'fast'} || !$options->{'fast'}) {
+        my $to_remove = absolute($destination . "/doh-contracts", CthUtils::ABSOLUTE_MUST_RECREATE);
+    }
 
     print "$driver: Copying contract templates to local/ for DoH target '$target' (from '$source_dir' to '$destination') ...\n";
 
     system("cp -r $source_dir $destination");
-    if ($? != 0) {
-        print "ERROR: $driver: Failed to copy $source_dir to $destination: $!";
-        exit 1;
+
+    # FIXME/TODO: with fast=1 (no prior rm -rf) cp -r barfs because of .git repo permissions but it doesn't matter
+    if (!defined $options->{'fast'} || !$options->{'fast'}) {
+        if ($? != 0) {
+            print "ERROR: $driver: Failed to copy $source_dir to $destination: $!";
+            exit 1;
+        }
     }
 }
 
@@ -241,7 +257,9 @@ print "$driver: Found $total_dirs contracts to compile.\n";
 # Print the contract list and clean up the build dirs on each
 @directories = sort @directories;
 foreach my $di (@directories) {
-    system("rm -rf $di/build");
+    if (!defined $options->{'fast'} || !$options->{'fast'}) {
+        system("rm -rf $di/build");
+    }
     print "$driver: Contract to compile: $di\n";
 }
 
@@ -255,8 +273,53 @@ for my $i (0 .. $total_dirs - 1) {
 
     system("mkdir -p $dir/build");
 
-    my $error = 0;
+    # compute a string with the file names and checksums of all cpp and hpp files (signature file)
+    # if the checksum is picking up files that don't matter, all that can happen is that we might
+    #   recompile something that didn't need to.
+    my $current_signature = '';
+    my @dir_stack = ($dir);
+    while (@dir_stack) {
+        my $current_dir = pop @dir_stack;
+        opendir(my $dir_handle, $current_dir) or die "ERROR: Failed to open directory: $!";
+        my @files = readdir($dir_handle);
+        closedir($dir_handle);
+        @files = sort @files;
+        foreach my $file (@files) {
+            if ($file eq '.' or $file eq '..') {
+                next; # Skip . and ..
+            }
+            my $file_path = "$current_dir/$file";
+            if (-d $file_path) {
+                push @dir_stack, $file_path; # Add subdirectories to the stack
+            } elsif ($file =~ /\.(cpp|hpp)$/ && !($file =~ /CMake/)) {
+                open(my $fh, '<', $file_path) or die "ERROR: Failed to open file $file_path: $!";
+                my $md5 = Digest::MD5->new;
+                my $data;
+                while (read($fh, $data, 8192)) {
+                    $md5->add($data);
+                }
+                close($fh);
+                $current_signature .= "[$file][" . $md5->hexdigest . "]";
+            }
+        }
+    }
 
+    # Check if a signature file exists for this directory
+    # If it does, read it, compare with current signature, and skip compilation if they are equal
+    my $signature_file = "$dir/SIGFILE";
+    if (-e $signature_file) {
+        open(my $fh, '<', $signature_file) or die "ERROR: $driver: Failed to open signature file: $!";
+        my $stored_signature = <$fh>;
+        close($fh);
+        chomp($stored_signature);
+        if ($current_signature eq $stored_signature) {
+            print "$driver: Signature for '$dir' matches the stored signature. Skipping compilation.\n";
+            next;
+        }
+    }
+
+    # compile the contract directory
+    my $error = 0;
     if (chdir("$dir/build")) {
         my $build_dir = getcwd();
         chomp($build_dir);
@@ -274,6 +337,13 @@ for my $i (0 .. $total_dirs - 1) {
             }
         }
         chdir("../..");
+        if ($error == 0) {
+            # since compilation succeeded, now update the signature file with the checksums we
+            #   computed earlier, to detect when recompilation will not be necessary.
+            open(my $fh, '>', $signature_file) or die "ERROR: $driver: Failed to open signature file for writing: $!";
+            print $fh $current_signature;
+            close($fh);
+        }
     } else {
         print "$driver: ERROR: Failed to change to directory: $dir - $!\n";
         $error = 1;
