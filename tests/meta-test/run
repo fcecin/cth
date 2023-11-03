@@ -73,6 +73,8 @@ fixtureRun("metaInvite.js");
 
 fixtureRun("metaAuctionLimit.js");
 
+fixtureRun("metaRestrictedLimit.js");
+
 fixtureRun("metaFinal.js");
 
 // --------------------------------------------------------------------------------------------
