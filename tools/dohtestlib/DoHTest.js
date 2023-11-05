@@ -25,6 +25,9 @@ const child_process = require('child_process');
 // pulls DohTestDriver
 if (typeof fixtureRun === 'undefined') { Object.assign(global, require('DoHTestFixture')); }
 
+// FIXME/TODO: need to make this dependent on DoHTest due to getError() being called here,
+//   or just get rid of the attempted modularity and just merge DoHTest and DoHTestFixture.
+
 // -----------------------------------------------------------------------
 // Exported constants
 // -----------------------------------------------------------------------
@@ -93,7 +96,7 @@ function init() {
         let match;
         let count = 0;
         while ((match = regex.exec(headerContent)) !== null) {
-            const errorCode = parseInt(match[1], 10);
+            const errorCode = parseInt(match[1]);
             const errorMessage = match[2];
             dohErrorMap.set(errorCode, errorMessage);
             count++;
@@ -188,6 +191,8 @@ function epochSecsFromDateString(date_string) {
 // -----------------------------------------------------------------------
 
 function getError(errcode) {
+    if (typeof errcode === "string")
+        errcode = parseInt(errcode); // because dohErrorMap keys are 'number'
     const m = dohErrorMap.get(errcode);
     if (m) {
         return m;

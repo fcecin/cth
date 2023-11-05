@@ -287,9 +287,9 @@ function cth_cleos_pipe2(args) {
         }
 
         if (error.status == 0) {
-            return [error, -1];
+            return [error.toString(), -1];
         } else {
-            return [error, error.status];
+            return [error.toString(), error.status];
         }
     }
 }

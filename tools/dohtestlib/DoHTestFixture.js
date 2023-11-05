@@ -67,13 +67,39 @@ let doh;
 // This also works EVEN if the test writer isn't using fixtures, since
 //   if you throw an error and you don't catch it, it's going to crash
 //   the process (good news for the createXXXGame() functions).
+//
+// This function will throw a ContractCheckError instead of a generic
+//   Error if it can detect from the cleos command output that what
+//   failed the contract was a check() that returned false and that
+//   in addition returned an error code (and not a string message).
+//   If it's a check() that returns a string message instead of an
+//   integer error code, then a regular Error message will be thrown.
 // -----------------------------------------------------------------------
 
+class ContractCheckError extends Error {
+  constructor(code, message) {
+    super(`Contract check failed with error code: ${code}, message: ${message}`);
+    this.name = 'ContractCheckError';
+    this.code = code;
+    this.message = message;
+  }
+}
+
 function cleos(args) {
-    let [output, error] = cth_cleos_pipe2(args);
-    if (error !== 0)
-        throw new Error(output);
-    return output;
+  let [output, error] = cth_cleos_pipe2(args);
+  if (error !== 0) {
+      // Check if we can extract an integer error code check() failure in the contract
+      const errorCodePattern = /assertion failure with error code: (\d+)\n/;
+      const match = output.match(errorCodePattern);
+      if (match) {
+          const code = match[1];
+          let message = getError(code);
+          throw new ContractCheckError(code, message);
+      } else {
+          throw new Error(output);
+      }
+  }
+  return output;
 }
 
 // -----------------------------------------------------------------------
@@ -358,4 +384,7 @@ module.exports = {
 
     // Variables
     doh,
+
+    // Exceptions
+    ContractCheckError,
 };
