@@ -592,7 +592,14 @@ foreach my $tests_dir (@tests_dirs) {
     if ($opt_verbose) { print "Searching for tests in $tests_dir ...\n"; }
     while (my $entry = readdir($dh)) {
         next if $entry eq '.' || $entry eq '..';
-        push @tests_found, "$tests_dir/$entry" if -d "$tests_dir/$entry";
+        my $test_path = "$tests_dir/$entry";
+        if (-d $test_path) {
+            # only consider a directory to be a test directory if it has a 'run' file that is marked executable
+            my $run_file = "$test_path/run";
+            if (-e $run_file && -x $run_file) {
+                push @tests_found, $test_path;
+            }
+        }
     }
     closedir($dh);
 

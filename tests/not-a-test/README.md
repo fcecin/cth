@@ -1,0 +1,1 @@
+This directory is not considered to be a test directory because it does not have a file named `run` that is maked as executable (`chmod +x run`).
