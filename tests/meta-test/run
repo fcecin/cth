@@ -43,6 +43,9 @@ require('DoHTestLib');
 
 fixtureInit("dohplayer1", "hg3", "tc3");
 
+// after fixtureInit, global variable "doh" is a JS object with all DoH game constants.
+console.log("Value of DoH constant 'GAME_CONTRACT' = " + doh.GAME_CONTRACT);
+
 createBasicGame();
 createBasicPlayers();
 createBasicEconomy();
@@ -53,6 +56,11 @@ clock = getProxyForContract(`clock.${doh_target}`);
 
 // --------------------------------------------------------------------------------------------
 // Tests run inside the test fixture (fixture tests)
+//
+// If there was an error thrown by the code run by fixtureRun(), it can be detected after
+//   the fixtureRun() call by checking if the fixtureLastError global variable is not
+//   undefined. If it isn't, then it is set to the Error object (which can be a generic
+//   Error or a ContractCheckError).
 // --------------------------------------------------------------------------------------------
 
 fixtureRun("metaBoot.js");

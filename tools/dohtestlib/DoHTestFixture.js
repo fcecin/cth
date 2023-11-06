@@ -48,11 +48,15 @@ let fixturePassedCount = 0;
 let fixtureFailedCount = 0;
 
 // -----------------------------------------------------------------------
-// Exported variables
+// GLOBAL variables
 // -----------------------------------------------------------------------
 
-// game constants map from the readonly contract
-let doh;
+// game constants from the readonly contract
+// after fixtureInit(), doh is a JS object and the constants are keys to the object
+doh = undefined;
+
+// last fixture error from fixtureRun, or undefined if any
+fixtureLastError = undefined;
 
 // -----------------------------------------------------------------------
 // cleos
@@ -89,14 +93,21 @@ function cleos(args) {
   let [output, error] = cth_cleos_pipe2(args);
   if (error !== 0) {
       // Check if we can extract an integer error code check() failure in the contract
-      const errorCodePattern = /assertion failure with error code: (\d+)\n/;
+      const errorCodePattern = /assertion failure with error code: (\d+)(\n|\r|$)/;
       const match = output.match(errorCodePattern);
       if (match) {
           const code = match[1];
           let message = getError(code);
           throw new ContractCheckError(code, message);
       } else {
-          throw new Error(output);
+          const errorMessagePattern = /assertion failure with message: (.+)(\n|\r|$)/;
+          const matchMsg = output.match(errorMessagePattern);
+          if (matchMsg) {
+              let msg = matchMsg[1];
+              throw new ContractCheckError(0, msg);
+          } else {
+              throw new Error(output);
+          }
       }
   }
   return output;
@@ -216,7 +227,7 @@ function fixtureRun(testname) {
     let result = '';
     if (fs.existsSync(fixtureCleanupFile)) {
         console.log(`TEST: fixtureRun(): loading fixture cleanup script '${fixtureCleanupFile}'...`);
-        fixtureCleanupScript = fs.readFileSync(fixtureCleanupFile); // , 'utf8'
+        fixtureCleanupScript = fs.readFileSync(fixtureCleanupFile);
         console.log(`TEST: fixtureRun(): clearing fixture before running '${testname}'...`);
         try {
             vm.runInThisContext(fixtureCleanupScript);
@@ -233,13 +244,34 @@ function fixtureRun(testname) {
             vm.runInThisContext(script);
             result = "Passed.";
             fixturePassedCount++;
+            fixtureLastError = undefined;
         } catch (error) {
-            console.log(`ERROR: TEST: fixtureRun(): error running '${testname}':\n${error.stack}\n`);
+            let checkStr = "";
+            if (error instanceof ContractCheckError) {
+                let codeLine = "";
+                if (error.code > 0) {
+                    codeLine = `Code: ${error.code}\n`;
+                    checkStr = `, '${error.message}' (${error.code})`;
+                } else {
+                    checkStr = `, '{error.message}'`;
+                }
+                console.log(`ERROR: TEST: fixtureRun(): caught ContractCheckError running '${testname}':\n${codeLine}Message: ${error.message}\n${error.stack}\n`);
+            } else {
+                console.log(`ERROR: TEST: fixtureRun(): caught Error running '${testname}':\n${error.stack}\n`);
+            }
 
-            // TODO: extract DoH error string (or code if can't translate) here and add to the result string
+            const regex = /at evalmachine\.\<anonymous\>:(\d+):(\d+)/;
+            const match = error.stack.match(regex);
+            let atStr = "";
+            if (match) {
+                const lineNumber = match[1];
+                const columnNumber = match[2];
+                atStr = ` at line ${lineNumber}:${columnNumber}`;
+            }
 
-            result = "Failed.";
+            result = `Failed${atStr}${checkStr}.`;
             fixtureFailedCount++;
+            fixtureLastError = error;
         }
     }
     fixtureResultMap.set(testname, result);
@@ -381,9 +413,6 @@ module.exports = {
     fixturePrintSummary,
     fixtureInit,
     fixtureFinish,
-
-    // Variables
-    doh,
 
     // Exceptions
     ContractCheckError,
