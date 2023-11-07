@@ -16,9 +16,16 @@
 
     let metaplayer23 = "metaplayer23";
 
-    meta._().setitem( [RESTRICTED_ITEM_ID_1, "restricteditem1", "restricted item 1", "SomeOtherCategory, Deployment, AnotherCategory", "none", 2, 0, 1000, RESTRICTED_ITEM_LIMIT, 0, "12.0000 TCN", "12.0000 TCN", "0.0000 TCN", 0, "12.0000 TCN", 0, metaTestStartTime] );
+    meta._().setitem( [RESTRICTED_ITEM_ID_1, "restricteditem1", "restricted item 1", [TAG_DEPLOYMENT], "none", 2, 0, 1000, RESTRICTED_ITEM_LIMIT, 0, "12.0000 TCN", "12.0000 TCN", "0.0000 TCN", 0, "12.0000 TCN", 0, metaTestStartTime] );
 
-    meta.setitem( [RESTRICTED_ITEM_ID_2, "restricteditem1", "restricted item 2", "Deployment, Foo, Bar", "none", 2, 0, 1000, RESTRICTED_ITEM_LIMIT, 0, "20.0000 TCN", "20.0000 TCN", "0.0000 TCN", 0, "20.0000 TCN", 0, metaTestStartTime] );
+    meta.setitem( [RESTRICTED_ITEM_ID_2, "restricteditem1", "restricted item 2", [TAG_DEPLOYMENT], "none", 2, 0, 1000, RESTRICTED_ITEM_LIMIT, 0, "20.0000 TCN", "20.0000 TCN", "0.0000 TCN", 0, "20.0000 TCN", 0, metaTestStartTime] );
+
+    console.log("This is the tags table: " + JSON.stringify( meta.tags() ) );
+    console.log("The auction-or-item-limit-is-global tag type# is: " + TAG_AOI_LIMIT_IS_GLOBAL_PER_PLAYER);
+    console.log("This is restricted item 1: " + JSON.stringify( meta.items(RESTRICTED_ITEM_ID_1)  ));
+    console.log("This is restricted item 2: " + JSON.stringify( meta.items(RESTRICTED_ITEM_ID_2) ) );
+
+    // do the two purchases
 
     meta._(metaplayer23).purchase(metaplayer23, RESTRICTED_ITEM_ID_1); // no issues
 

@@ -67,40 +67,58 @@ meta.setregion( [3, 2, "p2r1"] );
 meta.setregion( [4, 2, "p2r2"] );
 
 //-------------------------------------------------------------------------------------
+// Meta tags
+//-------------------------------------------------------------------------------------
+
+// Tag types
+TAG_AOI_NOP = 1; // no effect (used for purely descriptive/decorative tags, or tags that affect the metagame result out-of-band)
+TAG_AOI_LIMIT_IS_GLOBAL_PER_PLAYER = 2; // modifies (AOI object)->limit to mean a global limit across that tag ID per player
+
+// Tag IDs
+TAG_DEPLOYMENT = 1;
+TAG_FACTION_FOUNDING_CHARTER = 2;
+
+meta._struct("tag", ["id", "name", "type"]);
+
+meta.settag( [TAG_DEPLOYMENT, "Deployment", TAG_AOI_LIMIT_IS_GLOBAL_PER_PLAYER] );
+
+meta.settag( [TAG_FACTION_FOUNDING_CHARTER, "Faction Founding Charter", TAG_AOI_LIMIT_IS_GLOBAL_PER_PLAYER ] );
+
+//-------------------------------------------------------------------------------------
 // Auctions
 //-------------------------------------------------------------------------------------
 
-AUCTION_LIMIT = 2; // per_player_limit
+AUCTION_LIMIT = 2; // per-player limit
 
-meta._struct("auction", ["id", "name", "description", "category", "asset_url", "rarity", "level", "count", "per_player_limit", "reserve", "type", "auction_end", "faction_id"] );
+meta._struct("auction", ["id", "name", "description", "tags", "asset_url", "rarity", "level", "count", "limit", "reserve", "type", "auction_end", "faction_id"] );
 
-meta.setauction( [1, "waitlist", "waitlist auction", "faction invites auction", "none", 0, 0, 999999999, AUCTION_LIMIT, "0.0000 TCN", 2, metaTestAuctionEndTime, 0 ] );
+meta.setauction( [1, "waitlist", "waitlist auction", [], "none", 0, 0, 999999999, AUCTION_LIMIT, "0.0000 TCN", 2, metaTestAuctionEndTime, 0 ] );
 
 fixtureLog("Auction #1: " + JSON.stringify( meta.auctions() ) );
 
-meta.setauction( [2, "empire invites", "faction invites auction", "empire invites auction", "none", 0, 0, 30, AUCTION_LIMIT, "0.0000 TCN", 1, metaTestAuctionEndTime, 0 ] );
+meta.setauction( [2, "empire invites", "empire invites auction", [], "none", 0, 0, 30, AUCTION_LIMIT, "0.0000 TCN", 1, metaTestAuctionEndTime, 0 ] );
 
-meta.setauction( [3, "confederacy invites", "faction invites auction", "confederacy invites auction", "none", 0, 0, 30, AUCTION_LIMIT, "0.0000 TCN", 1, metaTestAuctionEndTime, 0 ] );
+meta.setauction( [3, "confederacy invites", "confederacy invites auction", [], "none", 0, 0, 30, AUCTION_LIMIT, "0.0000 TCN", 1, metaTestAuctionEndTime, 0 ] );
 
-meta.setauction( [4, "alliance invites", "faction invites auction", "alliance invites auction", "none", 0, 0, 30, AUCTION_LIMIT, "0.0000 TCN", 1, metaTestAuctionEndTime, 0 ] );
+meta.setauction( [4, "alliance invites", "alliance invites auction", [], "none", 0, 0, 30, AUCTION_LIMIT, "0.0000 TCN", 1, metaTestAuctionEndTime, 0 ] );
 
-meta.setauction( [5, "dominion invites", "faction invites auction", "dominion invites auction", "none", 0, 0, 30, AUCTION_LIMIT, "0.0000 TCN", 1, metaTestAuctionEndTime, 0 ] );
+meta.setauction( [5, "dominion invites", "dominion invites auction", [], "none", 0, 0, 30, AUCTION_LIMIT, "0.0000 TCN", 1, metaTestAuctionEndTime, 0 ] );
 
 //-------------------------------------------------------------------------------------
 // Items (id must be >= 1000000)
 //-------------------------------------------------------------------------------------
 
-ITEM_LIMIT = 2; // per_player_limit
+ITEM_LIMIT = 2; // per-player limit
 
-meta._struct("item", ["id", "name", "description", "category", "asset_url", "rarity", "level", "count", "per_player_limit", "faction_id", "cost", "dutch_cost_end", "dutch_step_amount", "dutch_step_secs", "dutch_cost_start", "dutch_steps", "dutch_start"] );
+meta._struct("item", ["id", "name", "description", "tags", "asset_url", "rarity", "level", "count", "limit", "faction_id", "cost", "dutch_cost_end", "dutch_step_amount", "dutch_step_secs", "dutch_cost_start", "dutch_steps", "dutch_start"] );
 
-meta.setitem( [1000000, "item1", "faction-free item 60s dutch step", "some item category", "none", 0, 0, 1000, ITEM_LIMIT, 0, "100.0000 TCN", "1.0000 TCN", "1.0100 TCN", 60, "100.0000 TCN", 0, metaTestStartTime] );
-meta.setitem( [1000001, "item2", "faction-free item 1h dutch step", "some item category", "none", 1, 2, 1000, ITEM_LIMIT, 0, "180.0000 TCN", "30.0000 TCN", "0.1000 TCN", 3600, "180.0000 TCN", 0, metaTestStartTime] );
-meta.setitem( [1000002, "item3", "faction-free fixed cost", "some item category", "none", 2, 0, 1000, ITEM_LIMIT, 0, "12.0000 TCN", "12.0000 TCN", "0.0000 TCN", 0, "12.0000 TCN", 0, metaTestStartTime] );
-meta.setitem( [1000003, "item4", "empire item fixed cost", "some item category", "none", 1, 1, 250, ITEM_LIMIT, 1, "25.0000 TCN", "25.0000 TCN", "0.0000 TCN", 0, "25.0000 TCN", 0, metaTestStartTime] );
-meta.setitem( [1000004, "item5", "confederacy item fixed cost", "some item category", "none", 1, 1, 250, ITEM_LIMIT, 2, "25.0000 TCN", "25.0000 TCN", "0.0000 TCN", 0, "25.0000 TCN", 0, metaTestStartTime] );
-meta.setitem( [1000005, "item6", "alliance item fixed cost", "some item category", "none", 1, 1, 250, ITEM_LIMIT, 3, "25.0000 TCN", "25.0000 TCN", "0.0000 TCN", 0, "25.0000 TCN", 0, metaTestStartTime] );
-meta.setitem( [1000006, "item7", "dominion item fixed cost", "some item category", "none", 1, 1, 250, ITEM_LIMIT, 4, "25.0000 TCN", "25.0000 TCN", "0.0000 TCN", 0, "25.0000 TCN", 0, metaTestStartTime] );
+meta.setitem( [1000000, "item1", "faction-free item 60s dutch step", [], "none", 0, 0, 1000, ITEM_LIMIT, 0, "100.0000 TCN", "1.0000 TCN", "1.0100 TCN", 60, "100.0000 TCN", 0, metaTestStartTime] );
+meta.setitem( [1000001, "item2", "faction-free item 1h dutch step", [], "none", 1, 2, 1000, ITEM_LIMIT, 0, "180.0000 TCN", "30.0000 TCN", "0.1000 TCN", 3600, "180.0000 TCN", 0, metaTestStartTime] );
+meta.setitem( [1000002, "item3", "faction-free fixed cost", [], "none", 2, 0, 1000, ITEM_LIMIT, 0, "12.0000 TCN", "12.0000 TCN", "0.0000 TCN", 0, "12.0000 TCN", 0, metaTestStartTime] );
+meta.setitem( [1000003, "item4", "empire item fixed cost", [], "none", 1, 1, 250, ITEM_LIMIT, 1, "25.0000 TCN", "25.0000 TCN", "0.0000 TCN", 0, "25.0000 TCN", 0, metaTestStartTime] );
+meta.setitem( [1000004, "item5", "confederacy item fixed cost", [], "none", 1, 1, 250, ITEM_LIMIT, 2, "25.0000 TCN", "25.0000 TCN", "0.0000 TCN", 0, "25.0000 TCN", 0, metaTestStartTime] );
+meta.setitem( [1000005, "item6", "alliance item fixed cost", [], "none", 1, 1, 250, ITEM_LIMIT, 3, "25.0000 TCN", "25.0000 TCN", "0.0000 TCN", 0, "25.0000 TCN", 0, metaTestStartTime] );
+meta.setitem( [1000006, "item7", "dominion item fixed cost", [], "none", 1, 1, 250, ITEM_LIMIT, 4, "25.0000 TCN", "25.0000 TCN", "0.0000 TCN", 0, "25.0000 TCN", 0, metaTestStartTime] );
 
 //-------------------------------------------------------------------------------------
 // Start metagame

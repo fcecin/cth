@@ -53,9 +53,9 @@
         success = false;
     } catch (error) {
         if (error.message.includes('receiver cannot hold any more of this item')) {
-            fixtureLog("Correctly got an error from trying to transfer more than the per_player_limit of an item to the same player");
+            fixtureLog("Correctly got an error from trying to transfer more than the per-player limit of an item to the same player");
         } else {
-            fixtureWarningLog("Correctly got an error from trying to transfer more than the per_player_limit of an item to the same player, but it's not the expected error message: " + error);
+            fixtureWarningLog("Correctly got an error from trying to transfer more than the per-player limit of an item to the same player, but it's not the expected error message: " + error);
         }
     }
     assert(`${success}`, `successfully failed to send more than ${ITEM_LIMIT} of an item to ${metaplayer44}`);

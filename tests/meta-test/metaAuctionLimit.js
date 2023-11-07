@@ -27,7 +27,7 @@
     clock.clockaddsec( 86400 + 8640 ); // The math on the time "border" of each auction ending seems to be a bit off so I added 10% to it; should be fine.
     fixtureLog( "Meta update 1 day elapsed should trigger a round of faction auction resolutions:\n" + meta.update(Number.MAX_SAFE_INTEGER) );
 
-    // metaplayer22 wins, even though it has bid less, because metaplayer21 has too many invites already (auction.per_player_limit is reached)
+    // metaplayer22 wins, even though it has bid less, because metaplayer21 has too many invites already (auction.limit is reached)
     let acquisition = meta.acquisitions_3(to128(fromName(metaplayer22), CONFEDERACY_INVITES_AUCTION_ID)).rows[0];
-    assert(`${acquisition.type} == 1 && ${acquisition.external_id} == ${CONFEDERACY_INVITES_AUCTION_ID} && '${acquisition.paid}' == '${lowerBidStr}'`, `${metaplayer22} was correctly recognized as the best bidder of the alliance faction invites auction, because ${metaplayer21} already had too many invites (per_player_limit reached) even though it had bid more (${higherBidStr})`);
+    assert(`${acquisition.type} == 1 && ${acquisition.external_id} == ${CONFEDERACY_INVITES_AUCTION_ID} && '${acquisition.paid}' == '${lowerBidStr}'`, `${metaplayer22} was correctly recognized as the best bidder of the alliance faction invites auction, because ${metaplayer21} already had too many invites (limit reached) even though it had bid more (${higherBidStr})`);
 }

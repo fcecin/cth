@@ -8,7 +8,7 @@
     let theItemPriceStr = toTCN(theItemPrice);
     let theItemAvailableQuantity = 1;
 
-    meta._().setitem( [theItemId, "item3", "faction-free fixed cost", "some item category", "none", 2, 0, theItemAvailableQuantity, ITEM_LIMIT, 0, theItemPriceStr, theItemPriceStr, "0.0000 TCN", 0, theItemPriceStr, 0, metaTestStartTime] );
+    meta._().setitem( [theItemId, "item3", "faction-free fixed cost", [], "none", 2, 0, theItemAvailableQuantity, ITEM_LIMIT, 0, theItemPriceStr, theItemPriceStr, "0.0000 TCN", 0, theItemPriceStr, 0, metaTestStartTime] );
 
     let metaplayer1 = "metaplayer1";
 
@@ -59,10 +59,10 @@
         success = false;
     } catch (error) {
         if (error.message.includes('player cannot hold any more of this item')) {
-            fixtureLog("Correctly got an error from trying to purchase more than the per_player_limit of an item");
+            fixtureLog("Correctly got an error from trying to purchase more than the per-player limit of an item");
         } else {
-            fixtureWarningLog("Correctly got an error from trying to purchase more than the per_player_limit of an item, but it's not the expected error message: " + error);
+            fixtureWarningLog("Correctly got an error from trying to purchase more than the per-player limit of an item, but it's not the expected error message: " + error);
         }
     }
-    assert(`${success}`, `successfully failed to buy an additional item of the same type, when it was configured for a per_player_limit of ${ITEM_LIMIT}`);
+    assert(`${success}`, `successfully failed to buy an additional item of the same type, when it was configured for a per-player limit of ${ITEM_LIMIT}`);
 }
