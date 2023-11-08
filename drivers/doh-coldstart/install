@@ -61,7 +61,7 @@ sub chdir_target_dir {
 # First, we need to parse arguments passed to this install script.
 # ---------------------------------------------------------------------------
 
-my ($switches, $options) = cth_standard_args_parser("", "target doh fast");
+my ($switches, $options) = cth_standard_args_parser("", "target doh fast checkout");
 
 # ---------------------------------------------------------------------------
 # Take a -o target=xxx option that will tell which one we want to compile
@@ -123,6 +123,27 @@ if (defined $options->{'doh'}) {
 }
 
 # ---------------------------------------------------------------------------
+# If this is being used by a CI or something, there will be a 'checkout'
+#   installation option specified which contains a list of pairs
+#   [[pr_repo] [pr_branch] ...] to be passed to get-doh.sh
+# After download of [pr_repo], the [pr_branch] is checked out by get-doh.
+# This allows the CI for a doh-*-contract repository to download the entire
+#   DoH source code on 'main' branches but check out the feature branch of
+#   its own repository (the branch of the PR that is being tested for merge).
+# ---------------------------------------------------------------------------
+
+my $pr_repo_pr_branch_args = '';
+if (defined $options->{'checkout'}) {
+
+    # the checkout option is a space-separated list 'repo1 branch1 repo2 branch2' etc.
+    #   that's directly forwarded to the system("get-doh.sh") call args below.
+    # if you pass garabge into this option, the subsequent steps will fail in some
+    #   way or another.
+
+    $pr_repo_pr_branch_args = $options->{'checkout'};
+}
+
+# ---------------------------------------------------------------------------
 # We need to download the DoH source code, since it is no longer
 #   a submodule. This is done by tools/get-doh/get-doh.sh.
 # ---------------------------------------------------------------------------
@@ -133,7 +154,7 @@ $source_dir = absolute($source_dir, CthUtils::ABSOLUTE_MUST_EXIST);
 
 print "$driver: Downloading latest DoH source code to $source_dir using tools/get-doh.sh\n";
 
-system("../../tools/get-doh/get-doh.sh $source_dir") == 0 or die "ERROR: $driver: Failed to get DoH source code: $!";
+system("../../tools/get-doh/get-doh.sh $source_dir $pr_repo_pr_branch_args") == 0 or die "ERROR: $driver: Failed to get DoH source code: $!";
 
 # ---------------------------------------------------------------------------
 # The doh-contracts assembled by get-doh.sh is a CODE TEMPLATE. It is not actual
@@ -269,7 +290,7 @@ unlink($COMPILE_ERROR_FILE);
 # Compile
 for my $i (0 .. $total_dirs - 1) {
     my $dir = $directories[$i];
-    print "$driver: Compiling $dir\n";
+    print "$driver: Processing $dir ...\n";
 
     system("mkdir -p $dir/build");
 
@@ -317,6 +338,8 @@ for my $i (0 .. $total_dirs - 1) {
             next;
         }
     }
+
+    print "$driver: Compiling $dir ...\n";
 
     # compile the contract directory
     my $error = 0;

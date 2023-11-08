@@ -7,13 +7,13 @@ target_dir="$1"
 script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 if [ -z "$target_dir" ]; then
-    echo "Fetches the latest version of the DoH codebase to a specified directory." 
+    echo "Fetches the latest version of the DoH codebase to a specified directory."
     echo "If the target directory doesn't exist, will download the DoH source code to it."
     echo "If the target directory exists, will assume the DoH source code is already in it"
     echo "  and thus will just update (git fetch/pull) to the latest version if any."
     echo ""
     echo "Usage:"
-    echo "   $0 <target_directory>"
+    echo "   $0 <target_directory> [[pr_repo] [pr_branch] ...]"
     echo ""
     echo "If <target_directory> is relative, it is to this script's path:"
     echo "   $script_dir/"
@@ -22,11 +22,36 @@ if [ -z "$target_dir" ]; then
     echo "Directory $script_dir/../../local/ must exist."
     echo "Directory $script_dir/../../local/tmp/doh-contracts will be deleted if it exists."
     echo ""
+    echo "If extra arguments are supplied after the <target_directory>, they are expected"
+    echo "  to come in pairs of [pr_repo] [pr_branch], which specify what branch should"
+    echo "  be checked out for a given repository name."
+    echo "  (Example: doh-meta-contract my_feature doh-hegemon-contract other-branch)"
+    echo ""
     echo "Recommended usage (under cth conventions):"
     echo "   get_doh.sh ../../local/doh-contracts"
     echo ""
     exit 1
 fi
+
+# The total number of arguments must be odd (any number of repo+branch plus the 1st dir argument)
+if [ $(( $# % 2 )) -eq 0 ]; then
+  echo "ERROR: get-doh: Each repository name must be followed by a branch name."
+  exit 1
+fi
+
+# Initialize arrays to store repository names and branches
+prrepo=()
+prbranch=()
+
+# Loop through additional pairs of arguments
+args=("$@")  # Store all arguments in an array
+for ((i = 1; i < $#; i += 2)); do
+  repo_name="${args[i]}"
+  branch_name="${args[i+1]}"
+  prrepo+=("$repo_name")
+  prbranch+=("$branch_name")
+  echo "get-doh: Specified repository: $repo_name, branch: $branch_name"
+done
 
 # support both relative and absolute target directory
 if [[ "$target_dir" == /* ]]; then
@@ -51,12 +76,31 @@ if [ -d "$real_target_dir" ]; then
   # Go to the target directory
   echo "get-doh: Changing working directory to $real_target_dir"
   cd "$real_target_dir" || { echo "ERROR: get-doh: Failed to change directory." && exit 1; }
+
+  # Loop through and update local DoH repositories
   for dir in */; do
       if [ -d "$dir/.git" ]; then
-          echo "get-doh: updating local DoH repo $dir"
-          (cd "$dir" && git pull --all)
+          repo_name="${dir%/}"
+          target_branch="main"  # Default to 'main'
+
+          # Find the index i for this repo_name in prrepo
+          for ((i = 0; i < ${#prrepo[@]}; i++)); do
+              if [ "$repo_name" == "${prrepo[i]}" ]; then
+                  target_branch="${prbranch[i]}"
+                  break  # Break the loop once the index is found
+              fi
+          done
+
+          echo "get-doh: updating local DoH repo $repo_name and checking out branch $target_branch"
+          (cd "$dir" && git checkout "$target_branch" && git pull --all)
+
+          if [ $? -ne 0 ]; then
+              echo "ERROR: get-doh: failed to cd $dir && git checkout $target_branch && git pull --all"
+              exit 1;
+          fi
       fi
   done
+
   echo "get-doh: Done trying to update the DoH source code at the target directory."
   exit 0
 fi
@@ -68,7 +112,7 @@ echo "get-doh: Creating directory '$tmp_dir' (full path: $real_tmp_dir)"
 mkdir -p "$real_tmp_dir" || { echo "ERROR: get-doh: Failed to create path: $real_tmp_dir" && exit 1; }
 
 # Create the target directory; fails if parent doesn't exist yet (on purpose)
-echo "get-doh: Creating target directory '$target_dir' (full path: $real_target_dir)" 
+echo "get-doh: Creating target directory '$target_dir' (full path: $real_target_dir)"
 if ! mkdir "$real_target_dir"; then
   echo "ERROR: get-doh: Failed to create the target directory."
   exit 1
@@ -76,7 +120,7 @@ fi
 
 # Check if tmp/doh-contracts already exists and remove it if it does
 if [ -d "$real_tmp_dir/doh-contracts" ]; then
-  echo "Removing existing $real_tmp_dir/doh-contracts directory..."
+  echo "get-doh: Removing existing $real_tmp_dir/doh-contracts directory..."
   rm -rf "$real_tmp_dir/doh-contracts"
 fi
 
@@ -92,7 +136,7 @@ directories=()
 for dir in */; do
   dir="${dir%/}"
   if [ -d "$dir/.git" ]; then
-    echo "Found DoH directory with .git subdirectory: $dir"
+    echo "get-doh: Found DoH directory with .git subdirectory: $dir"
     directories+=("$dir")
   fi
 done
@@ -125,7 +169,7 @@ desired_directories=(
 # Check and add any missing directories
 for desired_dir in "${desired_directories[@]}"; do
   if [[ ! " ${directories[@]} " =~ " $desired_dir " ]]; then
-    echo "Adding missing DoH directory: $desired_dir"
+    echo "get-doh: Adding missing DoH directory: $desired_dir"
     directories+=("$desired_dir")
   fi
 done
@@ -142,8 +186,27 @@ cd "$real_target_dir" || { echo "ERROR: get-doh: Failed to change directory." &&
 #   merged with the explicit list we have above
 echo "get-doh: Cloning all DoH repositories to $real_target_dir"
 for dir in "${directories[@]}"; do
-  echo "Cloning https://github.com/CryptoMechanics/$dir ...";
+  echo "get-doh: Cloning https://github.com/CryptoMechanics/$dir ...";
   git clone --recursive "https://github.com/CryptoMechanics/$dir" || { echo "ERROR: get-doh: Failed to clone DoH repo $dir." && exit 1; }
+
+  repo_name="${dir%/}"
+  target_branch="main"  # Default to 'main'
+
+  # Find the index i for this repo_name in prrepo
+  for ((i = 0; i < ${#prrepo[@]}; i++)); do
+    if [ "$repo_name" == "${prrepo[i]}" ]; then
+      target_branch="${prbranch[i]}"
+      break  # Break the loop once the index is found
+    fi
+  done
+
+  echo "get-doh: Checking out branch $target_branch for repository $repo_name"
+  (cd "$repo_name" && git checkout "$target_branch")
+
+  if [ $? -ne 0 ]; then
+      echo "ERROR: get-doh: failed to cd $repo_name && git checkout $target_branch"
+      exit 1;
+  fi
 done
 
 echo "get-doh: Success. Full DoH source code tree is assembled under $real_target_dir"
