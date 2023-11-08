@@ -41,7 +41,6 @@ use File::Basename;
 use lib dirname(dirname(__FILE__)) . "/cth-utils";
 
 use CthUtils;
-use JSON::Tiny;
 
 # -----------------------------------------------------------------------
 # Global state
