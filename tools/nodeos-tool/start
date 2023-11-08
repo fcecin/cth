@@ -46,7 +46,7 @@ sub time_sleep() {
 # --------------------------------------------------------------------------------------------
 # Detect dumb errors beforehand (helps with having clearer error messages) and extract the
 #   P2P and HTTP ports from the config.ini and print them here as a helpful reminder of
-#   what ports exactly this nodeos instance that we are starting will make available. 
+#   what ports exactly this nodeos instance that we are starting will make available.
 # --------------------------------------------------------------------------------------------
 
 my $errors = 0;
@@ -63,7 +63,7 @@ if ($errors) {
 
 # --------------------------------------------------------------------------------------------
 # Extract the ports from the config.ini and print them here as a helpful reminder of
-#   what ports exactly this nodeos instance that we are starting will make available. 
+#   what ports exactly this nodeos instance that we are starting will make available.
 # --------------------------------------------------------------------------------------------
 
 # Use backticks to run grep and awk commands to extract the port numbers
@@ -103,6 +103,9 @@ if ($http_port_number != 8888) {
 } else {
     print "nodeos-tool start: not setting a cleos URL for cleos-driver since it's using the default port (8888).\n";
 }
+
+# to help with debugging
+cth_set_cleos_args("--print-request --print-response --http-verbose --http-trace");
 
 # --------------------------------------------------------------------------------------------
 # Spawn nodeos in a child process

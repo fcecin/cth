@@ -20,6 +20,7 @@ our @EXPORT = qw(
     cth_skip_test
     cth_set_cleos_provider
     cth_set_cleos_url
+    cth_set_cleos_args
     cth_cleos
     cth_cleos_pipe
     cth_assert
@@ -40,6 +41,9 @@ my $cleos_provider_working_dir;
 
 # no cleos url argument by default
 my $cleos_url_param = '';
+
+# additional arguments to pass to every cleos call
+my $cleos_args = '';
 
 # -----------------------------------------------------------------------
 # cth_get_root_dir
@@ -101,7 +105,7 @@ sub cth_set_cleos_provider {
 # cth_set_cleos_url
 #
 # This sets the --url= parameter value to be passed to cleos in every
-#   subsequent call to cth_cleos().
+#   subsequent call to cth_cleos() and similar functions.
 #
 # inputs:
 #   $url : nodeos URL
@@ -121,6 +125,29 @@ sub cth_set_cleos_url {
     } else {
         $cleos_url_param = "--url=${url}";
     }
+    return 0;
+}
+
+# -----------------------------------------------------------------------
+# cth_set_cleos_args
+#
+# This sets extra arguments to be passed to cleos in every subsequent
+#   call to cth_cleos() and similar functions.
+#
+# inputs:
+#   $url : nodeos URL
+#
+# outputs:
+#   $retval : 0 on success, 1 on error (given url is undefined)
+# -----------------------------------------------------------------------
+
+sub cth_set_cleos_args {
+    my ($args) = @_;
+    if (! defined $args) {
+        print "ERROR: cth_set_cleos_args: args argument is undefined\n";
+        return 1;
+    }
+    $cleos_args = $args;
     return 0;
 }
 
@@ -152,7 +179,7 @@ sub cth_cleos {
         return 1;
     }
 
-    my $cmd = "cleos $cleos_url_param --wallet-url unix://$cleos_provider_working_dir/keosd.sock --verbose $args";
+    my $cmd = "cleos $cleos_url_param --wallet-url unix://$cleos_provider_working_dir/keosd.sock --verbose $cleos_args $args";
 
     print "cth_cleos: run command: $cmd\n";
 
@@ -202,7 +229,7 @@ sub cth_cleos_pipe {
         return 1;
     }
 
-    my $cmd = "cleos $cleos_url_param --wallet-url unix://$cleos_provider_working_dir/keosd.sock --verbose $args";
+    my $cmd = "cleos $cleos_url_param --wallet-url unix://$cleos_provider_working_dir/keosd.sock --verbose $cleos_args $args";
 
     print "cth_cleos_pipe: run command: $cmd\n";
 
