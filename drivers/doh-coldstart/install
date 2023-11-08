@@ -152,7 +152,7 @@ $source_dir = absolute($source_dir, CthUtils::ABSOLUTE_MAY_NOT_EXIST);
 print "$driver: Ensuring source directory exists: $source_dir\n";
 $source_dir = absolute($source_dir, CthUtils::ABSOLUTE_MUST_EXIST);
 
-print "$driver: Downloading latest DoH source code to $source_dir using tools/get-doh.sh\n";
+print "$driver: Downloading latest DoH source code to $source_dir using tools/get-doh.sh (repo and branch args: $pr_repo_pr_branch_args)\n";
 
 system("../../tools/get-doh/get-doh.sh $source_dir $pr_repo_pr_branch_args") == 0 or die "ERROR: $driver: Failed to get DoH source code: $!";
 
