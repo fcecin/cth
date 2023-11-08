@@ -97,6 +97,10 @@ wasm-runtime = eos-vm-jit
 p2p-max-nodes-per-host = 999
 http-max-response-time-ms = 5000
 max-transaction-time = 500
+resource-monitor-interval-seconds = 300
+resource-monitor-space-absolute-gb = 0
+resource-monitor-not-shutdown-on-threshold-exceeded = true
+resource-monitor-warning-interval arg = 450
 ' > config.ini`;
 
 # --------------------------------------------------------------------------------------------
