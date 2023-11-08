@@ -165,6 +165,7 @@ if (!defined $cpus || !($cpus =~ /^\d+$/)) {
 my @opt_option;       # each element of these two outer arrays is a
 my @opt_switch;       #  2-element array that contains the key and value pair.
 my $opt_clear = 0;
+my $opt_dump = 0;
 my $opt_findtests;
 my $opt_force = 0;
 my $opt_help = 0;
@@ -177,6 +178,7 @@ my $opt_verbose = 0;
 
 GetOptions(
     "clear|c"      => \$opt_clear,
+    "dump"         => \$opt_dump,
     "findtests=s"  => \$opt_findtests,
     "force|f"      => \$opt_force,
     "help|h"       => \$opt_help,
@@ -245,6 +247,7 @@ if ($opt_help) {
     print "Options:\n";
     print "\n";
     print "  --clear, -c         Clear all tests and drivers (doesn't run tests)\n";
+    print "  --dump              Dump failed.log and all failed driver install.log files\n";
     print "  --findtests <d>     Scans directory <d> recursively for tests dirs, which\n";
     print "                      is the same as using -t for every tests subdirectory\n";
     print "  --force, -f         Force tests to run after all installation/set-up tasks\n";
@@ -568,6 +571,18 @@ if ($opt_install) {
                 print "              This will probably cause any tests that use this driver to fail.\n";
                 print "*******************************************************************************\n";
                 push @FAILED_SETUP_TASKS, "$work_dir/$script";
+
+                if ($opt_dump) {
+                    print "\n";
+                    print "--------------------------------------------------------------------------------\n";
+                    print "Begin dump: $work_dir/$log_file\n";
+                    print "--------------------------------------------------------------------------------\n";
+                    print `cat $log_file`;
+                    print "--------------------------------------------------------------------------------\n";
+                    print "End dump: $work_dir/$log_file\n";
+                    print "--------------------------------------------------------------------------------\n";
+                    print "\n";
+                }
             } else {
                 print "Driver $driver installed successfully.\n";
             }
@@ -1152,6 +1167,18 @@ if ($sum_fail > 0 && open(my $failed_log, '>', $failed_summary_log_file)) {
     }
     close($failed_log);
     if ($opt_verbose) { print "\nSummary of all failed tests written to '$root_dir/$failed_summary_log_file'.\n"; }
+
+    if ($opt_dump) {
+        print "\n";
+        print "--------------------------------------------------------------------------------\n";
+        print "Begin dump: $failed_summary_log_file\n";
+        print "--------------------------------------------------------------------------------\n";
+        print `cat $failed_summary_log_file`;
+        print "--------------------------------------------------------------------------------\n";
+        print "End dump: $failed_summary_log_file\n";
+        print "--------------------------------------------------------------------------------\n";
+        print "\n";
+    }
 
 } elsif ($sum_fail > 0) {
     print "ERROR: Failed to open '$failed_summary_log_file': $!\n";
