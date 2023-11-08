@@ -96,7 +96,13 @@ if ($err) {
     die "ERROR: nodeos-tool start: cth_set_cleos_provider failed for some reason.\n";
 }
 
-cth_set_cleos_url("http://127.0.0.1:$http_port_number");
+if ($http_port_number != 8888) {
+    my $url_string = "http://127.0.0.1:$http_port_number";
+    cth_set_cleos_url($url_string);
+    print "nodeos-tool start: configured cleos URL to: '${url_string}'\n";
+} else {
+    print "nodeos-tool start: not setting a cleos URL for cleos-driver since it's using the default port (8888).\n";
+}
 
 # --------------------------------------------------------------------------------------------
 # Spawn nodeos in a child process
