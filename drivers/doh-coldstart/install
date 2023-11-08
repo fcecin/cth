@@ -355,7 +355,12 @@ for my $i (0 .. $total_dirs - 1) {
     if (chdir("$dir/build")) {
         my $build_dir = getcwd();
         chomp($build_dir);
-        system("cmake .. > cmake.log 2>&1");
+
+        # The "OLD" policy (as opposed to NEW) bypasses the stupid check for a "minimum cmake version"
+        #   that we completely do not care about. The contracts CMakeLists.txt are all broken and
+        #   we do not care. If this is not set, cmake blows up with a "no minimum cmake specified".
+        system("cmake -DCMAKE_POLICY_DEFAULT_CMP0000=OLD .. > cmake.log 2>&1");
+
         if ($? != 0) {
             print "$driver: COMPILE ERROR: cmake error for '$dir'. Log in $build_dir/cmake.log\n";
 
