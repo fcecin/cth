@@ -32,6 +32,18 @@ our @EXPORT = qw(
 use File::Basename;
 
 # -----------------------------------------------------------------------
+# PERL5LIB env var should contain all useful paths under cth/tools/
+#  if this is run from cth. If it's loaded from a driver, we'll still
+#  need to find it with use lib, unfortunately:
+# -----------------------------------------------------------------------
+
+use File::Basename;
+use lib dirname(dirname(__FILE__)) . "/cth-utils";
+
+use CthUtils;
+use JSON::Tiny;
+
+# -----------------------------------------------------------------------
 # Global state
 # -----------------------------------------------------------------------
 
@@ -97,7 +109,7 @@ sub cth_set_cleos_provider {
         return 1;
     }
     $cleos_provider_driver      = $driver;
-    $cleos_provider_working_dir = cth_get_root_dir() . "/local/$driver";
+    $cleos_provider_working_dir = absolute(cth_get_root_dir() . "/local/$driver", CthUtils::ABSOLUTE_MAY_NOT_EXIST);
     return 0;
 }
 
