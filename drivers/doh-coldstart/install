@@ -141,6 +141,11 @@ if (defined $options->{'checkout'}) {
     #   way or another.
 
     $pr_repo_pr_branch_args = $options->{'checkout'};
+
+    # This is coming through with ' ' in it, so strip ' or " if they are there
+    # We need a flat space-separated list
+
+    $pr_repo_pr_branch_args =~ s/'|"//g;
 }
 
 # ---------------------------------------------------------------------------
