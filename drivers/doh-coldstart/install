@@ -368,7 +368,7 @@ for my $i (0 .. $total_dirs - 1) {
         # still doesn't work, so let's just hack the CMakeLists.txt file
         # Define the line to append
         print "Fixing CMakeLists.txt w/ cmake_minimum_required(VERSION 3.27)...\n";
-        `sed -i '1s/^/cmake_minimum_required(VERSION 3.27)\n/' ../CMakeLists.txt`
+        `sed -i '1s/^/cmake_minimum_required(VERSION 3.27)\n/' ../CMakeLists.txt`;
 
         if ($? != 0) {
             print "$driver: COMPILE ERROR: cmake error for '$dir'. Log in $build_dir/cmake.log\n";
