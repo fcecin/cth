@@ -356,19 +356,14 @@ for my $i (0 .. $total_dirs - 1) {
         my $build_dir = getcwd();
         chomp($build_dir);
 
-        # The "OLD" policy (as opposed to NEW) bypasses the stupid check for a "minimum cmake version"
-        #   that we completely do not care about. The contracts CMakeLists.txt are all broken and
-        #   we do not care. If this is not set, cmake blows up with a "no minimum cmake specified".
-        #
-        # ... that doesn't actually work on the Github CI for some reason, so also adding
-        #     -DCMAKE_MINIMUM_REQUIRED  to see if that fixes it.
-        #
-        system("cmake -DCMAKE_POLICY_DEFAULT_CMP0000=OLD -DCMAKE_MINIMUM_REQUIRED=3.27 .. > cmake.log 2>&1");
+        # Force all CMakeLists.txt files from contracts to specify a minimum CMake version
+        print "Fixing CMakeLists.txt w/ cmake_minimum_required(VERSION 3.22)...\n";
+        `sed -i '1s/^/cmake_minimum_required(VERSION 3.22)\n/' ../CMakeLists.txt`;
+        print "------ Begin Fixed CMakeLists.txt ------------------------------\n";
+        print `cat ../CMakeLists.txt`;
+        print "------ End Fixed CMakeLists.txt --------------------------------\n";
 
-        # still doesn't work, so let's just hack the CMakeLists.txt file
-        # Define the line to append
-        print "Fixing CMakeLists.txt w/ cmake_minimum_required(VERSION 3.27)...\n";
-        `sed -i '1s/^/cmake_minimum_required(VERSION 3.27)\n/' ../CMakeLists.txt`;
+        system("cmake -DCMAKE_POLICY_DEFAULT_CMP0000=OLD .. > cmake.log 2>&1");
 
         if ($? != 0) {
             print "$driver: COMPILE ERROR: cmake error for '$dir'. Log in $build_dir/cmake.log\n";
