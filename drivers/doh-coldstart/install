@@ -61,7 +61,11 @@ sub chdir_target_dir {
 # First, we need to parse arguments passed to this install script.
 # ---------------------------------------------------------------------------
 
-my ($switches, $options) = cth_standard_args_parser("", "target doh fast checkout");
+my ($switches, $options) = cth_standard_args_parser("", "target doh fast checkout dump");
+
+my $opt_fast = (defined $options->{'fast'} && $options->{'fast'});
+
+my $opt_dump = (defined $options->{'dump'} && $options->{'dump'});
 
 # ---------------------------------------------------------------------------
 # Take a -o target=xxx option that will tell which one we want to compile
@@ -200,11 +204,11 @@ if (-e "$source_dir/$run_build_sh") {
 #   stale versions of the DoH code there.
 # ---------------------------------------------------------------------------
 
-if (defined $options->{'fast'} && $options->{'fast'}) {
+if ($opt_fast) {
     print "$driver: option 'fast' detected; will attempt to reuse existing 'local/$target' DoH source code directory...\n";
 }
 
-if (!defined $options->{'fast'} || !$options->{'fast'}) {
+if (! $opt_fast) {
 
     foreach my $tg (@targets) {
         my $destination = absolute("../../local/$target", CthUtils::ABSOLUTE_MAY_NOT_EXIST);
@@ -226,7 +230,7 @@ if (!defined $options->{'fast'} || !$options->{'fast'}) {
 {
     my $destination = absolute("../../local/$target", CthUtils::ABSOLUTE_ENSURE_CREATE);
 
-    if (!defined $options->{'fast'} || !$options->{'fast'}) {
+    if (! $opt_fast) {
         my $to_remove = absolute($destination . "/doh-contracts", CthUtils::ABSOLUTE_MUST_RECREATE);
     }
 
@@ -235,7 +239,7 @@ if (!defined $options->{'fast'} || !$options->{'fast'}) {
     system("cp -r $source_dir $destination");
 
     # FIXME/TODO: with fast=1 (no prior rm -rf) cp -r barfs because of .git repo permissions but it doesn't matter
-    if (!defined $options->{'fast'} || !$options->{'fast'}) {
+    if (! $opt_fast) {
         if ($? != 0) {
             print "ERROR: $driver: Failed to copy $source_dir to $destination: $!";
             exit 1;
@@ -283,7 +287,7 @@ print "$driver: Found $total_dirs contracts to compile.\n";
 # Print the contract list and clean up the build dirs on each
 @directories = sort @directories;
 foreach my $di (@directories) {
-    if (!defined $options->{'fast'} || !$options->{'fast'}) {
+    if (! $opt_fast) {
         system("rm -rf $di/build");
     }
     print "$driver: Contract to compile: $di\n";
@@ -354,11 +358,37 @@ for my $i (0 .. $total_dirs - 1) {
         system("cmake .. > cmake.log 2>&1");
         if ($? != 0) {
             print "$driver: COMPILE ERROR: cmake error for '$dir'. Log in $build_dir/cmake.log\n";
+
+            if ($opt_dump) {
+                print "\n";
+                print "--------------------------------------------------------------------------------\n";
+                print "Begin dump: ${build_dir}/cmake.log\n";
+                print "--------------------------------------------------------------------------------\n";
+                print `cat cmake.log`;
+                print "--------------------------------------------------------------------------------\n";
+                print "End dump: ${build_dir}/cmake.log\n";
+                print "--------------------------------------------------------------------------------\n";
+                print "\n";
+            }
+
             $error = 1;
         } else {
-            system("make -j 6 > make.log 2>&1");
+            system("make > make.log 2>&1");
             if ($? != 0) {
                 print "$driver: COMPILE ERROR: make error for '$dir'. Log in $build_dir/make.log\n";
+
+                if ($opt_dump) {
+                    print "\n";
+                    print "--------------------------------------------------------------------------------\n";
+                    print "Begin dump: ${build_dir}/make.log\n";
+                    print "--------------------------------------------------------------------------------\n";
+                    print `cat make.log`;
+                    print "--------------------------------------------------------------------------------\n";
+                    print "End dump: ${build_dir}/make.log\n";
+                    print "--------------------------------------------------------------------------------\n";
+                    print "\n";
+                }
+
                 $error = 1;
             } else {
                 print "$driver: Successfully compiled '$dir'\n";
