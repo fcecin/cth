@@ -358,7 +358,7 @@ for my $i (0 .. $total_dirs - 1) {
 
         # Force all CMakeLists.txt files from contracts to specify a minimum CMake version
         print "Fixing CMakeLists.txt w/ cmake_minimum_required(VERSION 3.22)...\n";
-        `sed -i '1s/^/cmake_minimum_required(VERSION 3.22)\n/' ../CMakeLists.txt`;
+        `sed -i '1s|^|cmake_minimum_required(VERSION 3.22)\\n|' ../CMakeLists.txt`;
         print "------ Begin Fixed CMakeLists.txt ------------------------------\n";
         print `cat ../CMakeLists.txt`;
         print "------ End Fixed CMakeLists.txt --------------------------------\n";
