@@ -1,14 +1,19 @@
 #!/usr/bin/env node
 
 // --------------------------------------------------------------------------------------------
-// This test is an example of deploying and testing any contract.
-// This uses the doh-hotstart driver since we don't have a stock Antelope 'hotstart' driver
-//   implemented, but the idea is the same.
+// gvm: playing with C++ templates + contract tables
 // --------------------------------------------------------------------------------------------
 
 require('DoHTestLib');
 
+// --------------------------------------------------------------------------------------------
+// Compile
+// --------------------------------------------------------------------------------------------
+
 const childProcess = require('child_process');
+
+// compile your contract
+childProcess.execSync('cdt-cpp gvm.cpp --abigen --no-missing-ricardian-clause');
 
 // --------------------------------------------------------------------------------------------
 // Init
@@ -16,9 +21,6 @@ const childProcess = require('child_process');
 
 // args don't matter; just don't change them
 fixtureInit("foobar", "hg3", "tc3");
-
-// compile your contract
-childProcess.execSync('cdt-cpp gvm.cpp --abigen --no-missing-ricardian-clause');
 
 // create the account for your contract
 cleos('system newaccount eosio gvm EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV --stake-cpu "10000.0000 EOS" --stake-net "10000.0000 EOS" --buy-ram-kbytes 10000 --transfer');
@@ -33,20 +35,27 @@ gvm = getProxyForContract(`gvm`);
 // Test
 // --------------------------------------------------------------------------------------------
 
-// OK -- ACTION someaction() exists in gvm.cpp
-gvm.someaction();
+// Table #0: users
+gvm.createuser("usera", 50000);
+gvm.createuser("userb", 9000);
+gvm.createuser("userc", 88800);
+gvm.createuser("userd", 70000);
+gvm.createuser("usere", 60000);
 
-// make sure to catch all potential errors and call fixtureFinish() (or finish()) at the end
-//   otherwise there will be a dangling nodeos instance running, which can be wiped out by
-//   using "cth --reset"
-//
-// alternatively, use fixtureRun() and put your code in another .js file (see e.g. meta-test)
-//
-try {
-    gvm.doesnotexist(); // Error: this action does not exist
-} catch (error) {
-    console.log("Caught an expected exception: " + error);
-}
+// Table #1: transactions
+gvm.maketrans("usera", "userb", 250);
+gvm.maketrans("userc", "userd", 150);
+gvm.maketrans("usere", "usera", 350);
+gvm.maketrans("userc", "userd", 450);
+
+// Must print 5
+console.log( "Table 0 count (should be 5):\n" + gvm.testrowcount(0) );
+
+// Must print 4
+console.log( "Table 1 count (should be 4):\n" + gvm.testrowcount(1) );
+
+console.log( "Table 0:\n" + JSON.stringify( gvm.users() ) );
+console.log( "Table 1:\n" + JSON.stringify( gvm.transactions() ) );
 
 // --------------------------------------------------------------------------------------------
 // Done

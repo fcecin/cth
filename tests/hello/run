@@ -8,7 +8,14 @@
 
 require('DoHTestLib');
 
+// --------------------------------------------------------------------------------------------
+// Compile
+// --------------------------------------------------------------------------------------------
+
 const childProcess = require('child_process');
+
+// compile your contract
+childProcess.execSync('cdt-cpp hello.cpp --abigen --no-missing-ricardian-clause');
 
 // --------------------------------------------------------------------------------------------
 // Init
@@ -16,9 +23,6 @@ const childProcess = require('child_process');
 
 // args don't matter; just don't change them
 fixtureInit("foobar", "hg3", "tc3");
-
-// compile your contract
-childProcess.execSync('cdt-cpp hello.cpp --abigen --no-missing-ricardian-clause');
 
 // create the account for your contract
 cleos('system newaccount eosio hello EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV --stake-cpu "10000.0000 EOS" --stake-net "10000.0000 EOS" --buy-ram-kbytes 10000 --transfer');
