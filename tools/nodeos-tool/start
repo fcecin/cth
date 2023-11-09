@@ -105,7 +105,7 @@ if ($http_port_number != 8888) {
 }
 
 # to help with debugging
-cth_set_cleos_args("--print-request --print-response --http-verbose --http-trace");
+#cth_set_cleos_args("--print-request --print-response --http-verbose --http-trace");
 
 # --------------------------------------------------------------------------------------------
 # Spawn nodeos in a child process
