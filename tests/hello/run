@@ -1,0 +1,56 @@
+#!/usr/bin/env node
+
+// --------------------------------------------------------------------------------------------
+// This test is an example of deploying and testing any contract.
+// This uses the doh-hotstart driver since we don't have a stock Antelope 'hotstart' driver
+//   implemented, but the idea is the same.
+// --------------------------------------------------------------------------------------------
+
+require('DoHTestLib');
+
+const childProcess = require('child_process');
+
+// --------------------------------------------------------------------------------------------
+// Init
+// --------------------------------------------------------------------------------------------
+
+// args don't matter; just don't change them
+fixtureInit("foobar", "hg3", "tc3");
+
+// compile your contract
+childProcess.execSync('cdt-cpp hello.cpp --abigen --no-missing-ricardian-clause');
+
+// create the account for your contract
+cleos('system newaccount eosio hello EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV --stake-cpu "10000.0000 EOS" --stake-net "10000.0000 EOS" --buy-ram-kbytes 10000 --transfer');
+
+// set the contract
+cleos('set contract hello . -p hello');
+
+// get an object to interact with it
+hello = getProxyForContract(`hello`);
+
+// --------------------------------------------------------------------------------------------
+// Test
+// --------------------------------------------------------------------------------------------
+
+// OK -- ACTION someaction() exists in gvm.cpp
+hello.someaction();
+
+// make sure to catch all potential errors and call fixtureFinish() (or finish()) at the end
+//   otherwise there will be a dangling nodeos instance running, which can be wiped out by
+//   using "cth --reset"
+//
+// alternatively, use fixtureRun() and put your code in another .js file (see e.g. meta-test)
+//
+try {
+    hello.doesnotexist(); // Error: this action does not exist
+} catch (error) {
+    console.log("Caught an expected exception: " + error);
+}
+
+// --------------------------------------------------------------------------------------------
+// Done
+// --------------------------------------------------------------------------------------------
+
+// just call this at the end
+fixtureFinish();

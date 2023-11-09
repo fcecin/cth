@@ -1,0 +1,28 @@
+#!/usr/bin/perl
+
+# This is an example using the coldstart driver, which is
+#   very slow to start up, but doesn't load DoH.
+
+$| = 1;
+use strict;
+use warnings;
+use CthGoodies;
+
+sub cleanup { cth_call_driver('coldstart', 'clear'); print "Done.\n"; }
+sub crashed { print "ERROR.\n"; cleanup(); die; }
+
+`c`;
+die "Error compiling contract" if ($? != 0);
+
+my $ret = cth_set_cleos_provider('cleos-driver');
+if ($ret) { die "ERROR: cleos provider failed\n"; }
+
+my $ret = cth_call_driver('coldstart', 'start');
+if ($ret) { die "ERROR: nodeos start failed\n"; }
+
+
+crashed() if cth_cleos(qq|system newaccount eosio gvm EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV --stake-cpu "10000.0000 EOS" --stake-net "10000.0000 EOS" --buy-ram-kbytes 10000 --transfer|);
+
+crashed() if cth_cleos(qq|set contract gvm . -p gvm|);
+
+cleanup();
