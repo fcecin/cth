@@ -49,6 +49,8 @@ const SELF     = 'SELF';
 function getProxyForContract(contractAccountName) {
     const library = {};
     library.__contractAccountName = contractAccountName;
+    library.__logNextAction = false;
+    library.__logAllActions = false;
     let abi;
     try {
         const abiString = cleos(`get abi ${contractAccountName}`);
@@ -157,7 +159,13 @@ function getProxyForContract(contractAccountName) {
                 paramObj[paramName] = params[i];
             }
             const paramString = JSON.stringify(paramObj);
-            return cleos(`push action ${contractAccountName} ${actionName} '${paramString}' --force-unique -p ${library.__auth}`);
+
+            let cleos_result = cleos(`push action ${contractAccountName} ${actionName} '${paramString}' --force-unique -p ${library.__auth}`);
+            if (library.__logAllActions || library.__logNextAction) {
+                console.log( cleos_result );
+                library.__logNextAction = false;
+            }
+            return cleos_result;
         };
     });
     // generate get-table functions
@@ -353,6 +361,10 @@ function getProxyForContract(contractAccountName) {
     library._ = function (value) { library._auth(value); return this; } // supports chaining
     // get the contract name
     library._contract = function () { return library.__contractAccountName; }
+    // log actions
+    library._log    = function () { library.__logNextAction = true; return this; }
+    library._logon  = function () { library.__logAllActions = true; return this; }
+    library._logoff = function () { library.__logAllActions = false; return this; }
     // default to contract authority
     library._auth();
     // return the proxy

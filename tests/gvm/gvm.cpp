@@ -79,6 +79,12 @@ public:
         _users.modify(sender_user, get_self(), [&](auto& user) {
             user.balance -= amount;
         });
+        auto receiver_user = _users.find(receiver.value);
+        if (receiver_user != _users.end()) {
+           _users.modify(receiver_user, get_self(), [&](auto& user) {
+              user.balance += amount;
+           });
+        }
         _transactions.emplace(get_self(), [&](auto& new_transaction) {
             new_transaction.id = _transactions.available_primary_key();
             new_transaction.sender = sender;

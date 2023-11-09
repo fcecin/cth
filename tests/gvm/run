@@ -35,27 +35,31 @@ gvm = getProxyForContract(`gvm`);
 // Test
 // --------------------------------------------------------------------------------------------
 
+gvm._logon();
+
 // Table #0: users
-gvm.createuser("usera", 50000);
-gvm.createuser("userb", 9000);
-gvm.createuser("userc", 88800);
-gvm.createuser("userd", 70000);
-gvm.createuser("usere", 60000);
+gvm.createuser("usera", 10000);
+gvm.createuser("userb", 20000);
+gvm.createuser("userc", 30000);
+gvm.createuser("userd", 40000);
+gvm.createuser("usere", 50000);
 
 // Table #1: transactions
-gvm.maketrans("usera", "userb", 250);
-gvm.maketrans("userc", "userd", 150);
-gvm.maketrans("usere", "usera", 350);
-gvm.maketrans("userc", "userd", 450);
+gvm.maketrans("usera", "userb", 100);
+gvm.maketrans("usera", "userc", 200);
+gvm.maketrans("usera", "userd", 300);
+gvm.maketrans("usera", "usere", 400);
+
+gvm._logoff();
 
 // Must print 5
-console.log( "Table 0 count (should be 5):\n" + gvm.testrowcount(0) );
+console.log( "\n*** Table 0 count (should be 5):\n" + gvm.testrowcount(0) + "\n" );
 
 // Must print 4
-console.log( "Table 1 count (should be 4):\n" + gvm.testrowcount(1) );
+console.log( "*** Table 1 count (should be 4):\n" + gvm.testrowcount(1) + "\n" );
 
-console.log( "Table 0:\n" + JSON.stringify( gvm.users() ) );
-console.log( "Table 1:\n" + JSON.stringify( gvm.transactions() ) );
+console.log( "Table 0:\n" + JSON.stringify( gvm.users().rows, null, 2) );
+console.log( "Table 1:\n" + JSON.stringify( gvm.transactions().rows, null, 2) );
 
 // --------------------------------------------------------------------------------------------
 // Done
