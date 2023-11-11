@@ -47,11 +47,6 @@ struct BStruct {
    bool b;
 };
 
-class MyClass {
-public:
-
-};
-
 CONTRACT gvm : public contract {
 private:
    // Called when you forgot to write the method for a variant
