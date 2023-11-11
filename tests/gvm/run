@@ -35,6 +35,8 @@ gvm = getProxyForContract(`gvm`);
 // Test
 // --------------------------------------------------------------------------------------------
 
+/*
+
 gvm._logon();
 
 // Table #0: users
@@ -60,6 +62,17 @@ console.log( "*** Table 1 count (should be 4):\n" + gvm.testrowcount(1) + "\n" )
 
 console.log( "Table 0:\n" + JSON.stringify( gvm.users().rows, null, 2) );
 console.log( "Table 1:\n" + JSON.stringify( gvm.transactions().rows, null, 2) );
+
+*/
+
+// test variants
+
+console.log("test variants");
+
+gvm._log().testvar();
+
+console.log("test variants done");
+
 
 // --------------------------------------------------------------------------------------------
 // Done
