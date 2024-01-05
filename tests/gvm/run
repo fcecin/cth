@@ -35,8 +35,6 @@ gvm = getProxyForContract(`gvm`);
 // Test
 // --------------------------------------------------------------------------------------------
 
-/*
-
 gvm._logon();
 
 // Table #0: users
@@ -52,27 +50,22 @@ gvm.maketrans("usera", "userc", 200);
 gvm.maketrans("usera", "userd", 300);
 gvm.maketrans("usera", "usere", 400);
 
-gvm._logoff();
+// VM calls INLINE ACTIONS! the inline actions do the magic!
+// the VM has access to HOST FUNCTIONS basically!
+//hardcoded method name: gvm_host() -- what to do is in registers!!!
+//
+// 1 opcode call C++ method
+// one of the consequences is inline actions
+// code loading / start another VM
+// etc.
+// the VM itself is transparent and plain and has no craziness in it
+// let's try it that way
 
-// Must print 5
-console.log( "\n*** Table 0 count (should be 5):\n" + gvm.testrowcount(0) + "\n" );
 
-// Must print 4
-console.log( "*** Table 1 count (should be 4):\n" + gvm.testrowcount(1) + "\n" );
 
+// dump resulting tables
 console.log( "Table 0:\n" + JSON.stringify( gvm.users().rows, null, 2) );
 console.log( "Table 1:\n" + JSON.stringify( gvm.transactions().rows, null, 2) );
-
-*/
-
-// test variants
-
-console.log("test variants");
-
-gvm._log().testvar();
-
-console.log("test variants done");
-
 
 // --------------------------------------------------------------------------------------------
 // Done
