@@ -1,3 +1,9 @@
+# OBSOLETE REPOSITORY
+
+__NOTE__: This project has been moved permanently to https://github.com/FluxBP/cth
+
+The version in this repository is only for __DoH V1__ and will only receive updates as needed to keep supporting it.
+
 # cth: Contract Test Harness for Antelope
 
 cth is a collection of command-line tools that can be customized to build an automated test system for a set of Antelope contracts.
