@@ -410,7 +410,7 @@ if (ref($data) eq 'ARRAY') {
             } elsif ($code ne "") {
                 $cpu = '--stake-cpu "800.0000 EOS"';
                 $net = '--stake-net "400.0000 EOS"';
-                $ram = '--buy-ram-kbytes 1500';
+                $ram = '--buy-ram-kbytes 3000';
             }
 
             # Create the account
